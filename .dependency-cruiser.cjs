@@ -35,7 +35,7 @@ module.exports = {
     {
       name: 'no-cross-module-domain-access',
       comment:
-        'A module never reaches into another module\'s domain. Cross-module needs go through ' +
+        "A module never reaches into another module's domain. Cross-module needs go through " +
         'the public application facade or a domain event on the outbox.',
       severity: 'error',
       from: { path: 'packages/modules/([^/]+)/' },

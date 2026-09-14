@@ -17,7 +17,19 @@ export default tseslint.config(
   {
     files: ['**/*.ts', '**/*.tsx'],
     plugins: { boundaries },
+    languageOptions: {
+      // Parsing only. The boundary rules work on the import graph, so type
+      // information is not needed and would drag test files into the build
+      // tsconfig just to satisfy the linter.
+      parser: tseslint.parser,
+    },
     settings: {
+      // NodeNext makes source files import './money.js'. Without this resolver
+      // the boundary rules cannot see that it means './money.ts'.
+      'import/resolver': {
+        typescript: { alwaysTryTypes: true, project: ['packages/*/tsconfig.json'] },
+        node: { extensions: ['.ts', '.tsx', '.js'] },
+      },
       'boundaries/include': ['packages/**/*.ts', 'apps/**/*.ts'],
       'boundaries/elements': [
         { type: 'kernel', pattern: 'packages/kernel/**' },
@@ -83,7 +95,15 @@ export default tseslint.config(
             // Only the entrypoints are allowed to wire adapters to ports.
             {
               from: 'app',
-              allow: ['kernel', 'contracts', 'domain', 'application', 'infrastructure', 'http', 'app'],
+              allow: [
+                'kernel',
+                'contracts',
+                'domain',
+                'application',
+                'infrastructure',
+                'http',
+                'app',
+              ],
             },
           ],
         },

@@ -9,7 +9,10 @@ describe('Duration', () => {
   });
 
   it('returns a domain error rather than a negative span when a device clock ran backwards', () => {
-    const result = Duration.tryBetween(new Date('2026-09-14T09:00:00Z'), new Date('2026-09-14T08:00:00Z'));
+    const result = Duration.tryBetween(
+      new Date('2026-09-14T09:00:00Z'),
+      new Date('2026-09-14T08:00:00Z'),
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe('INVARIANT_VIOLATION');

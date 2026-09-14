@@ -91,12 +91,18 @@ export class Money {
 
   add(other: Money): Money {
     this.sameCurrency(other);
-    return new Money(assertSafeInteger(BigInt(this.minorUnits) + BigInt(other.minorUnits)), this.currency);
+    return new Money(
+      assertSafeInteger(BigInt(this.minorUnits) + BigInt(other.minorUnits)),
+      this.currency,
+    );
   }
 
   subtract(other: Money): Money {
     this.sameCurrency(other);
-    return new Money(assertSafeInteger(BigInt(this.minorUnits) - BigInt(other.minorUnits)), this.currency);
+    return new Money(
+      assertSafeInteger(BigInt(this.minorUnits) - BigInt(other.minorUnits)),
+      this.currency,
+    );
   }
 
   negated(): Money {
@@ -189,7 +195,9 @@ export class Money {
   toMajorString(): string {
     const digits = MINOR_UNIT_DIGITS[this.currency];
     const negative = this.minorUnits < 0;
-    const absolute = Math.abs(this.minorUnits).toString().padStart(digits + 1, '0');
+    const absolute = Math.abs(this.minorUnits)
+      .toString()
+      .padStart(digits + 1, '0');
     const whole = absolute.slice(0, absolute.length - digits);
     const fraction = absolute.slice(absolute.length - digits);
     return `${negative ? '-' : ''}${whole}${digits > 0 ? `.${fraction}` : ''}`;
