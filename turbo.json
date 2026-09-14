@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["NODE_ENV", "CI"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -10,7 +11,10 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      // Turborepo hides every variable a task does not declare, so that a
+      // cached result cannot depend on something invisible. Integration tests
+      // need to know which database to talk to, so it is declared here.
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL"]
     },
     "test:watch": {
       "cache": false,
