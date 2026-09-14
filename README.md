@@ -47,6 +47,12 @@ through a published facade or a domain event on the outbox. These rules are
 enforced by the linter and fail CI, which is the only reason they will still be
 true in six months.
 
+## Repository
+
+Hosted privately at https://gitlab.com/rafahkhaled7118/amc-system. Every merge
+request runs the same `pnpm verify` gate that runs locally, so a red pipeline is
+always reproducible on your own machine.
+
 ## Getting started
 
 Requires Node 22 and pnpm 10.

@@ -250,4 +250,4 @@ The earlier estimate of four to five months assumed full-time work. At four prod
 
 ## Tracking
 
-I suggest GitHub Issues in the project repository, one issue per row, labelled by phase and by requirement number, with a milestone per phase. That keeps the backlog next to the code and the requirement numbers next to the commits, which is exactly what you need at acceptance time when management asks which FR a change belongs to.
+The repository is at https://gitlab.com/rafahkhaled7118/amc-system, private. Use GitLab issues, one per row in the tables above, labelled by phase and by requirement number, with a milestone per phase. That keeps the backlog beside the code and the requirement numbers beside the commits, which is what you need at acceptance time when management asks which FR a change belongs to.

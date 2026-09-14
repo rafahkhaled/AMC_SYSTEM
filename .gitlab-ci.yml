@@ -1,0 +1,35 @@
+# The gate every merge request must pass. It runs exactly what `pnpm verify`
+# runs locally, so a pipeline failure is always reproducible on your machine.
+
+default:
+  image: node:22
+  interruptible: true
+
+stages:
+  - verify
+
+variables:
+  PNPM_STORE: .pnpm-store
+
+cache:
+  key:
+    files:
+      - pnpm-lock.yaml
+  paths:
+    - .pnpm-store
+
+verify:
+  stage: verify
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@10.0.0 --activate
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+  script:
+    - echo "── lint and format ──"      && pnpm lint
+    - echo "── typecheck ──"            && pnpm typecheck
+    - echo "── tests ──"                && pnpm test
+    - echo "── architecture rules ──"   && pnpm arch:check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
