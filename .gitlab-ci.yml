@@ -10,6 +10,11 @@ stages:
 
 variables:
   PNPM_STORE: .pnpm-store
+  POSTGRES_DB: amc_test
+  POSTGRES_USER: amc
+  POSTGRES_PASSWORD: amc
+  POSTGRES_HOST_AUTH_METHOD: trust
+  TEST_DATABASE_URL: postgres://amc@postgres:5432/amc_test
 
 cache:
   key:
@@ -20,16 +25,21 @@ cache:
 
 verify:
   stage: verify
+  services:
+    # Integration tests run against a real Postgres, because constraints,
+    # transactions and grants are exactly the things a fake does not have.
+    - name: postgres:17-alpine
+      alias: postgres
   before_script:
     - corepack enable
     - corepack prepare pnpm@10.0.0 --activate
     - pnpm config set store-dir "$PNPM_STORE"
     - pnpm install --frozen-lockfile
   script:
-    - echo "── lint and format ──"      && pnpm lint
-    - echo "── typecheck ──"            && pnpm typecheck
-    - echo "── tests ──"                && pnpm test
-    - echo "── architecture rules ──"   && pnpm arch:check
+    - echo "── lint and format ──"    && pnpm lint
+    - echo "── typecheck ──"          && pnpm typecheck
+    - echo "── tests ──"              && pnpm test
+    - echo "── architecture rules ──" && pnpm arch:check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

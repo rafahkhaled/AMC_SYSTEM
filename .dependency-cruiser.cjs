@@ -26,6 +26,15 @@ module.exports = {
       },
     },
     {
+      name: 'no-database-above-infrastructure',
+      comment:
+        'Domain and application layers must not know that a database exists. Persistence is a ' +
+        'port they declare and infrastructure implements.',
+      severity: 'error',
+      from: { path: 'packages/modules/[^/]+/(domain|application)' },
+      to: { path: '(packages/database|node_modules/(drizzle-orm|postgres))' },
+    },
+    {
       name: 'application-depends-on-ports-not-adapters',
       comment: 'Use cases depend on interfaces. Adapters are wired by the app entrypoint.',
       severity: 'error',

@@ -26,6 +26,7 @@ apps/
 packages/
   kernel/     Money, Duration, Rate, Result, Clock, UnitOfWork, AggregateRoot
   contracts/  Zod schemas shared by the API and the browser
+  database/   Connection pool, migration runner, seeds, integration harness
   modules/    One folder per business area, each with four layers
 ```
 
@@ -55,12 +56,38 @@ always reproducible on your own machine.
 
 ## Getting started
 
-Requires Node 22 and pnpm 10.
+Requires Node 22, pnpm 10, and a Postgres 17 server.
 
 ```bash
 pnpm install
+pnpm db:migrate
 pnpm verify     # lint, typecheck, test, architecture rules
 ```
+
+### Postgres with Docker
+
+```bash
+docker compose -f infra/docker-compose.dev.yml up -d
+```
+
+That gives you Postgres on 5433, Redis, and MinIO standing in for S3.
+
+### Running without Docker
+
+The project needs nothing more than a server on port 5433 with an `amc` role
+and two databases, `amc` and `amc_test`. Any Postgres 17 will do. With the
+binaries from [Postgres.app](https://postgresapp.com) unpacked under
+`~/.local/opt/postgres`:
+
+```bash
+initdb -D ~/.local/var/amc-pg -U amc --auth=trust
+pg_ctl -D ~/.local/var/amc-pg -o "-p 5433" -l ~/.local/var/amc-pg.log start
+createdb -h 127.0.0.1 -p 5433 -U amc amc
+createdb -h 127.0.0.1 -p 5433 -U amc amc_test
+```
+
+Trust authentication is fine for a local cluster on the loopback interface and
+nowhere else.
 
 Useful individually:
 
@@ -69,7 +96,18 @@ pnpm test           # unit and integration tests
 pnpm test:watch     # while working
 pnpm arch:check     # dependency rules only
 pnpm lint:fix       # format and autofix
+pnpm db:migrate     # apply pending migrations
+pnpm db:seed        # load reference data
+pnpm db:generate    # generate a migration from schema changes
 ```
+
+## Migrations
+
+Each file in `packages/database/migrations` runs once, in its own transaction,
+in filename order, under an advisory lock so two processes starting together
+cannot both migrate. Applied files are recorded with a checksum: editing one
+that has already run stops the next migration rather than letting the database
+drift from the code. Add a new file instead.
 
 ## Conventions
 

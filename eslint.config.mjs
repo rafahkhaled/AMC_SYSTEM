@@ -34,6 +34,7 @@ export default tseslint.config(
       'boundaries/elements': [
         { type: 'kernel', pattern: 'packages/kernel/**' },
         { type: 'contracts', pattern: 'packages/contracts/**' },
+        { type: 'database', pattern: 'packages/database/**' },
         { type: 'domain', pattern: 'packages/modules/*/domain/**', capture: ['module'] },
         { type: 'application', pattern: 'packages/modules/*/application/**', capture: ['module'] },
         {
@@ -55,6 +56,10 @@ export default tseslint.config(
           rules: [
             // The domain is pure. It sees the kernel and itself. Nothing else.
             { from: 'kernel', allow: ['kernel'] },
+
+            // The database package is an adapter concern. It may use the
+            // kernel's value objects when mapping rows, and nothing else.
+            { from: 'database', allow: ['kernel', 'database'] },
             { from: 'domain', allow: ['kernel', ['domain', { module: '${from.module}' }]] },
 
             // The application layer orchestrates its own domain through ports.
@@ -79,6 +84,7 @@ export default tseslint.config(
                 ['domain', { module: '${from.module}' }],
                 ['application', { module: '${from.module}' }],
                 'application',
+                'database',
               ],
             },
             {

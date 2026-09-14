@@ -1,0 +1,35 @@
+{
+  "name": "@amc/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "node dist/cli/migrate.js",
+    "db:seed": "node dist/cli/seed.js",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@amc/kernel": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

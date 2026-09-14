@@ -16,7 +16,10 @@
     "lint:fix": "biome check --write . && eslint . --fix",
     "format": "biome format --write .",
     "arch:check": "depcruise --config .dependency-cruiser.cjs packages apps",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check",
+    "db:migrate": "pnpm --filter @amc/database db:migrate",
+    "db:seed": "pnpm --filter @amc/database db:seed",
+    "db:generate": "pnpm --filter @amc/database db:generate"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
