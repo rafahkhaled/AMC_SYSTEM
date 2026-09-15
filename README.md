@@ -54,6 +54,32 @@ Hosted privately at https://gitlab.com/rafahkhaled7118/amc-system. Every merge
 request runs the same `pnpm verify` gate that runs locally, so a red pipeline is
 always reproducible on your own machine.
 
+### Mirroring
+
+One host has already refused this account once, so the repository is set up to
+live on more than one. Adding a mirror is two commands:
+
+```bash
+git remote add <name> <url>
+./scripts/mirror-push.sh
+```
+
+The script pushes the current branch to every configured remote and keeps going
+when one fails, then exits non-zero so an incomplete mirror is never mistaken
+for a successful push. Pass `--tags` to include tags.
+
+### Credentials
+
+Git talks to GitLab through the GitLab CLI's own credential helper, so the
+token stays in the system keyring and nothing is written to a file:
+
+```bash
+git config --global credential."https://gitlab.com".helper '!"$HOME/.local/bin/glab" auth git-credential'
+```
+
+Without this, pushes work only while the macOS keychain happens to hold a
+matching entry, and fail with "could not read Username" as soon as it does not.
+
 ## Getting started
 
 Requires Node 22, pnpm 10, and a Postgres 17 server.
