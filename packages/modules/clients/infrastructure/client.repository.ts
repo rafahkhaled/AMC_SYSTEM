@@ -1,10 +1,11 @@
 import { type CurrencyCode, type EventCollector, Money, Rate } from '@amc/kernel';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, exists, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import type { ClientRepository } from '../application/ports.js';
+import type { ClientRepository, ClientSummary } from '../application/ports.js';
 import {
   Client,
   type ClientId,
+  type ClientScope,
   type ClientState,
   type ClientStatus,
   FinancialYear,
@@ -16,7 +17,7 @@ import {
   type VatFrequency,
   VatPeriods,
 } from '../domain/index.js';
-import { clientRates, clients } from './schema.js';
+import { clientRates, clientStaffAccess, clients } from './schema.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
@@ -32,20 +33,80 @@ export class DrizzleClientRepository implements ClientRepository {
     private readonly collector?: EventCollector,
   ) {}
 
-  async findById(id: ClientId): Promise<Client | null> {
-    const [row] = await this.db.select().from(clients).where(eq(clients.id, id)).limit(1);
+  /**
+   * Out of scope reads as not found rather than forbidden.
+   *
+   * Refusing would tell the asker the client exists, which is itself worth
+   * knowing to someone checking whether a competitor is on the firm's books.
+   * Not found says nothing either way.
+   */
+  async findById(id: ClientId, scope: ClientScope): Promise<Client | null> {
+    if (scope.kind === 'none') return null;
+
+    const [row] = await this.db
+      .select()
+      .from(clients)
+      .where(and(eq(clients.id, id), this.visibleTo(scope)))
+      .limit(1);
+
     if (!row) return null;
     return this.toAggregate(row, await this.ratesOf(id));
   }
 
-  async findByVatTrn(trn: Trn): Promise<Client | null> {
+  async list(scope: ClientScope, options: { limit?: number } = {}): Promise<ClientSummary[]> {
+    if (scope.kind === 'none') return [];
+
+    return this.db
+      .select({
+        id: clients.id,
+        legalName: clients.legalName,
+        status: clients.status,
+        vatState: clients.vatState,
+        vatTrn: clients.vatTrn,
+      })
+      .from(clients)
+      .where(this.visibleTo(scope))
+      .orderBy(asc(clients.legalName))
+      .limit(options.limit ?? 100);
+  }
+
+  /**
+   * Unscoped on purpose, and answers only yes or no.
+   *
+   * Onboarding has to know a tax number is already in use even when the person
+   * doing it cannot see the client using it. Returning that client instead
+   * would leak exactly what the scoping exists to protect.
+   */
+  async isVatTrnTaken(trn: Trn): Promise<boolean> {
     const [row] = await this.db
-      .select()
+      .select({ id: clients.id })
       .from(clients)
       .where(eq(clients.vatTrn, trn.value))
       .limit(1);
-    if (!row) return null;
-    return this.toAggregate(row, await this.ratesOf(row.id));
+    return row !== undefined;
+  }
+
+  /**
+   * The scope, as a condition on the query.
+   *
+   * An accountant sees a client only where a row assigns it to them. This is a
+   * correlated join rather than a list of ids fetched beforehand, so an
+   * assignment changed mid-request cannot be answered from a stale list.
+   */
+  private visibleTo(scope: ClientScope) {
+    if (scope.kind === 'all') return undefined;
+    if (scope.kind === 'none') return sql`false`;
+    return exists(
+      this.db
+        .select({ one: clientStaffAccess.clientId })
+        .from(clientStaffAccess)
+        .where(
+          and(
+            eq(clientStaffAccess.clientId, clients.id),
+            eq(clientStaffAccess.userId, scope.userId),
+          ),
+        ),
+    );
   }
 
   async save(client: Client): Promise<void> {

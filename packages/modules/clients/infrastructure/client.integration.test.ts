@@ -2,7 +2,7 @@ import { type TestDatabase, createTestDatabase } from '@amc/database/testing';
 import { Money, Rate } from '@amc/kernel';
 import type { drizzle } from 'drizzle-orm/postgres-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client, FinancialYear, Trn, VatPeriods } from '../domain/index.js';
+import { ALL_CLIENTS, Client, FinancialYear, Trn, VatPeriods } from '../domain/index.js';
 import { DrizzleClientRepository } from './client.repository.js';
 
 const at = (iso: string) => new Date(iso);
@@ -58,7 +58,7 @@ describe('clients against a real database', () => {
       });
       await clients.save(client);
 
-      const found = await clients.findById('c-1');
+      const found = await clients.findById('c-1', ALL_CLIENTS);
       expect(found?.legalName).toBe('Gulf Trading LLC');
       expect(found?.vat.trn?.value).toBe('100123456700003');
       // The staggered cycle has to survive the round trip, or the deadline
@@ -130,7 +130,7 @@ describe('clients against a real database', () => {
       );
       await clients.save(client);
 
-      const found = await clients.findById('c-3');
+      const found = await clients.findById('c-3', ALL_CLIENTS);
       expect(found?.rates.all).toHaveLength(2);
       // March work keeps March's rate after the April rise, which is what makes
       // a reprinted statement match the one the client already paid.
@@ -192,12 +192,12 @@ describe('clients against a real database', () => {
       await clients.save(client);
       await clients.save(client);
 
-      const found = await clients.findById('c-6');
+      const found = await clients.findById('c-6', ALL_CLIENTS);
       expect(found?.rates.all).toHaveLength(1);
     });
   });
 
-  it('finds a client by the number the authority issued', async () => {
+  it('knows when a tax number is already in use, without revealing whose', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const clients = repository(tx);
       const client = newClient('c-7');
@@ -212,8 +212,8 @@ describe('clients against a real database', () => {
       });
       await clients.save(client);
 
-      const found = await clients.findByVatTrn(trn('100 777 666 500 003'));
-      expect(found?.id).toBe('c-7');
+      expect(await clients.isVatTrnTaken(trn('100 777 666 500 003'))).toBe(true);
+      expect(await clients.isVatTrnTaken(trn('100000000000000'))).toBe(false);
     });
   });
 });

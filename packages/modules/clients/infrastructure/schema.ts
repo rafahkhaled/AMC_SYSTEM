@@ -1,13 +1,19 @@
 import {
   bigint,
+  boolean,
+  customType,
   date,
   index,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
+
+/** Case-insensitive, so one email address cannot become two contacts. */
+const citext = customType<{ data: string }>({ dataType: () => 'citext' });
 
 export const clients = pgTable(
   'clients',
@@ -56,4 +62,62 @@ export const clientRates = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [unique('client_rates_one_per_day').on(table.clientId, table.effectiveFrom)],
+);
+
+export const leads = pgTable(
+  'leads',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    phone: text('phone'),
+    email: citext('email'),
+    source: text('source').notNull(),
+    sourceDetail: text('source_detail'),
+    requestedService: text('requested_service'),
+    status: text('status').notNull().default('new'),
+    convertedClientId: text('converted_client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('leads_status_idx').on(table.status, table.receivedAt)],
+);
+
+export const clientContacts = pgTable(
+  'client_contacts',
+  {
+    id: text('id').primaryKey(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    userId: text('user_id'),
+    name: text('name').notNull(),
+    role: text('role'),
+    phone: text('phone'),
+    email: citext('email'),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('client_contacts_client_idx').on(table.clientId)],
+);
+
+/** The table every scoped read joins against. */
+export const clientStaffAccess = pgTable(
+  'client_staff_access',
+  {
+    clientId: text('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    assignedAt: timestamp('assigned_at', { withTimezone: true }).notNull().defaultNow(),
+    assignedBy: text('assigned_by').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.clientId, table.userId] }),
+    index('client_staff_access_user_idx').on(table.userId),
+  ],
 );
