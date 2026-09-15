@@ -1,0 +1,132 @@
+# The whole system on one instance, as ADR-0005 describes.
+#
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env.production up -d
+#
+# Postgres, Redis-free (the queue is a table, ADR-0006), the API, the worker,
+# and Caddy in front holding the only ports open to the world.
+
+name: amc
+
+x-server: &server
+  build:
+    context: ..
+    target: server
+  restart: unless-stopped
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgres://amc:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/amc
+    SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:?set SECRET_ENCRYPTION_KEY}
+    S3_BUCKET: ${S3_BUCKET:-}
+    S3_REGION: ${S3_REGION:-me-central-1}
+    VAULT_KMS_KEY_ID: ${VAULT_KMS_KEY_ID:-}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+  depends_on:
+    postgres:
+      condition: service_healthy
+  # The application writes nothing to its own filesystem; documents go to S3
+  # and everything else to Postgres. Saying so turns a remote code execution
+  # into something with nowhere to put a payload.
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: amc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: amc
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Deliberately not published. Nothing outside this network reaches the
+    # database; backups run inside it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amc -d amc"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  migrate:
+    <<: *server
+    restart: "no"
+    command: ["node", "packages/database/dist/cli/migrate.js"]
+    # Runs to completion before the API starts serving, so a deploy never
+    # answers requests against a schema it was not built for.
+
+  api:
+    <<: *server
+    command: ["node", "--enable-source-maps", "apps/api/dist/main.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+
+  worker:
+    <<: *server
+    command: ["node", "--enable-source-maps", "apps/worker/dist/main.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # A deploy should let the batch in flight finish rather than abandon it.
+    stop_grace_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS, for example amc.example.ae}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - web-dist:/srv:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+    depends_on:
+      - api
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Copies the built browser application into the volume Caddy serves, then
+  # exits. Keeping it a separate step means a failed front-end build cannot
+  # leave the site half replaced.
+  web-publish:
+    build:
+      context: ..
+      target: server
+    restart: "no"
+    command: ["sh", "-c", "rm -rf /srv/* && cp -r /app/apps/web/dist/. /srv/"]
+    volumes:
+      - web-dist:/srv
+
+volumes:
+  postgres-data:
+  web-dist:
+  caddy-data:
+  caddy-config:
+  caddy-logs:

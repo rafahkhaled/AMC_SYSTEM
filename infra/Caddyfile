@@ -1,0 +1,67 @@
+# The single entry point. Caddy terminates TLS, serves the browser application
+# and routes /api to the API on the internal network.
+#
+# The application and the API therefore share one origin, which is not a
+# convenience: the session cookie is SameSite=Strict, so a browser would never
+# send it across origins at all.
+
+{
+	email {$ACME_EMAIL}
+	# Caddy obtains and renews certificates itself. There is no cron job to
+	# forget and no certificate to expire over a weekend.
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		# Told once, and believed for two years. Only set this when the domain
+		# is committed to TLS, because it cannot be taken back quickly.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# This application needs none of these, and saying so removes them
+		# from any attack that relies on them.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+		# Everything is served from this origin. There is no CDN, no analytics
+		# and no third-party script, so the policy can be strict rather than a
+		# negotiation.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000 {
+			# The API logs the caller's address for the audit trail, so it
+			# needs the real one rather than the proxy's.
+			header_up X-Forwarded-For {remote_host}
+			health_uri /api/health/live
+			health_interval 10s
+		}
+	}
+
+	handle {
+		root * /srv
+		# A single-page application: unknown paths are routes, not missing
+		# files, and the server must hand back the shell rather than a 404.
+		try_files {path} /index.html
+		file_server
+
+		# Hashed asset names never change contents, so they can be cached hard.
+		@hashed path_regexp \.[0-9a-zA-Z_-]{8,}\.(js|css|woff2)$
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		# The shell must not be, or a deploy would not reach anyone.
+		header /index.html Cache-Control "no-cache"
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 20MiB
+			roll_keep 10
+		}
+	}
+}

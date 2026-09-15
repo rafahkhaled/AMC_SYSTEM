@@ -194,6 +194,32 @@ AMC_PASSWORD='a long passphrase' pnpm create-user wael@activemanagement.ae "Wael
 The password comes from the environment rather than an argument, because an
 argument is visible in the process list and is kept in shell history.
 
+## Deploying
+
+One small instance in the UAE region, with Caddy in front. See
+[docs/deployment.md](docs/deployment.md), which includes the checklist for the
+first deploy: the things this development machine cannot prove and the server
+can, S3 and KMS among them.
+
+```bash
+docker compose -f infra/docker-compose.prod.yml --env-file .env.production up -d --build
+```
+
+## Backups
+
+```bash
+DATABASE_URL=... BACKUP_PASSPHRASE=... ./infra/backup/backup.sh
+```
+
+Encrypted, checksummed, and read back from S3 to compare before the upload is
+called a success. Restoring is explicit about its target, because a restore
+script that guesses will one day overwrite production.
+
+`infra/backup/verify-restore.sh` takes a backup, restores it into a throwaway
+database, compares every table's row count and checks the audit log still
+refuses updates afterwards. It runs in the pipeline on every change to the
+default branch. A backup nobody has restored is a hope rather than a backup.
+
 ## Migrations
 
 Each file in `packages/database/migrations` runs once, in its own transaction,

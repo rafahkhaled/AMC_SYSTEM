@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+**/dist-types
+.turbo
+**/.turbo
+coverage
+**/coverage
+.git
+.github
+backups
+*.log
+.env
+.env.*
+!.env.example

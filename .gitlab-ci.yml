@@ -7,6 +7,7 @@ default:
 
 stages:
   - verify
+  - prove
 
 variables:
   PNPM_STORE: .pnpm-store
@@ -45,4 +46,31 @@ verify:
     - echo "── architecture rules ──" && pnpm arch:check
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# A backup nobody has restored is a hope rather than a backup (NFR-08). This
+# takes one and restores it on every change, so the day it is needed is not the
+# day it is first tried.
+restore-drill:
+  stage: prove
+  image: postgres:17-alpine
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+  variables:
+    DATABASE_URL: postgres://amc@postgres:5432/amc_test
+    BACKUP_PASSPHRASE: drill-only-not-a-real-passphrase
+  before_script:
+    - apk add --no-cache bash openssl gzip
+  script:
+    # Something has to be in the database for the comparison to mean anything.
+    - psql "$DATABASE_URL" -f packages/database/migrations/0000_foundation.sql
+    - psql "$DATABASE_URL" -f packages/database/migrations/0001_identity.sql
+    - psql "$DATABASE_URL" -f packages/database/migrations/0002_two_factor.sql
+    - psql "$DATABASE_URL" -f packages/database/migrations/0003_audit_and_outbox.sql
+    - psql "$DATABASE_URL" -f packages/database/migrations/0004_jobs.sql
+    - psql "$DATABASE_URL" -c "INSERT INTO users (id, email, display_name, password_hash) VALUES ('drill-1', 'drill@example.com', 'Drill', 'x')"
+    - psql "$DATABASE_URL" -c "INSERT INTO user_roles (user_id, role) VALUES ('drill-1', 'manager')"
+    - bash infra/backup/verify-restore.sh
+  rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
