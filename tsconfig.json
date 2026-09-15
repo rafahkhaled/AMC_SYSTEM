@@ -8,6 +8,9 @@
       "path": "./packages/database"
     },
     {
+      "path": "./packages/modules/identity"
+    },
+    {
       "path": "./apps/api"
     }
   ]

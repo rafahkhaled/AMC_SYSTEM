@@ -67,6 +67,8 @@ module.exports = {
     doNotFollow: { path: 'node_modules' },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.base.json' },
-    exclude: { path: '\\.(test|spec)\\.ts$' },
+    // Build output is not source. Cruising it produces orphan warnings about
+    // compiled files that say nothing about the architecture.
+    exclude: { path: '(/dist/|\\.(test|spec)\\.ts$)' },
   },
 };

@@ -1,0 +1,38 @@
+{
+  "name": "@amc/identity",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/application/index.d.ts",
+      "default": "./dist/application/index.js"
+    },
+    "./domain": {
+      "types": "./dist/domain/index.d.ts",
+      "default": "./dist/domain/index.js"
+    },
+    "./infrastructure": {
+      "types": "./dist/infrastructure/index.d.ts",
+      "default": "./dist/infrastructure/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@amc/kernel": "workspace:*",
+    "@node-rs/argon2": "^2.2.1",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
+    "ulid": "^3.0.2",
+    "@amc/database": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

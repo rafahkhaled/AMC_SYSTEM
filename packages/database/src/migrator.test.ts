@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import postgres from 'postgres';
@@ -32,12 +32,16 @@ describe('migration runner', () => {
     await rm(temporaryDirectory, { recursive: true, force: true });
   });
 
-  it('applies the foundation migration and records it', async () => {
+  it('applies every migration on disk, in order, and records each one', async () => {
+    const onDisk = (await readdir(MIGRATIONS_DIRECTORY)).filter((n) => n.endsWith('.sql')).sort();
     const applied = await runMigrations(sql, MIGRATIONS_DIRECTORY);
-    expect(applied).toContain('0000_foundation.sql');
+
+    // Compared against the directory rather than a hard-coded list, so adding
+    // a migration does not break this test for the wrong reason.
+    expect(applied).toEqual(onDisk);
 
     const records = await appliedMigrations(sql);
-    expect(records.map((record) => record.filename)).toEqual(['0000_foundation.sql']);
+    expect(records.map((record) => record.filename)).toEqual(onDisk);
   });
 
   it('is safe to run again, which is what makes it safe on every deploy', async () => {
