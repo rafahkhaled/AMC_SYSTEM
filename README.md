@@ -32,6 +32,20 @@ packages/
   modules/    One folder per business area, each with four layers
 ```
 
+## Seeing it work
+
+There is no user interface yet, so the way to see the system is to drive it:
+
+```bash
+./scripts/demo.sh
+```
+
+It starts Postgres if needed, builds, migrates, runs the API and the worker,
+then walks the whole path: a locked door, a wrong password, an unknown address
+answering in identical words, a real sign-in with its cookie flags, the
+permissions that come back, the audit trail that sign-in wrote, a sign-out, and
+the same cookie being refused afterwards. It stops everything when it finishes.
+
 ## Background work
 
 The queue is a Postgres table, not Redis (ADR-0006). That means a job can be
