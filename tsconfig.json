@@ -26,6 +26,9 @@
       "path": "./packages/modules/audit"
     },
     {
+      "path": "./packages/modules/clients"
+    },
+    {
       "path": "./packages/modules/identity"
     },
     {

@@ -295,6 +295,28 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.2)(jsdom@25.0.1)(tsx@4.23.13)
 
+  packages/modules/clients:
+    dependencies:
+      '@amc/database':
+        specifier: workspace:*
+        version: link:../../database
+      '@amc/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.2)(jsdom@25.0.1)(tsx@4.23.13)
+
   packages/modules/identity:
     dependencies:
       '@amc/contracts':
