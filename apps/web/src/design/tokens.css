@@ -1,0 +1,139 @@
+/*
+ * The vocabulary every screen is built from.
+ *
+ * Two rules hold throughout. Nothing uses a raw colour or a raw pixel value;
+ * everything refers to a token, so a change happens in one place. And every
+ * edge, margin and alignment uses a logical property, so one stylesheet is
+ * correct in Arabic and in English with no direction-specific rule anywhere.
+ */
+
+:root {
+  /* Teal, because the palette has to belong to an accounting practice rather
+     than shout. It is the only hue that carries meaning; everything else is
+     grey or a state colour. */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+
+  --grey-0: #ffffff;
+  --grey-50: #f8fafc;
+  --grey-100: #f1f5f9;
+  --grey-200: #e2e8f0;
+  --grey-300: #cbd5e1;
+  --grey-400: #94a3b8;
+  --grey-500: #64748b;
+  --grey-600: #475569;
+  --grey-700: #334155;
+  --grey-800: #1e293b;
+  --grey-900: #0f172a;
+
+  --red-50: #fef2f2;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+  --amber-50: #fffbeb;
+  --amber-600: #d97706;
+  --green-50: #f0fdf4;
+  --green-600: #16a34a;
+
+  /* Semantic names. Screens use these; the scales above exist to feed them. */
+  --surface: var(--grey-0);
+  --surface-sunken: var(--grey-50);
+  --surface-raised: var(--grey-0);
+  --line: var(--grey-200);
+  --line-strong: var(--grey-300);
+
+  --text: var(--grey-900);
+  --text-soft: var(--grey-600);
+  --text-faint: var(--grey-400);
+  --text-on-brand: #ffffff;
+
+  --accent: var(--brand-700);
+  --accent-hover: var(--brand-800);
+  --accent-soft: var(--brand-50);
+
+  --danger: var(--red-700);
+  --danger-soft: var(--red-50);
+  --warning: var(--amber-600);
+  --warning-soft: var(--amber-50);
+  --success: var(--green-600);
+  --success-soft: var(--green-50);
+
+  /* A four-point scale. Enough choices to be useful, few enough to stay
+     consistent when several people are building screens. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --text-xs: 0.78rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 6%);
+  --shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 8px 24px rgb(15 23 42 / 6%);
+  --shadow-lg: 0 2px 4px rgb(15 23 42 / 8%), 0 16px 40px rgb(15 23 42 / 10%);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Arabic first in its own stack, so the interface does not fall back to a
+     face that was never designed for it. */
+  --font-arabic: "SF Arabic", "Geeza Pro", "Noto Sans Arabic", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --duration: 140ms;
+  --easing: cubic-bezier(0.2, 0, 0.2, 1);
+
+  color-scheme: light;
+}
+
+/*
+ * Dark mode follows the device. An accountant working late should not have to
+ * find a setting, and the tokens above mean this is a palette swap rather than
+ * a second stylesheet.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: var(--grey-900);
+    --surface-sunken: #0b1220;
+    --surface-raised: var(--grey-800);
+    --line: #1e293b;
+    --line-strong: #334155;
+
+    --text: var(--grey-50);
+    --text-soft: var(--grey-300);
+    --text-faint: var(--grey-500);
+
+    --accent: var(--brand-500);
+    --accent-hover: var(--brand-600);
+    --accent-soft: color-mix(in srgb, var(--brand-500) 14%, transparent);
+    --text-on-brand: #04201d;
+
+    --danger: #f87171;
+    --danger-soft: color-mix(in srgb, #f87171 12%, transparent);
+    --warning: #fbbf24;
+    --warning-soft: color-mix(in srgb, #fbbf24 12%, transparent);
+    --success: #4ade80;
+    --success-soft: color-mix(in srgb, #4ade80 12%, transparent);
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
+    --shadow-lg: 0 2px 4px rgb(0 0 0 / 45%), 0 16px 40px rgb(0 0 0 / 45%);
+
+    color-scheme: dark;
+  }
+}

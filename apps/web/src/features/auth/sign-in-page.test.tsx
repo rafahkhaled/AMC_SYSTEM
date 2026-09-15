@@ -30,13 +30,16 @@ describe('the sign-in screen', () => {
     expect(screen.getByRole('heading')).toHaveTextContent('تسجيل الدخول');
   });
 
-  it('asks for the missing field rather than sending an empty form', async () => {
+  it('names the field that is missing, and marks it invalid for a screen reader', async () => {
     const user = userEvent.setup();
     render(<SignInPage />);
 
     await user.click(screen.getByRole('button', { name: 'دخول' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('أدخل البريد الإلكتروني');
+    expect(await screen.findByText('أدخل البريد الإلكتروني')).toBeInTheDocument();
+    // Attached to the input, so assistive technology says which one is wrong
+    // rather than only that something is.
+    expect(screen.getByLabelText('البريد الإلكتروني')).toHaveAttribute('aria-invalid', 'true');
     expect(signIn).not.toHaveBeenCalled();
   });
 

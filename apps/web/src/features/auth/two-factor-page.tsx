@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Alert, Button, Card, Field } from '../../design/index.js';
 import { ApiError, verifyTwoFactor } from './api.js';
 import { useSession } from './session.js';
 
@@ -26,41 +27,34 @@ export function TwoFactorPage() {
   };
 
   return (
-    <main className="centred">
-      <form className="card stack" onSubmit={submit} noValidate>
-        <div className="stack-tight">
-          <h1>{t('twoFactor.title')}</h1>
-          <p className="muted">{t('twoFactor.subtitle')}</p>
-        </div>
+    <main className="u-centre">
+      <form onSubmit={submit} noValidate style={{ inlineSize: 'min(26rem, 100%)' }}>
+        <Card floating title={t('twoFactor.title')} description={t('twoFactor.subtitle')}>
+          <div className="u-stack">
+            {error ? <Alert tone="error">{error}</Alert> : null}
 
-        {error ? (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        ) : null}
+            <Field
+              label={t('twoFactor.code')}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={10}
+              ltr
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              disabled={busy}
+              hint={t('twoFactor.hint')}
+            />
 
-        <label>
-          {t('twoFactor.code')}
-          <input
-            // A one-time code, so the keyboard should be numeric and the
-            // browser should offer the code it may have received.
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={10}
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            disabled={busy}
-          />
-        </label>
+            <Button type="submit" block busy={busy} disabled={code.trim().length < 6}>
+              {t('twoFactor.submit')}
+            </Button>
 
-        <button type="submit" disabled={busy || code.trim().length < 6}>
-          {t('twoFactor.submit')}
-        </button>
-
-        {/* A half-finished sign-in must have a way out that is not waiting. */}
-        <button type="button" className="quiet" onClick={() => void signOut()}>
-          {t('home.signOut')}
-        </button>
+            {/* A half-finished sign-in needs a way out that is not waiting. */}
+            <Button tone="quiet" block onClick={() => void signOut()}>
+              {t('home.signOut')}
+            </Button>
+          </div>
+        </Card>
       </form>
     </main>
   );
