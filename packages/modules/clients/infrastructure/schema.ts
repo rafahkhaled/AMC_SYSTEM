@@ -121,3 +121,28 @@ export const clientStaffAccess = pgTable(
     index('client_staff_access_user_idx').on(table.userId),
   ],
 );
+
+export const clientDocuments = pgTable(
+  'client_documents',
+  {
+    id: text('id').primaryKey(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    label: text('label'),
+    status: text('status').notNull().default('required'),
+    storageKey: text('storage_key'),
+    originalName: text('original_name'),
+    checksum: text('checksum'),
+    issuedOn: date('issued_on'),
+    expiresOn: date('expires_on'),
+    supersededById: text('superseded_by_id'),
+    uploadedBy: text('uploaded_by'),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('client_documents_client_idx').on(table.clientId, table.type)],
+);

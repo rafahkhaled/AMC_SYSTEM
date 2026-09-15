@@ -1,4 +1,14 @@
-import type { Client, ClientId, ClientScope, Lead, LeadId, Trn } from '../domain/index.js';
+import type {
+  Client,
+  ClientDocument,
+  ClientId,
+  ClientScope,
+  DocumentId,
+  DocumentTypeCode,
+  Lead,
+  LeadId,
+  Trn,
+} from '../domain/index.js';
 
 export interface ClientSummary {
   readonly id: string;
@@ -38,4 +48,28 @@ export interface StaffAccessRepository {
 export interface LeadRepository {
   findById(id: LeadId): Promise<Lead | null>;
   save(lead: Lead): Promise<void>;
+}
+
+/** A document that is about to lapse, and the client it belongs to. */
+export interface ExpiringDocument {
+  readonly documentId: string;
+  readonly clientId: string;
+  readonly clientName: string;
+  readonly type: DocumentTypeCode;
+  readonly expiresOn: Date;
+  readonly daysRemaining: number;
+}
+
+export interface DocumentRepository {
+  findById(id: DocumentId, scope: ClientScope): Promise<ClientDocument | null>;
+  /** The live documents for a client: superseded versions are not included. */
+  currentFor(clientId: ClientId, scope: ClientScope): Promise<ClientDocument[]>;
+  /**
+   * What the deadline engine asks every morning.
+   *
+   * Unscoped, because the engine runs as the system rather than as a person.
+   * The alerts it raises are then delivered to whoever is assigned.
+   */
+  expiringOn(days: number, today: Date): Promise<ExpiringDocument[]>;
+  save(document: ClientDocument): Promise<void>;
 }
