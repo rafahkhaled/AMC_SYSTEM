@@ -265,3 +265,111 @@ describe('two-factor over HTTP', () => {
     expect(row?.totp_secret).not.toMatch(/^[A-Z2-7]+$/);
   });
 });
+
+describe('the audit trail of a real sign-in', () => {
+  let app: INestApplication;
+  let sql: postgres.Sql;
+  const email = `audited-${Date.now()}@activemanagement.ae`;
+
+  beforeAll(async () => {
+    process.env.DATABASE_URL = DATABASE_URL;
+    process.env.NODE_ENV = 'test';
+    sql = postgres(DATABASE_URL, { max: 2, onnotice: () => {} });
+    await runMigrations(sql, MIGRATIONS_DIRECTORY);
+
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await sql?.unsafe('DELETE FROM users WHERE email = $1', [email]);
+    await sql?.end({ timeout: 5 });
+    await app?.close();
+  });
+
+  async function entriesFor(userId: string) {
+    // Session events are recorded against the session, so the trail is
+    // followed by actor as well as by entity.
+    return sql<{ action: string; actor_user_id: string | null; entity_id: string }[]>`
+      SELECT action, actor_user_id, entity_id FROM audit_log
+      WHERE entity_id = ${userId}
+         OR actor_user_id = ${userId}
+         OR actor_label = ${email}
+      ORDER BY occurred_at
+    `;
+  }
+
+  it('records registration, a failed attempt, a success and a sign-out', async () => {
+    const registered = await app.get(RegisterUser).execute({
+      email,
+      displayName: 'Audited Manager',
+      password: PASSWORD,
+      roles: ['manager'],
+    });
+    expect(registered.ok).toBe(true);
+    if (!registered.ok) return;
+    const userId = registered.value.userId;
+
+    await request(app.getHttpServer())
+      .post('/auth/sign-in')
+      .send({ email, password: 'the wrong password' })
+      .expect(401);
+
+    const signedIn = await request(app.getHttpServer())
+      .post('/auth/sign-in')
+      .send({ email, password: PASSWORD })
+      .expect(200);
+    const cookie = cookiesFrom(signedIn);
+
+    await request(app.getHttpServer()).post('/auth/sign-out').set('Cookie', cookie).expect(204);
+
+    const actions = (await entriesFor(userId)).map((row) => row.action);
+    expect(actions).toContain('identity.signin.failed');
+    expect(actions).toContain('identity.signin.succeeded');
+    expect(actions).toContain('identity.session.started');
+    expect(actions).toContain('identity.session.revoked');
+  });
+
+  it('names the person who signed out, and no one for a failed attempt', async () => {
+    const rows = await sql<
+      { action: string; actor_user_id: string | null; actor_label: string | null }[]
+    >`
+      SELECT action, actor_user_id, actor_label FROM audit_log
+      WHERE action IN ('identity.signin.failed', 'identity.session.revoked')
+        AND (actor_label = ${email} OR actor_user_id IN (SELECT id FROM users WHERE email = ${email}))
+      ORDER BY occurred_at
+    `;
+
+    const failed = rows.find((row) => row.action === 'identity.signin.failed');
+    const revoked = rows.find((row) => row.action === 'identity.session.revoked');
+
+    // Nobody is signed in yet when a password is wrong, so the attempt is
+    // recorded against the address rather than attributed to a person.
+    expect(failed?.actor_user_id).toBe('anonymous');
+    expect(failed?.actor_label).toBe(email);
+    expect(revoked?.actor_label).toBe('Audited Manager');
+  });
+
+  it('leaves an outbox row for every event, ready to be delivered', async () => {
+    const rows = await sql<{ count: string }[]>`
+      SELECT count(*)::text AS count FROM outbox WHERE name LIKE 'identity.%'
+    `;
+    expect(Number(rows[0]?.count ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('records nothing for a sign-in that never happened', async () => {
+    const before = await sql<{ count: string }[]>`SELECT count(*)::text AS count FROM audit_log`;
+
+    await request(app.getHttpServer())
+      .post('/auth/sign-in')
+      .send({ email: 'no-such-person@nowhere.ae', password: 'whatever12345' })
+      .expect(401);
+
+    const after = await sql<{ count: string }[]>`SELECT count(*)::text AS count FROM audit_log`;
+    // No user, no aggregate, nothing recorded. The attempt is visible in the
+    // logs; inventing an audit row for a person who does not exist would not
+    // help anyone.
+    expect(after[0]?.count).toBe(before[0]?.count);
+  });
+});

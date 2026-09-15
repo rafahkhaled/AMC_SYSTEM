@@ -14,8 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { AuthenticatedCaller } from '../application/authenticate-session.js';
-import { SignIn } from '../application/sign-in.js';
-import { SignOut } from '../application/sign-out.js';
+import { IdentityOperations } from '../application/identity-operations.js';
 import { permissionsFor } from '../domain/index.js';
 import { CurrentCaller } from './caller.js';
 import { AllowPendingTwoFactor, Public } from './permissions.decorator.js';
@@ -27,11 +26,20 @@ import {
 } from './session-cookie.js';
 import { SignInThrottle } from './sign-in-throttle.js';
 
+/** The caller, in the shape the audit trail records. */
+export function actorOf(caller: AuthenticatedCaller) {
+  return {
+    userId: caller.userId,
+    roles: [...caller.roles],
+    label: caller.displayName,
+    sessionId: caller.sessionId,
+  };
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
-    @Inject(SignIn) private readonly signIn: SignIn,
-    @Inject(SignOut) private readonly signOut: SignOut,
+    @Inject(IdentityOperations) private readonly identity: IdentityOperations,
     @Inject(SignInThrottle) private readonly throttle: SignInThrottle,
     @Inject(COOKIE_SETTINGS) private readonly cookieSettings: CookieSettings,
   ) {}
@@ -60,12 +68,24 @@ export class AuthController {
       );
     }
 
-    const outcome = await this.signIn.execute({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      ipAddress: request.ip ?? null,
-      userAgent: request.header('user-agent') ?? null,
-    });
+    // The actor is unknown until the password is proven, so the attempt is
+    // recorded against the address and the request rather than a person. A
+    // failed sign-in still belongs in the log.
+    const outcome = await this.identity.signIn(
+      {
+        userId: 'anonymous',
+        roles: [],
+        label: parsed.data.email,
+        ipAddress: request.ip ?? undefined,
+        requestId: request.header('x-request-id') ?? undefined,
+      },
+      {
+        email: parsed.data.email,
+        password: parsed.data.password,
+        ipAddress: request.ip ?? null,
+        userAgent: request.header('user-agent') ?? null,
+      },
+    );
 
     if (!outcome.ok) throw new UnauthorizedException(outcome.error.message);
 
@@ -103,7 +123,7 @@ export class AuthController {
     @CurrentCaller() caller: AuthenticatedCaller,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    await this.signOut.one(caller.sessionId);
+    await this.identity.signOutOne(actorOf(caller), caller.sessionId);
     clearSessionCookie(response, this.cookieSettings);
   }
 
@@ -113,7 +133,7 @@ export class AuthController {
     @CurrentCaller() caller: AuthenticatedCaller,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    await this.signOut.everywhere(caller.userId);
+    await this.identity.signOutEverywhere(actorOf(caller), caller.userId);
     clearSessionCookie(response, this.cookieSettings);
   }
 }

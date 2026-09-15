@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "verbatimModuleSyntax": false,
+    "strictPropertyInitialization": false
+  },
+  "include": ["domain/**/*.ts", "application/**/*.ts", "infrastructure/**/*.ts", "http/**/*.ts"],
+  "exclude": ["**/*.test.ts", "dist"],
+  "references": [{ "path": "../../kernel" }, { "path": "../../database" }]
+}

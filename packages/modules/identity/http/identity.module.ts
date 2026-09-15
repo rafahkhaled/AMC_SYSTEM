@@ -1,4 +1,4 @@
-import type { Clock, IdGenerator } from '@amc/kernel';
+import type { Clock, IdGenerator, UnitOfWork } from '@amc/kernel';
 import {
   type DynamicModule,
   type InjectionToken,
@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthenticateSession } from '../application/authenticate-session.js';
+import { IdentityOperations, type RepositoryFactory } from '../application/identity-operations.js';
 import type {
   PasswordHasher,
   SessionRepository,
@@ -31,8 +32,12 @@ import { SignInThrottle } from './sign-in-throttle.js';
 import { TwoFactorController } from './two-factor.controller.js';
 
 export interface IdentityModuleOptions {
+  /** Used for reads only: authenticating a session on every request. */
   readonly users: UserRepository;
   readonly sessions: SessionRepository;
+  /** Everything that changes something goes through these two instead. */
+  readonly unitOfWork: UnitOfWork;
+  readonly repositories: RepositoryFactory;
   readonly hasher: PasswordHasher;
   readonly tokens: SessionTokenService;
   readonly twoFactor: TwoFactorService;
@@ -113,10 +118,27 @@ export class IdentityModule {
           provide: VerifyTwoFactor,
           ...from((o) => new VerifyTwoFactor(o.users, o.sessions, o.twoFactor, o.clock)),
         },
+        {
+          provide: IdentityOperations,
+          ...from(
+            (o) =>
+              new IdentityOperations({
+                unitOfWork: o.unitOfWork,
+                repositories: o.repositories,
+                hasher: o.hasher,
+                tokens: o.tokens,
+                twoFactor: o.twoFactor,
+                clock: o.clock,
+                ids: o.ids,
+                limits: o.limits,
+              }),
+          ),
+        },
         { provide: APP_GUARD, useClass: SessionGuard },
         { provide: APP_GUARD, useClass: PermissionsGuard },
       ],
       exports: [
+        IdentityOperations,
         SignIn,
         SignOut,
         AuthenticateSession,

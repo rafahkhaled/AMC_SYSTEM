@@ -14,21 +14,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { AuthenticatedCaller } from '../application/authenticate-session.js';
-import {
-  ConfirmTwoFactorEnrolment,
-  StartTwoFactorEnrolment,
-  VerifyTwoFactor,
-} from '../application/two-factor.js';
+import { IdentityOperations } from '../application/identity-operations.js';
+import { actorOf } from './auth.controller.js';
 import { CurrentCaller } from './caller.js';
 import { AllowPendingTwoFactor } from './permissions.decorator.js';
 
 @Controller('auth/two-factor')
 export class TwoFactorController {
-  constructor(
-    @Inject(StartTwoFactorEnrolment) private readonly start: StartTwoFactorEnrolment,
-    @Inject(ConfirmTwoFactorEnrolment) private readonly confirm: ConfirmTwoFactorEnrolment,
-    @Inject(VerifyTwoFactor) private readonly verify: VerifyTwoFactor,
-  ) {}
+  constructor(@Inject(IdentityOperations) private readonly identity: IdentityOperations) {}
 
   /**
    * The second step of signing in. Reachable by a session that has shown a
@@ -44,7 +37,7 @@ export class TwoFactorController {
     const parsed = twoFactorCodeSchema.safeParse(body);
     if (!parsed.success) throw new UnauthorizedException('That code is not right');
 
-    const outcome = await this.verify.execute({
+    const outcome = await this.identity.verifyTwoFactor(actorOf(caller), {
       sessionId: caller.sessionId,
       code: parsed.data.code,
     });
@@ -58,7 +51,7 @@ export class TwoFactorController {
    */
   @Post('enrol')
   async enrolHandler(@CurrentCaller() caller: AuthenticatedCaller): Promise<TwoFactorEnrolment> {
-    const outcome = await this.start.execute(caller.userId);
+    const outcome = await this.identity.startTwoFactor(actorOf(caller), caller.userId);
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
     return outcome.value;
   }
@@ -73,7 +66,7 @@ export class TwoFactorController {
     const parsed = twoFactorCodeSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('That code is not right');
 
-    const outcome = await this.confirm.execute({
+    const outcome = await this.identity.confirmTwoFactor(actorOf(caller), {
       userId: caller.userId,
       sessionId: caller.sessionId,
       code: parsed.data.code,

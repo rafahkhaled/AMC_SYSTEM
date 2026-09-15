@@ -11,6 +11,9 @@
       "path": "./packages/database"
     },
     {
+      "path": "./packages/modules/audit"
+    },
+    {
       "path": "./packages/modules/identity"
     },
     {

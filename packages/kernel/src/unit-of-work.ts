@@ -17,15 +17,30 @@ export interface TransactionContext {
  * can never be missing its audit entry — which is the whole basis of NFR-05.
  */
 export interface UnitOfWork {
-  run<T>(work: (context: UnitOfWorkContext) => Promise<T>): Promise<T>;
+  /**
+   * The actor is supplied per operation rather than per instance, because one
+   * process serves many people and an audit row that names the wrong one is
+   * worse than no audit row at all.
+   */
+  run<T>(actor: Actor, work: (context: UnitOfWorkContext) => Promise<T>): Promise<T>;
 }
 
 export interface UnitOfWorkContext {
   readonly transaction: TransactionContext;
+  readonly actor: Actor;
   /** Queue an event to be written to the outbox when this transaction commits. */
   collect(events: readonly DomainEvent[]): void;
   /** Record an audited change. Written in the same transaction. */
   audit(entry: AuditEntry): void;
+  /**
+   * Names the actor once it is known.
+   *
+   * A sign-in opens its transaction before anyone is identified, because the
+   * password has not been checked yet. Without this, a successful sign-in
+   * would be recorded against nobody, which is precisely the entry an audit
+   * reader most wants attributed.
+   */
+  identify(actor: Actor): void;
 }
 
 export interface AuditEntry {
@@ -40,6 +55,16 @@ export interface AuditEntry {
 export interface Actor {
   readonly userId: string;
   readonly roles: readonly string[];
+  readonly label?: string | undefined;
   readonly ipAddress?: string | undefined;
   readonly requestId?: string | undefined;
+  readonly sessionId?: string | undefined;
+}
+
+/**
+ * Somewhere for an aggregate's recorded events to go when it is saved. The
+ * repository hands them over; the unit of work decides what happens to them.
+ */
+export interface EventCollector {
+  collect(events: readonly DomainEvent[]): void;
 }

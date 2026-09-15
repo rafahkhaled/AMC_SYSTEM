@@ -1,3 +1,4 @@
+import { DrizzleUnitOfWork } from '@amc/audit/infrastructure';
 import type { Database } from '@amc/database';
 import { IdentityModule } from '@amc/identity/http';
 import {
@@ -8,7 +9,7 @@ import {
   SecretBox,
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
-import { SystemClock } from '@amc/kernel';
+import { type EventCollector, SystemClock } from '@amc/kernel';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ulid } from 'ulid';
@@ -33,8 +34,17 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
     IdentityModule.forRootAsync({
       inject: [DATABASE, ENVIRONMENT],
       useFactory: (db: Database, environment: Environment) => ({
+        // Reads, for authenticating a session on every request.
         users: new DrizzleUserRepository(db),
         sessions: new DrizzleSessionRepository(db),
+        // Writes, each inside one transaction that also carries its audit rows.
+        unitOfWork: new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+        repositories: {
+          forTransaction: (transaction: unknown, collector: EventCollector) => ({
+            users: new DrizzleUserRepository(transaction as Database, collector),
+            sessions: new DrizzleSessionRepository(transaction as Database, collector),
+          }),
+        },
         hasher: new Argon2PasswordHasher(),
         tokens: new CryptoSessionTokens(),
         twoFactor: new TotpTwoFactorService(new SecretBox(encryptionKey(environment)), 'AMC'),

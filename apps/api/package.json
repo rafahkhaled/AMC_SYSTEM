@@ -25,7 +25,8 @@
     "@amc/database": "workspace:*",
     "@amc/contracts": "workspace:*",
     "ulid": "^2.3.0",
-    "postgres": "^3.4.9"
+    "postgres": "^3.4.9",
+    "@amc/audit": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/testing": "^12.0.1",

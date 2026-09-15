@@ -1,3 +1,4 @@
+import type { EventCollector } from '@amc/kernel';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { SessionRepository } from '../application/ports.js';
@@ -7,7 +8,10 @@ import { sessions } from './schema.js';
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
 export class DrizzleSessionRepository implements SessionRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly collector?: EventCollector,
+  ) {}
 
   async findById(id: SessionId): Promise<{ session: Session; tokenHash: string } | null> {
     const [row] = await this.db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
@@ -31,6 +35,7 @@ export class DrizzleSessionRepository implements SessionRepository {
 
   async create(session: Session, tokenHash: string): Promise<void> {
     const state = session.snapshot();
+    this.collector?.collect(session.pullEvents());
     await this.db.insert(sessions).values({
       id: state.id,
       userId: state.userId,
@@ -48,6 +53,7 @@ export class DrizzleSessionRepository implements SessionRepository {
 
   async save(session: Session): Promise<void> {
     const state = session.snapshot();
+    this.collector?.collect(session.pullEvents());
     await this.db
       .update(sessions)
       .set({

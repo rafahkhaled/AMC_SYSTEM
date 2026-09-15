@@ -1,3 +1,4 @@
+import type { EventCollector } from '@amc/kernel';
 import { eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { UserRepository } from '../application/ports.js';
@@ -12,7 +13,11 @@ type Db = PostgresJsDatabase<Record<string, unknown>>;
  * touch.
  */
 export class DrizzleUserRepository implements UserRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    /** Where recorded events go on save. Absent outside a unit of work. */
+    private readonly collector?: EventCollector,
+  ) {}
 
   async findById(id: UserId): Promise<User | null> {
     const [row] = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -26,6 +31,7 @@ export class DrizzleUserRepository implements UserRepository {
 
   async save(user: User): Promise<void> {
     const state = user.snapshot();
+    this.collector?.collect(user.pullEvents());
     await this.db
       .insert(users)
       .values({
