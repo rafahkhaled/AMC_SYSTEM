@@ -32,6 +32,9 @@
       "path": "./packages/modules/identity"
     },
     {
+      "path": "./packages/modules/services"
+    },
+    {
       "path": "./apps/api"
     },
     {
