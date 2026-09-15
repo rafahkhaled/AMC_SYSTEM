@@ -27,7 +27,14 @@ export default tseslint.config(
       // NodeNext makes source files import './money.js'. Without this resolver
       // the boundary rules cannot see that it means './money.ts'.
       'import/resolver': {
-        typescript: { alwaysTryTypes: true, project: ['packages/*/tsconfig.json'] },
+        typescript: {
+          alwaysTryTypes: true,
+          project: [
+            'packages/*/tsconfig.json',
+            'packages/modules/*/tsconfig.json',
+            'apps/*/tsconfig.json',
+          ],
+        },
         node: { extensions: ['.ts', '.tsx', '.js'] },
       },
       'boundaries/include': ['packages/**/*.ts', 'apps/**/*.ts'],
@@ -35,6 +42,22 @@ export default tseslint.config(
         { type: 'kernel', pattern: 'packages/kernel/**' },
         { type: 'contracts', pattern: 'packages/contracts/**' },
         { type: 'database', pattern: 'packages/database/**' },
+        // Built entry points first: @amc/identity/http resolves to
+        // packages/modules/identity/dist/http/index.d.ts, and that file must
+        // carry the same element type as the source it was built from.
+        { type: 'domain', pattern: 'packages/modules/*/dist/domain/**', capture: ['module'] },
+        {
+          type: 'application',
+          pattern: 'packages/modules/*/dist/application/**',
+          capture: ['module'],
+        },
+        {
+          type: 'infrastructure',
+          pattern: 'packages/modules/*/dist/infrastructure/**',
+          capture: ['module'],
+        },
+        { type: 'http', pattern: 'packages/modules/*/dist/http/**', capture: ['module'] },
+
         { type: 'domain', pattern: 'packages/modules/*/domain/**', capture: ['module'] },
         { type: 'application', pattern: 'packages/modules/*/application/**', capture: ['module'] },
         {
@@ -104,6 +127,7 @@ export default tseslint.config(
               allow: [
                 'kernel',
                 'contracts',
+                'database',
                 'domain',
                 'application',
                 'infrastructure',

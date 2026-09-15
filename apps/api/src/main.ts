@@ -34,11 +34,6 @@ async function bootstrap(): Promise<void> {
   // defines the shape on both sides. The pipe arrives with those contracts.
   app.enableShutdownHooks();
 
-  // Registered after creation so the filter can be constructed with the logger
-  // rather than reaching for a global one.
-  const { DomainErrorFilter } = await import('./http/domain-error.filter.js');
-  app.useGlobalFilters(new DomainErrorFilter(logger));
-
   await app.listen(environment.PORT);
   logger.info({ port: environment.PORT }, 'AMC API listening');
 }

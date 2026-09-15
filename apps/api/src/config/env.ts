@@ -16,6 +16,10 @@ export const environmentSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   LOG_PRETTY: booleanish.default('false'),
 
+  // Database. Required: a server that starts without one only fails later,
+  // in front of a user.
+  DATABASE_URL: z.string().url().default('postgres://amc@127.0.0.1:5433/amc'),
+
   // Sessions. Both limits exist on purpose: idle covers the unattended laptop,
   // absolute covers the session that is kept alive by activity alone (NFR-04).
   SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(30),

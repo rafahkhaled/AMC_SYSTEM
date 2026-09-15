@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps dist/main.js",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "create-user": "node dist/cli/create-user.js"
   },
   "dependencies": {
     "@amc/kernel": "workspace:*",
@@ -19,7 +20,12 @@
     "pino": "^9.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@amc/identity": "workspace:*",
+    "@amc/database": "workspace:*",
+    "@amc/contracts": "workspace:*",
+    "ulid": "^2.3.0",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@nestjs/testing": "^12.0.1",

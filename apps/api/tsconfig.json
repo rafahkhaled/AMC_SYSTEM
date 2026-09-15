@@ -7,12 +7,17 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     // Nest reads constructor parameter types at runtime to resolve dependencies.
-    // verbatimModuleSyntax would keep type-only imports erased in a way that
-    // leaves those metadata entries undefined, so it is off in this package.
+    // verbatimModuleSyntax would erase type-only imports in a way that leaves
+    // those metadata entries undefined, so it is off in this package.
     "verbatimModuleSyntax": false,
     "strictPropertyInitialization": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"],
-  "references": [{ "path": "../../packages/kernel" }]
+  "references": [
+    { "path": "../../packages/kernel" },
+    { "path": "../../packages/contracts" },
+    { "path": "../../packages/database" },
+    { "path": "../../packages/modules/identity" }
+  ]
 }

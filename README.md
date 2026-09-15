@@ -137,6 +137,19 @@ pnpm db:seed        # load reference data
 pnpm db:generate    # generate a migration from schema changes
 ```
 
+## Creating the first user
+
+Nothing can be done in the application until a user exists, and the only screen
+that creates users sits behind the sign-in that needs one. So the first one is
+made from the command line:
+
+```bash
+AMC_PASSWORD='a long passphrase' pnpm create-user wael@activemanagement.ae "Wael Ajam" manager
+```
+
+The password comes from the environment rather than an argument, because an
+argument is visible in the process list and is kept in shell history.
+
 ## Migrations
 
 Each file in `packages/database/migrations` runs once, in its own transaction,

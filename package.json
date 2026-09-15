@@ -19,7 +19,8 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check",
     "db:migrate": "pnpm --filter @amc/database db:migrate",
     "db:seed": "pnpm --filter @amc/database db:seed",
-    "db:generate": "pnpm --filter @amc/database db:generate"
+    "db:generate": "pnpm --filter @amc/database db:generate",
+    "create-user": "pnpm --filter @amc/api create-user"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

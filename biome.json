@@ -26,7 +26,8 @@
       },
       "style": {
         "useConst": "error",
-        "noNonNullAssertion": "error"
+        "noNonNullAssertion": "error",
+        "useImportType": "off"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn"

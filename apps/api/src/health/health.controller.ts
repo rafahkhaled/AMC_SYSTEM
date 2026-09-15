@@ -1,3 +1,4 @@
+import { Public } from '@amc/identity/http';
 import { Controller, Get, HttpCode, HttpStatus, Inject } from '@nestjs/common';
 import { ENVIRONMENT, type Environment } from '../config/env.js';
 
@@ -16,6 +17,12 @@ export interface ReadinessCheck {
 
 export const READINESS_CHECKS = Symbol('READINESS_CHECKS');
 
+/**
+ * Public, and it has to be: a load balancer cannot sign in, and a health check
+ * that requires a session reports the database as unreachable the moment
+ * authentication breaks.
+ */
+@Public()
 @Controller('health')
 export class HealthController {
   private readonly startedAt = Date.now();

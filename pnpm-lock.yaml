@@ -41,6 +41,15 @@ importers:
 
   apps/api:
     dependencies:
+      '@amc/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@amc/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@amc/identity':
+        specifier: workspace:*
+        version: link:../../packages/modules/identity
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
@@ -56,12 +65,18 @@ importers:
       pino:
         specifier: ^9.5.0
         version: 9.14.0
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -78,6 +93,19 @@ importers:
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.2)
+
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -118,12 +146,21 @@ importers:
 
   packages/modules/identity:
     dependencies:
+      '@amc/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
       '@amc/database':
         specifier: workspace:*
         version: link:../../database
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../kernel
+      '@nestjs/common':
+        specifier: ^12.0.1
+        version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^12.0.1
+        version: 12.0.1(@nestjs/common@12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.0.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@node-rs/argon2':
         specifier: ^2.2.1
         version: 2.2.1
@@ -133,10 +170,25 @@ importers:
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
       ulid:
         specifier: ^3.0.2
         version: 3.0.2
     devDependencies:
+      '@nestjs/testing':
+        specifier: ^12.0.1
+        version: 12.0.1(@nestjs/common@12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.0.1)(@nestjs/platform-express@12.0.1)
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -2679,6 +2731,10 @@ packages:
     resolution: {integrity: sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==}
     engines: {node: '>=18'}
 
+  ulid@2.4.0:
+    resolution: {integrity: sha512-fIRiVTJNcSRmXKPZtGzFQv9WRrZ3M9eoptl/teFJvjOzmpU+/K/JH6HZ8deBfb5vMEpicJcLn7JmvdknlMq7Zg==}
+    hasBin: true
+
   ulid@3.0.2:
     resolution: {integrity: sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w==}
     hasBin: true
@@ -4997,6 +5053,8 @@ snapshots:
       '@lukeed/csprng': 1.1.0
 
   uint8array-extras@1.5.0: {}
+
+  ulid@2.4.0: {}
 
   ulid@3.0.2: {}
 
