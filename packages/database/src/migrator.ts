@@ -23,18 +23,31 @@ export async function runMigrations(
   directory: string,
   log: (message: string) => void = () => {},
 ): Promise<string[]> {
-  await sql`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      filename    text        PRIMARY KEY,
-      checksum    text        NOT NULL,
-      applied_at  timestamptz NOT NULL DEFAULT now()
-    )
-  `;
-
+  /*
+   * The lock comes first, before anything is created.
+   *
+   * CREATE TABLE IF NOT EXISTS is not safe to run concurrently: two sessions
+   * both find the table missing and both try to create it, and one dies on a
+   * duplicate key in the system catalogue rather than on anything this code
+   * can see. That is a real failure this runner hit the moment several test
+   * packages migrated the same database at once.
+   */
   await sql`SELECT pg_advisory_lock(${ADVISORY_LOCK_KEY})`;
+
   const applied: string[] = [];
 
   try {
+    // Inside the try, so a failure here still releases the lock. A leaked
+    // advisory lock outlives the process holding it only until it exits, but
+    // it would block every other migration in the meantime.
+    await sql`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        filename    text        PRIMARY KEY,
+        checksum    text        NOT NULL,
+        applied_at  timestamptz NOT NULL DEFAULT now()
+      )
+    `;
+
     const files = (await readdir(directory)).filter((name) => name.endsWith('.sql')).sort();
     const done = await sql<{ filename: string; checksum: string }[]>`
       SELECT filename, checksum FROM schema_migrations

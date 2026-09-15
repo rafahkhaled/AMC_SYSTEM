@@ -86,3 +86,42 @@ describe('migration runner', () => {
     await rm(brokenDirectory, { recursive: true, force: true });
   });
 });
+
+describe('migrating concurrently', () => {
+  /**
+   * Several packages migrate the same test database at once, which is how the
+   * pipeline runs them. CREATE TABLE IF NOT EXISTS is not safe under that:
+   * two sessions both find the table missing, both try to create it, and one
+   * dies on a duplicate key in the system catalogue rather than on anything
+   * this code can see.
+   *
+   * This is the test that would have caught it before CI did.
+   */
+  it('lets several processes migrate the same database at once', async () => {
+    const name = `amc_concurrent_${Math.random().toString(36).slice(2, 10)}`;
+    const base = testDatabaseUrl();
+    const admin = postgres(base.replace(/\/[^/]*$/, '/postgres'), { max: 1, onnotice: () => {} });
+
+    await admin.unsafe(`CREATE DATABASE ${name}`);
+    const connections = Array.from({ length: 4 }, () =>
+      postgres(base.replace(/\/[^/]*$/, `/${name}`), { max: 1, onnotice: () => {} }),
+    );
+
+    try {
+      const runs = await Promise.all(
+        connections.map((connection) => runMigrations(connection, MIGRATIONS_DIRECTORY)),
+      );
+
+      // Exactly one of them did the work; the others found it already done.
+      const didWork = runs.filter((applied) => applied.length > 0);
+      expect(didWork).toHaveLength(1);
+
+      const records = await appliedMigrations(connections[0] as postgres.Sql);
+      expect(records.length).toBe(didWork[0]?.length);
+    } finally {
+      await Promise.all(connections.map((connection) => connection.end({ timeout: 5 })));
+      await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      await admin.end({ timeout: 5 });
+    }
+  });
+});
