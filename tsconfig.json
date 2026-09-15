@@ -35,6 +35,9 @@
       "path": "./packages/modules/services"
     },
     {
+      "path": "./packages/modules/time-tracking"
+    },
+    {
       "path": "./apps/api"
     },
     {
