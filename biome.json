@@ -43,5 +43,10 @@
     "parser": {
       "unsafeParameterDecoratorsEnabled": true
     }
+  },
+  "json": {
+    "parser": {
+      "allowComments": true
+    }
   }
 }

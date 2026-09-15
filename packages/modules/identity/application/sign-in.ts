@@ -86,6 +86,11 @@ export class SignIn {
     user.recordSuccessfulSignIn(now);
     await this.users.save(user);
 
+    // When a second factor is due, the session is created but not yet usable
+    // for anything except presenting that factor. Withholding the session
+    // entirely would mean carrying the proven password around until the code
+    // arrives, which is worse.
+    const twoFactorRequired = user.twoFactorActive;
     const session = Session.start({
       id: this.ids.next(),
       userId: user.id,
@@ -93,6 +98,7 @@ export class SignIn {
       limits: this.limits,
       ipAddress: command.ipAddress ?? null,
       userAgent: command.userAgent ?? null,
+      twoFactorPassed: !twoFactorRequired,
     });
     const { token, tokenHash } = this.tokens.issue();
     await this.sessions.create(session, tokenHash);
@@ -107,7 +113,7 @@ export class SignIn {
       },
       displayName: user.displayName,
       expiresAt: session.idleExpiresAt,
-      twoFactorRequired: user.requiresTwoFactor && user.totpSecret !== null,
+      twoFactorRequired,
     });
   }
 }

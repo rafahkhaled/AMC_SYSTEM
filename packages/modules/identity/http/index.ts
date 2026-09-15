@@ -5,4 +5,5 @@ export * from './permissions.decorator.js';
 export * from './permissions.guard.js';
 export * from './session-cookie.js';
 export * from './session.guard.js';
+export * from './two-factor.controller.js';
 export * from './sign-in-throttle.js';

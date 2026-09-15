@@ -34,6 +34,21 @@ export interface PasswordHasher {
  * holds only a hash of the secret, so a stolen database backup does not hand
  * over live sessions.
  */
+/**
+ * Time-based codes, and the sealing of the secret they come from. Both are
+ * ports so the algorithm and the key custody can be replaced independently:
+ * P0-14 moves sealing to a KMS-backed vault without this module noticing.
+ */
+export interface TwoFactorService {
+  /** A fresh secret, base32, ready to be shown as a QR code. */
+  newSecret(): string;
+  /** The enrolment URI an authenticator app reads. */
+  enrolmentUri(secretBase32: string, account: string): string;
+  verify(secretBase32: string, code: string, at: Date): boolean;
+  seal(secretBase32: string): string;
+  open(sealed: string): string;
+}
+
 export interface SessionTokenService {
   issue(): { token: string; tokenHash: string };
   hash(token: string): string;

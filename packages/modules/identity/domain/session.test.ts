@@ -4,8 +4,8 @@ import { Session } from './session.js';
 const at = (iso: string) => new Date(iso);
 const limits = { idleMinutes: 30, absoluteHours: 12 };
 
-function start(now = at('2026-09-15T06:00:00Z')): Session {
-  return Session.start({ id: 'session-1', userId: 'user-1', now, limits });
+function start(now = at('2026-09-15T06:00:00Z'), twoFactorPassed = true): Session {
+  return Session.start({ id: 'session-1', userId: 'user-1', now, limits, twoFactorPassed });
 }
 
 describe('Session', () => {
@@ -50,6 +50,25 @@ describe('Session', () => {
     session.revoke(at('2026-09-15T06:05:00Z'));
     expect(session.isValidAt(at('2026-09-15T06:06:00Z'))).toBe(false);
     expect(session.touch(at('2026-09-15T06:06:00Z')).ok).toBe(false);
+  });
+
+  it('starts half authenticated when a second factor is due', () => {
+    const session = start(at('2026-09-15T06:00:00Z'), false);
+    expect(session.twoFactorPassed).toBe(false);
+    // Still a valid session: it exists to carry the verification step.
+    expect(session.isValidAt(at('2026-09-15T06:01:00Z'))).toBe(true);
+  });
+
+  it('records the second factor once, and not again', () => {
+    const session = start(at('2026-09-15T06:00:00Z'), false);
+    session.passTwoFactor(at('2026-09-15T06:00:30Z'));
+    session.passTwoFactor(at('2026-09-15T06:00:40Z'));
+
+    expect(session.twoFactorPassed).toBe(true);
+    const passes = session
+      .pullEvents()
+      .filter((event) => event.name === 'identity.session.two_factor_passed');
+    expect(passes).toHaveLength(1);
   });
 
   it('ignores a second revoke rather than recording it twice', () => {

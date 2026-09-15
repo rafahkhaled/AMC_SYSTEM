@@ -11,23 +11,31 @@ import type {
   PasswordHasher,
   SessionRepository,
   SessionTokenService,
+  TwoFactorService,
   UserRepository,
 } from '../application/ports.js';
 import { RegisterUser } from '../application/register-user.js';
 import { SignIn } from '../application/sign-in.js';
 import { SignOut } from '../application/sign-out.js';
+import {
+  ConfirmTwoFactorEnrolment,
+  StartTwoFactorEnrolment,
+  VerifyTwoFactor,
+} from '../application/two-factor.js';
 import type { SessionLimits } from '../domain/index.js';
 import { AuthController } from './auth.controller.js';
 import { PermissionsGuard } from './permissions.guard.js';
 import { COOKIE_SETTINGS, type CookieSettings } from './session-cookie.js';
 import { SessionGuard } from './session.guard.js';
 import { SignInThrottle } from './sign-in-throttle.js';
+import { TwoFactorController } from './two-factor.controller.js';
 
 export interface IdentityModuleOptions {
   readonly users: UserRepository;
   readonly sessions: SessionRepository;
   readonly hasher: PasswordHasher;
   readonly tokens: SessionTokenService;
+  readonly twoFactor: TwoFactorService;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly limits: SessionLimits;
@@ -69,7 +77,7 @@ export class IdentityModule {
 
     return {
       module: IdentityModule,
-      controllers: [AuthController],
+      controllers: [AuthController, TwoFactorController],
       providers: [
         SignInThrottle,
         {
@@ -93,10 +101,30 @@ export class IdentityModule {
           provide: RegisterUser,
           ...from((o) => new RegisterUser(o.users, o.hasher, o.clock, o.ids)),
         },
+        {
+          provide: StartTwoFactorEnrolment,
+          ...from((o) => new StartTwoFactorEnrolment(o.users, o.twoFactor, o.clock)),
+        },
+        {
+          provide: ConfirmTwoFactorEnrolment,
+          ...from((o) => new ConfirmTwoFactorEnrolment(o.users, o.sessions, o.twoFactor, o.clock)),
+        },
+        {
+          provide: VerifyTwoFactor,
+          ...from((o) => new VerifyTwoFactor(o.users, o.sessions, o.twoFactor, o.clock)),
+        },
         { provide: APP_GUARD, useClass: SessionGuard },
         { provide: APP_GUARD, useClass: PermissionsGuard },
       ],
-      exports: [SignIn, SignOut, AuthenticateSession, RegisterUser],
+      exports: [
+        SignIn,
+        SignOut,
+        AuthenticateSession,
+        RegisterUser,
+        StartTwoFactorEnrolment,
+        ConfirmTwoFactorEnrolment,
+        VerifyTwoFactor,
+      ],
     };
   }
 }

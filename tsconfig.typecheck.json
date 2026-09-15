@@ -1,0 +1,21 @@
+{
+  // Test files are excluded from the build, so nothing was ever checking their
+  // types. A fixture that stopped matching its aggregate would compile happily
+  // and pass, which is exactly the kind of gap tests are supposed to close.
+  // This configuration checks everything, emits nothing, and runs in CI.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "verbatimModuleSyntax": false,
+    "strictPropertyInitialization": false,
+    "types": ["node"]
+  },
+  "include": ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts", "packages/modules/*/**/*.ts"],
+  "exclude": ["**/dist/**", "**/node_modules/**"]
+}

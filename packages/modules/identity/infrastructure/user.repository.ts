@@ -35,6 +35,7 @@ export class DrizzleUserRepository implements UserRepository {
         passwordHash: state.passwordHash,
         status: state.status,
         totpSecret: state.totpSecret,
+        totpConfirmedAt: state.totpConfirmedAt,
         failedAttempts: state.failedAttempts,
         lockedUntil: state.lockedUntil,
       })
@@ -46,6 +47,7 @@ export class DrizzleUserRepository implements UserRepository {
           passwordHash: state.passwordHash,
           status: state.status,
           totpSecret: state.totpSecret,
+          totpConfirmedAt: state.totpConfirmedAt,
           failedAttempts: state.failedAttempts,
           lockedUntil: state.lockedUntil,
         },
@@ -82,6 +84,7 @@ export class DrizzleUserRepository implements UserRepository {
       roles,
       status: row.status as UserStatus,
       totpSecret: row.totpSecret,
+      totpConfirmedAt: row.totpConfirmedAt,
       failedAttempts: row.failedAttempts,
       lockedUntil: row.lockedUntil,
     });

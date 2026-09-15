@@ -24,6 +24,7 @@ export class DrizzleSessionRepository implements SessionRepository {
         ipAddress: row.ipAddress,
         userAgent: row.userAgent,
         idleMinutes: row.idleMinutes,
+        twoFactorPassed: row.twoFactorPassed,
       }),
     };
   }
@@ -41,6 +42,7 @@ export class DrizzleSessionRepository implements SessionRepository {
       idleMinutes: state.idleMinutes,
       ipAddress: state.ipAddress,
       userAgent: state.userAgent,
+      twoFactorPassed: state.twoFactorPassed,
     });
   }
 
@@ -48,7 +50,11 @@ export class DrizzleSessionRepository implements SessionRepository {
     const state = session.snapshot();
     await this.db
       .update(sessions)
-      .set({ lastSeenAt: state.lastSeenAt, revokedAt: state.revokedAt })
+      .set({
+        lastSeenAt: state.lastSeenAt,
+        revokedAt: state.revokedAt,
+        twoFactorPassed: state.twoFactorPassed,
+      })
       .where(eq(sessions.id, state.id));
   }
 

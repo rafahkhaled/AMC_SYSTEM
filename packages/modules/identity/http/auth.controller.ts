@@ -18,7 +18,7 @@ import { SignIn } from '../application/sign-in.js';
 import { SignOut } from '../application/sign-out.js';
 import { permissionsFor } from '../domain/index.js';
 import { CurrentCaller } from './caller.js';
-import { Public } from './permissions.decorator.js';
+import { AllowPendingTwoFactor, Public } from './permissions.decorator.js';
 import {
   COOKIE_SETTINGS,
   type CookieSettings,
@@ -94,6 +94,9 @@ export class AuthController {
     };
   }
 
+  // Signing out must work even before the code has been presented, otherwise
+  // an abandoned half-session can only be left to expire.
+  @AllowPendingTwoFactor()
   @Post('sign-out')
   @HttpCode(HttpStatus.NO_CONTENT)
   async signOutHandler(

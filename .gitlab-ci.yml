@@ -14,6 +14,9 @@ variables:
   POSTGRES_USER: amc
   POSTGRES_PASSWORD: amc
   POSTGRES_HOST_AUTH_METHOD: trust
+  # Throwaway key for a throwaway container. Not a secret, and never used
+  # anywhere a real one belongs: production refuses to start without its own.
+  SECRET_ENCRYPTION_KEY: "etlk3ooNSg49oQ/Tb5DVDCVCBgOOIk5+HQV06BtVtW8="
   TEST_DATABASE_URL: postgres://amc@postgres:5432/amc_test
 
 cache:

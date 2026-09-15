@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { AuthenticateSession } from '../application/authenticate-session.js';
 import { CALLER_KEY, type RequestWithCaller } from './caller.js';
-import { PUBLIC_KEY } from './permissions.decorator.js';
+import { PENDING_TWO_FACTOR_KEY, PUBLIC_KEY } from './permissions.decorator.js';
 
 /**
  * Closed by default. Every route requires a valid session unless it carries
@@ -37,6 +37,19 @@ export class SessionGuard implements CanActivate {
 
     const caller = await this.authenticate.execute(cookie);
     if (!caller.ok) throw new UnauthorizedException(caller.error.message);
+
+    // A session that has shown a password but not the code may do exactly two
+    // things: present the code, or sign out. Letting it further would make the
+    // second factor decorative.
+    if (!caller.value.twoFactorPassed) {
+      const pendingAllowed = this.reflector.getAllAndOverride<boolean>(PENDING_TWO_FACTOR_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!pendingAllowed) {
+        throw new UnauthorizedException('Enter the code from your authenticator app');
+      }
+    }
 
     request[CALLER_KEY] = caller.value;
     return true;

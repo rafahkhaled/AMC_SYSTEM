@@ -34,5 +34,18 @@ export const signInResponseSchema = z.object({
 });
 export type SignInResponse = z.infer<typeof signInResponseSchema>;
 
+export const twoFactorCodeSchema = z.object({
+  // Spaces allowed: authenticator apps display "123 456" and people copy it.
+  code: z.string().trim().min(6).max(10),
+});
+export type TwoFactorCodeRequest = z.infer<typeof twoFactorCodeSchema>;
+
+export const twoFactorEnrolmentSchema = z.object({
+  /** Shown as a QR code, and in text for anyone typing it by hand. */
+  secret: z.string(),
+  uri: z.string(),
+});
+export type TwoFactorEnrolment = z.infer<typeof twoFactorEnrolmentSchema>;
+
 /** The cookie the browser never reads, because it cannot. */
 export const SESSION_COOKIE = 'amc_session';

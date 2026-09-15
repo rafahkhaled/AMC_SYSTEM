@@ -25,12 +25,38 @@ export const environmentSchema = z.object({
   SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(30),
   SESSION_ABSOLUTE_HOURS: z.coerce.number().int().positive().default(12),
 
+  /**
+   * Seals two-factor secrets at rest, and in P0-14 the EmaraTax vault. 32
+   * bytes, base64: `openssl rand -base64 32`. Required in production, where
+   * booting without one would silently store secrets under a key everybody
+   * knows. Outside production a fixed development key is used instead, and
+   * the difference is deliberate: it must be impossible to ship by accident.
+   */
+  SECRET_ENCRYPTION_KEY: z.string().optional(),
+
   // Business rules. Stored times are UTC; rules are expressed in Dubai time.
   BUSINESS_TIME_ZONE: z.string().default('Asia/Dubai'),
   DEFAULT_CURRENCY: z.enum(['AED', 'USD', 'EUR', 'GBP', 'SAR']).default('AED'),
 });
 
+const DEVELOPMENT_KEY = Buffer.alloc(32, 'amc-development-key').toString('base64');
+
+const validatedSchema = environmentSchema.superRefine((environment, context) => {
+  if (environment.NODE_ENV === 'production' && !environment.SECRET_ENCRYPTION_KEY) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['SECRET_ENCRYPTION_KEY'],
+      message: 'is required in production. Generate one with: openssl rand -base64 32',
+    });
+  }
+});
+
 export type Environment = z.infer<typeof environmentSchema>;
+
+/** The key actually used, with the development fallback made explicit. */
+export function encryptionKey(environment: Environment): string {
+  return environment.SECRET_ENCRYPTION_KEY ?? DEVELOPMENT_KEY;
+}
 
 export class ConfigurationError extends Error {
   constructor(readonly issues: readonly string[]) {
@@ -40,7 +66,7 @@ export class ConfigurationError extends Error {
 }
 
 export function readEnvironment(source: NodeJS.ProcessEnv = process.env): Environment {
-  const parsed = environmentSchema.safeParse(source);
+  const parsed = validatedSchema.safeParse(source);
   if (parsed.success) return parsed.data;
 
   const issues = parsed.error.issues.map(

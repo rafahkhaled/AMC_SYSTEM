@@ -26,6 +26,12 @@ export interface SessionState {
   readonly ipAddress: string | null;
   readonly userAgent: string | null;
   readonly idleMinutes: number;
+  /**
+   * A session that has shown the password but not yet the second factor is
+   * real, and deliberately so: it exists only to carry the verification step.
+   * Until this is true it may reach nothing else.
+   */
+  readonly twoFactorPassed: boolean;
 }
 
 export class Session extends AggregateRoot<SessionId> {
@@ -44,6 +50,7 @@ export class Session extends AggregateRoot<SessionId> {
     limits: SessionLimits;
     ipAddress?: string | null;
     userAgent?: string | null;
+    twoFactorPassed: boolean;
   }): Session {
     const session = new Session({
       id: params.id,
@@ -55,6 +62,7 @@ export class Session extends AggregateRoot<SessionId> {
       ipAddress: params.ipAddress ?? null,
       userAgent: params.userAgent ?? null,
       idleMinutes: params.limits.idleMinutes,
+      twoFactorPassed: params.twoFactorPassed,
     });
     session.record(
       domainEvent('identity.session.started', params.id, params.now, {
@@ -79,6 +87,22 @@ export class Session extends AggregateRoot<SessionId> {
 
   get revokedAt(): Date | null {
     return this.state.revokedAt;
+  }
+
+  get twoFactorPassed(): boolean {
+    return this.state.twoFactorPassed;
+  }
+
+  /** Records that the second factor was presented for this session. */
+  passTwoFactor(now: Date): void {
+    if (this.state.twoFactorPassed) return;
+    this.state = { ...this.state, twoFactorPassed: true, lastSeenAt: now };
+    this.record(
+      domainEvent('identity.session.two_factor_passed', this.id, now, {
+        sessionId: this.id,
+        userId: this.state.userId,
+      }),
+    );
   }
 
   /** When this session dies from inactivity, given when it was last used. */

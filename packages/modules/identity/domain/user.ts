@@ -26,7 +26,10 @@ export interface UserState {
   readonly passwordHash: string;
   readonly roles: readonly Role[];
   readonly status: UserStatus;
+  /** Sealed, never the raw secret. See SecretBox in the infrastructure layer. */
   readonly totpSecret: string | null;
+  /** Null until the person has proved they can produce a code from it. */
+  readonly totpConfirmedAt: Date | null;
   readonly failedAttempts: number;
   readonly lockedUntil: Date | null;
 }
@@ -59,6 +62,7 @@ export class User extends AggregateRoot<UserId> {
       roles: [...params.roles],
       status: 'active',
       totpSecret: null,
+      totpConfirmedAt: null,
       failedAttempts: 0,
       lockedUntil: null,
     });
@@ -94,6 +98,15 @@ export class User extends AggregateRoot<UserId> {
 
   get totpSecret(): string | null {
     return this.state.totpSecret;
+  }
+
+  get totpConfirmedAt(): Date | null {
+    return this.state.totpConfirmedAt;
+  }
+
+  /** Two-factor counts only once a code has actually been produced from it. */
+  get twoFactorActive(): boolean {
+    return this.state.totpSecret !== null && this.state.totpConfirmedAt !== null;
   }
 
   get failedAttempts(): number {
@@ -168,9 +181,26 @@ export class User extends AggregateRoot<UserId> {
     this.record(domainEvent('identity.password.changed', this.id, now, { userId: this.id }));
   }
 
-  enableTwoFactor(secret: string, now: Date): void {
-    this.state = { ...this.state, totpSecret: secret };
+  /**
+   * Stores a sealed secret without activating it. An enrolment that is started
+   * and abandoned must never lock someone out, so the secret does nothing
+   * until a code proves the authenticator app really holds it.
+   */
+  beginTwoFactorEnrolment(sealedSecret: string, now: Date): void {
+    this.state = { ...this.state, totpSecret: sealedSecret, totpConfirmedAt: null };
+    this.record(
+      domainEvent('identity.twofactor.enrolment_started', this.id, now, { userId: this.id }),
+    );
+  }
+
+  confirmTwoFactor(now: Date): void {
+    this.state = { ...this.state, totpConfirmedAt: now };
     this.record(domainEvent('identity.twofactor.enabled', this.id, now, { userId: this.id }));
+  }
+
+  disableTwoFactor(now: Date): void {
+    this.state = { ...this.state, totpSecret: null, totpConfirmedAt: null };
+    this.record(domainEvent('identity.twofactor.disabled', this.id, now, { userId: this.id }));
   }
 
   suspend(now: Date): void {

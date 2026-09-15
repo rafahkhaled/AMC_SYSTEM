@@ -5,13 +5,15 @@ import {
   CryptoSessionTokens,
   DrizzleSessionRepository,
   DrizzleUserRepository,
+  SecretBox,
+  TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { SystemClock } from '@amc/kernel';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ulid } from 'ulid';
 import { ConfigModule } from './config/config.module.js';
-import { ENVIRONMENT, type Environment } from './config/env.js';
+import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { LoggerModule } from './observability/logger.module.js';
@@ -35,6 +37,7 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
         sessions: new DrizzleSessionRepository(db),
         hasher: new Argon2PasswordHasher(),
         tokens: new CryptoSessionTokens(),
+        twoFactor: new TotpTwoFactorService(new SecretBox(encryptionKey(environment)), 'AMC'),
         clock: new SystemClock(),
         ids: { next: () => ulid() },
         limits: {

@@ -4,6 +4,7 @@ import type {
   PasswordHasher,
   SessionRepository,
   SessionTokenService,
+  TwoFactorService,
   UserRepository,
 } from './ports.js';
 
@@ -99,6 +100,36 @@ export class FakeTokenService implements SessionTokenService {
 
   matches(tokenHash: string, token: string): boolean {
     return tokenHash === this.hash(token);
+  }
+}
+
+/**
+ * A predictable stand-in for the time-based algorithm: the code is always the
+ * secret's own digits. The real implementation is proved against the RFC's
+ * published vectors elsewhere; here the question is the surrounding flow.
+ */
+export class FakeTwoFactorService implements TwoFactorService {
+  constructor(readonly secret = '123456') {}
+
+  newSecret(): string {
+    return this.secret;
+  }
+
+  enrolmentUri(secretBase32: string, account: string): string {
+    return `otpauth://totp/AMC:${account}?secret=${secretBase32}`;
+  }
+
+  verify(secretBase32: string, code: string): boolean {
+    return code.replace(/\s/g, '') === secretBase32;
+  }
+
+  seal(secretBase32: string): string {
+    return `sealed:${secretBase32}`;
+  }
+
+  open(sealed: string): string {
+    if (!sealed.startsWith('sealed:')) throw new Error('not sealed by this service');
+    return sealed.slice('sealed:'.length);
   }
 }
 

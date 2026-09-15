@@ -8,6 +8,10 @@ export interface AuthenticatedCaller {
   readonly roles: readonly Role[];
   readonly permissions: ReadonlySet<Permission>;
   readonly displayName: string;
+  /** False while a password has been shown but the second factor has not. */
+  readonly twoFactorPassed: boolean;
+  /** True when this person is expected to present one at all. */
+  readonly twoFactorRequired: boolean;
 }
 
 const REFUSED = 'Please sign in again';
@@ -57,6 +61,8 @@ export class AuthenticateSession {
       roles: [...user.roles],
       permissions: user.permissions,
       displayName: user.displayName,
+      twoFactorPassed: found.session.twoFactorPassed,
+      twoFactorRequired: user.twoFactorActive,
     });
   }
 }

@@ -26,6 +26,7 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     status: text('status').notNull().default('active'),
     totpSecret: text('totp_secret'),
+    totpConfirmedAt: timestamp('totp_confirmed_at', { withTimezone: true }),
     failedAttempts: integer('failed_attempts').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
