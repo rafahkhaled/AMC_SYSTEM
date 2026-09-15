@@ -100,14 +100,24 @@ That gives you Postgres on 5433, Redis, and MinIO standing in for S3.
 
 ### Running without Docker
 
-The project needs nothing more than a server on port 5433 with an `amc` role
-and two databases, `amc` and `amc_test`. Any Postgres 17 will do. With the
-binaries from [Postgres.app](https://postgresapp.com) unpacked under
-`~/.local/opt/postgres`:
+Once the cluster exists, use the helper:
+
+```bash
+./scripts/pg.sh start     # or stop, status, log
+```
+
+It checks whether the server is already up first. Running `pg_ctl start` twice
+prints an alarming "could not start server", which is only Postgres refusing to
+take over a data directory another process owns. The helper says so plainly
+instead.
+
+To create the cluster the first time, the project needs nothing more than a
+server on port 5433 with an `amc` role and two databases, `amc` and `amc_test`.
+Any Postgres 17 will do. With the binaries from
+[Postgres.app](https://postgresapp.com) unpacked under `~/.local/opt/postgres`:
 
 ```bash
 initdb -D ~/.local/var/amc-pg -U amc --auth=trust
-pg_ctl -D ~/.local/var/amc-pg -o "-p 5433" -l ~/.local/var/amc-pg.log start
 createdb -h 127.0.0.1 -p 5433 -U amc amc
 createdb -h 127.0.0.1 -p 5433 -U amc amc_test
 ```
