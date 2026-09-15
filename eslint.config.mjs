@@ -42,6 +42,8 @@ export default tseslint.config(
         { type: 'kernel', pattern: 'packages/kernel/**' },
         { type: 'contracts', pattern: 'packages/contracts/**' },
         { type: 'database', pattern: 'packages/database/**' },
+        { type: 'queue', pattern: 'packages/queue/**' },
+        { type: 'http-kit', pattern: 'packages/http-kit/**' },
         // Built entry points first: @amc/identity/http resolves to
         // packages/modules/identity/dist/http/index.d.ts, and that file must
         // carry the same element type as the source it was built from.
@@ -83,6 +85,14 @@ export default tseslint.config(
             // The database package is an adapter concern. It may use the
             // kernel's value objects when mapping rows, and nothing else.
             { from: 'database', allow: ['kernel', 'database'] },
+
+            // The queue is infrastructure over the database, nothing more.
+            { from: 'queue', allow: ['kernel', 'database', 'queue'] },
+
+            // Shared HTTP vocabulary: access decorators and the caller shape.
+            // It depends on nothing of ours, which is what makes it safe for
+            // every module to import without coupling them to each other.
+            { from: 'http-kit', allow: ['http-kit'] },
             { from: 'domain', allow: ['kernel', ['domain', { module: '${from.module}' }]] },
 
             // The application layer orchestrates its own domain through ports.
@@ -108,6 +118,7 @@ export default tseslint.config(
                 ['application', { module: '${from.module}' }],
                 'application',
                 'database',
+                'queue',
               ],
             },
             {
@@ -118,6 +129,7 @@ export default tseslint.config(
                 ['domain', { module: '${from.module}' }],
                 ['application', { module: '${from.module}' }],
                 'application',
+                'http-kit',
               ],
             },
 
@@ -128,6 +140,8 @@ export default tseslint.config(
                 'kernel',
                 'contracts',
                 'database',
+                'queue',
+                'http-kit',
                 'domain',
                 'application',
                 'infrastructure',

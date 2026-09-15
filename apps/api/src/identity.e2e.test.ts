@@ -373,3 +373,90 @@ describe('the audit trail of a real sign-in', () => {
     expect(after[0]?.count).toBe(before[0]?.count);
   });
 });
+
+describe('reading the audit log over HTTP', () => {
+  let app: INestApplication;
+  let sql: postgres.Sql;
+  const manager = `audit-reader-${Date.now()}@activemanagement.ae`;
+  const clerk = `audit-clerk-${Date.now()}@activemanagement.ae`;
+
+  beforeAll(async () => {
+    process.env.DATABASE_URL = DATABASE_URL;
+    process.env.NODE_ENV = 'test';
+    sql = postgres(DATABASE_URL, { max: 2, onnotice: () => {} });
+    await runMigrations(sql, MIGRATIONS_DIRECTORY);
+
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+
+    const register = app.get(RegisterUser);
+    await register.execute({
+      email: manager,
+      displayName: 'Audit Reader',
+      password: PASSWORD,
+      roles: ['manager'],
+    });
+    await register.execute({
+      email: clerk,
+      displayName: 'Audit Clerk',
+      password: PASSWORD,
+      roles: ['data_entry'],
+    });
+  });
+
+  afterAll(async () => {
+    await sql?.unsafe('DELETE FROM users WHERE email IN ($1, $2)', [manager, clerk]);
+    await sql?.end({ timeout: 5 });
+    await app?.close();
+  });
+
+  async function cookieFor(email: string) {
+    const signedIn = await request(app.getHttpServer())
+      .post('/auth/sign-in')
+      .send({ email, password: PASSWORD })
+      .expect(200);
+    return cookiesFrom(signedIn);
+  }
+
+  it('lets the manager read it', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/audit')
+      .query({ limit: 5 })
+      .set('Cookie', await cookieFor(manager))
+      .expect(200);
+
+    expect(Array.isArray(response.body.entries)).toBe(true);
+    expect(response.body.entries.length).toBeGreaterThan(0);
+  });
+
+  it('refuses data entry, who has no business reading it', async () => {
+    await request(app.getHttpServer())
+      .get('/audit')
+      .set('Cookie', await cookieFor(clerk))
+      .expect(403);
+  });
+
+  it('refuses anyone who is not signed in', async () => {
+    await request(app.getHttpServer()).get('/audit').expect(401);
+  });
+
+  it('filters by action and rejects an unreasonable page size', async () => {
+    const cookie = await cookieFor(manager);
+
+    const filtered = await request(app.getHttpServer())
+      .get('/audit')
+      .query({ action: 'identity.session.started', limit: 3 })
+      .set('Cookie', cookie)
+      .expect(200);
+    for (const entry of filtered.body.entries) {
+      expect(entry.action).toBe('identity.session.started');
+    }
+
+    await request(app.getHttpServer())
+      .get('/audit')
+      .query({ limit: 5000 })
+      .set('Cookie', cookie)
+      .expect(400);
+  });
+});

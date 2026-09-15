@@ -1,5 +1,5 @@
 import type { Database } from '@amc/database';
-import { and, desc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import type { AuditQuery, AuditReader, OutboxReader, OutboxRecord } from '../application/ports.js';
 import type { AuditEntry } from '../domain/index.js';
 import { auditLog, outbox } from './schema.js';
@@ -99,9 +99,14 @@ export class DrizzleOutboxReader implements OutboxReader {
 
   async markPublished(ids: readonly string[], at: Date): Promise<void> {
     if (ids.length === 0) return;
-    await this.db.execute(
-      sql`UPDATE outbox SET published_at = ${at} WHERE id = ANY(${sql.raw(`ARRAY['${ids.join("','")}']`)})`,
-    );
+    // The query builder, not raw SQL. The raw template hands a Date straight
+    // to the driver, which does not know it is meant to be a timestamp, and
+    // the interpolated array was an injection waiting for an id it did not
+    // generate itself.
+    await this.db
+      .update(outbox)
+      .set({ publishedAt: at })
+      .where(inArray(outbox.id, [...ids]));
   }
 
   async markFailed(id: string, error: string): Promise<void> {

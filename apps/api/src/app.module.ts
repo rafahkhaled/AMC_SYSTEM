@@ -1,4 +1,5 @@
-import { DrizzleUnitOfWork } from '@amc/audit/infrastructure';
+import { AuditModule } from '@amc/audit/http';
+import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
 import type { Database } from '@amc/database';
 import { IdentityModule } from '@amc/identity/http';
 import {
@@ -31,6 +32,10 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
     LoggerModule,
     DatabaseModule,
     HealthModule,
+    AuditModule.forRootAsync({
+      inject: [DATABASE],
+      useFactory: (db: Database) => new DrizzleAuditReader(db),
+    }),
     IdentityModule.forRootAsync({
       inject: [DATABASE, ENVIRONMENT],
       useFactory: (db: Database, environment: Environment) => ({

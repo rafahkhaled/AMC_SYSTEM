@@ -1,0 +1,29 @@
+{
+  "name": "@amc/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node --enable-source-maps dist/main.js",
+    "dev": "node --watch --enable-source-maps dist/main.js",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@amc/audit": "workspace:*",
+    "@amc/database": "workspace:*",
+    "@amc/kernel": "workspace:*",
+    "@amc/queue": "workspace:*",
+    "pino": "^9.5.0",
+    "ulid": "^2.3.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "postgres": "^3.4.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

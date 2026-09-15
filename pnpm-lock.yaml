@@ -103,6 +103,43 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.2)
 
+  apps/worker:
+    dependencies:
+      '@amc/audit':
+        specifier: workspace:*
+        version: link:../../packages/modules/audit
+      '@amc/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@amc/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
+      '@amc/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      pino:
+        specifier: ^9.5.0
+        version: 9.14.0
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.2
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.2)
+
   packages/contracts:
     dependencies:
       zod:
@@ -138,6 +175,22 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.2)
 
+  packages/http-kit:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^12.0.1
+        version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.2)
+
   packages/kernel:
     devDependencies:
       typescript:
@@ -152,12 +205,18 @@ importers:
       '@amc/database':
         specifier: workspace:*
         version: link:../../database
+      '@amc/http-kit':
+        specifier: workspace:*
+        version: link:../../http-kit
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../kernel
       '@nestjs/common':
         specifier: ^12.0.1
         version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^12.0.1
+        version: 12.0.1(@nestjs/common@12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@12.0.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
@@ -183,6 +242,9 @@ importers:
       '@amc/database':
         specifier: workspace:*
         version: link:../../database
+      '@amc/http-kit':
+        specifier: workspace:*
+        version: link:../../http-kit
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -220,6 +282,28 @@ importers:
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.2)
+
+  packages/queue:
+    dependencies:
+      '@amc/database':
+        specifier: workspace:*
+        version: link:../database
+      '@amc/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+    devDependencies:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

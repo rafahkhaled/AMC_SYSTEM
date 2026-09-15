@@ -8,7 +8,13 @@
       "path": "./packages/contracts"
     },
     {
+      "path": "./packages/http-kit"
+    },
+    {
       "path": "./packages/database"
+    },
+    {
+      "path": "./packages/queue"
     },
     {
       "path": "./packages/modules/audit"
@@ -18,6 +24,9 @@
     },
     {
       "path": "./apps/api"
+    },
+    {
+      "path": "./apps/worker"
     }
   ]
 }

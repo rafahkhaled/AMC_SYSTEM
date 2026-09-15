@@ -21,14 +21,31 @@ in the branch, the test and the commit that implements it.
 ```
 apps/
   api/        HTTP entrypoint. Wires modules. No business logic
-  worker/     Background jobs: extraction, deadlines, escalations, recurrence
-  web/        React progressive web app, Arabic first
+  worker/     Background jobs and outbox delivery
+  web/        React progressive web app, Arabic first (not built yet)
 packages/
   kernel/     Money, Duration, Rate, Result, Clock, UnitOfWork, AggregateRoot
   contracts/  Zod schemas shared by the API and the browser
+  http-kit/   Access decorators and the caller shape, shared by all modules
   database/   Connection pool, migration runner, seeds, integration harness
+  queue/      Postgres-backed job queue and runner (ADR-0006)
   modules/    One folder per business area, each with four layers
 ```
+
+## Background work
+
+The queue is a Postgres table, not Redis (ADR-0006). That means a job can be
+enqueued inside the transaction that caused it: a change either commits with
+its job, or neither happens. Run the worker beside the API:
+
+```bash
+pnpm --filter @amc/worker start
+```
+
+It claims jobs with `FOR UPDATE SKIP LOCKED`, retries with exponential
+backoff, keeps a job that has run out of attempts rather than discarding it,
+and hands back the work of a worker that dies when its lease lapses. On
+SIGTERM it finishes the batch in flight before exiting.
 
 Every module has the same shape, and dependencies only ever point inward:
 

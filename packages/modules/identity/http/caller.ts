@@ -1,17 +1,10 @@
-import { type ExecutionContext, createParamDecorator } from '@nestjs/common';
 import type { AuthenticatedCaller } from '../application/authenticate-session.js';
 
-/** Where the guard leaves the caller for the rest of the request to find. */
-export const CALLER_KEY = 'amcCaller';
+export { CALLER_KEY, CurrentCaller } from '@amc/http-kit';
+
+/** The identity-flavoured caller the guard puts on the request. */
+export type { AuthenticatedCaller };
 
 export interface RequestWithCaller {
-  [CALLER_KEY]?: AuthenticatedCaller;
+  amcCaller?: AuthenticatedCaller;
 }
-
-/** `me(@CurrentCaller() caller: AuthenticatedCaller)` in a controller. */
-export const CurrentCaller = createParamDecorator(
-  (_data: unknown, context: ExecutionContext): AuthenticatedCaller | undefined => {
-    const request = context.switchToHttp().getRequest<RequestWithCaller>();
-    return request[CALLER_KEY];
-  },
-);

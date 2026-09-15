@@ -11,5 +11,9 @@
   },
   "include": ["domain/**/*.ts", "application/**/*.ts", "infrastructure/**/*.ts", "http/**/*.ts"],
   "exclude": ["**/*.test.ts", "dist"],
-  "references": [{ "path": "../../kernel" }, { "path": "../../database" }]
+  "references": [
+    { "path": "../../kernel" },
+    { "path": "../../http-kit" },
+    { "path": "../../database" }
+  ]
 }
