@@ -69,6 +69,6 @@ module.exports = {
     tsConfig: { fileName: 'tsconfig.base.json' },
     // Build output is not source. Cruising it produces orphan warnings about
     // compiled files that say nothing about the architecture.
-    exclude: { path: '(/dist/|\\.(test|spec)\\.ts$)' },
+    exclude: { path: '(/dist/|/dist-types/|\\.(test|spec)\\.tsx?$)' },
   },
 };

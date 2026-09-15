@@ -16,6 +16,15 @@
     "strictPropertyInitialization": false,
     "types": ["node"]
   },
-  "include": ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts", "packages/modules/*/**/*.ts"],
+  // The browser application is checked separately, by tsconfig.typecheck.web.json.
+  // Adding the DOM library here would let server code reach for document and
+  // window and still compile, which is not a trade worth making for one config
+  // file fewer.
+  "include": [
+    "apps/api/src/**/*.ts",
+    "apps/worker/src/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "packages/modules/*/**/*.ts"
+  ],
   "exclude": ["**/dist/**", "**/node_modules/**"]
 }

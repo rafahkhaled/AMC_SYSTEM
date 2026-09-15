@@ -32,9 +32,22 @@ packages/
   modules/    One folder per business area, each with four layers
 ```
 
-## Seeing it work
+## Running it
 
-There is no user interface yet, so the way to see the system is to drive it:
+```bash
+./scripts/dev.sh
+```
+
+Starts Postgres if needed, migrates, then runs the API, the worker and the
+browser application together. The application is at http://localhost:5173 and
+signs you in against the real API.
+
+The browser application is served from the same origin as the API, with `/api`
+proxied in development and routed by Caddy in production. That is not
+cosmetic: the session cookie is SameSite=Strict, so a different origin would
+never send it.
+
+To watch the whole path without a browser:
 
 ```bash
 ./scripts/demo.sh

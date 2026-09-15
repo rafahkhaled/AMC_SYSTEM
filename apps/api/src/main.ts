@@ -25,6 +25,14 @@ async function bootstrap(): Promise<void> {
     bufferLogs: true,
   });
 
+  /**
+   * Everything the API serves lives under /api, so the browser application can
+   * be served from the same origin as the API it talks to. That is not a
+   * cosmetic choice: the session cookie is SameSite=Strict, which means a
+   * different origin would never send it at all.
+   */
+  app.setGlobalPrefix('api');
+
   // Do not advertise the framework. It tells an attacker which advisories to
   // try and tells an honest user nothing.
   app.getHttpAdapter().getInstance().disable('x-powered-by');

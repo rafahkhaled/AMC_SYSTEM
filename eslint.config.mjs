@@ -13,7 +13,15 @@ import tseslint from 'typescript-eslint';
  * A violation fails CI. See docs/adr/0002-modular-monolith.md
  */
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', '**/.turbo/**', '**/node_modules/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/dist-types/**',
+      '**/coverage/**',
+      '**/.turbo/**',
+      '**/node_modules/**',
+    ],
+  },
   {
     files: ['**/*.ts', '**/*.tsx'],
     plugins: { boundaries },

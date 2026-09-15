@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- The language and direction are set from the stored preference before React
+     loads, so the first paint is already the right way round rather than
+     flipping once the application starts. -->
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <title>AMC</title>
+    <script>
+      try {
+        var saved = localStorage.getItem('amc.language') || 'ar';
+        document.documentElement.lang = saved;
+        document.documentElement.dir = saved === 'ar' ? 'rtl' : 'ltr';
+      } catch (error) {
+        /* private browsing can refuse storage; the markup default stands */
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

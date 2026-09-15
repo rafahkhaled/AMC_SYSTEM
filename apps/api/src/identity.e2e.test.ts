@@ -40,6 +40,7 @@ describe('signing in over HTTP', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
 
     const register = app.get(RegisterUser);
@@ -66,7 +67,7 @@ describe('signing in over HTTP', () => {
   // Not async: supertest's chainable request is the return value, so callers
   // can keep using .expect(...) on it.
   function signIn(email: string, password = PASSWORD) {
-    return request(app.getHttpServer()).post('/auth/sign-in').send({ email, password });
+    return request(app.getHttpServer()).post('/api/auth/sign-in').send({ email, password });
   }
 
   it('sets a session cookie a script cannot read and another site cannot trigger', async () => {
@@ -103,21 +104,24 @@ describe('signing in over HTTP', () => {
 
   it('refuses a malformed request in the same words, giving nothing away', async () => {
     const malformed = await request(app.getHttpServer())
-      .post('/auth/sign-in')
+      .post('/api/auth/sign-in')
       .send({ email: '', password: '' })
       .expect(401);
     expect(malformed.body.error.message).toBe('Those details are not right');
   });
 
   it('is closed by default: /auth/me needs a session', async () => {
-    await request(app.getHttpServer()).get('/auth/me').expect(401);
+    await request(app.getHttpServer()).get('/api/auth/me').expect(401);
   });
 
   it('recognises the caller and reports their permissions', async () => {
     const signedIn = await signIn(MANAGER).expect(200);
     const cookie = cookiesFrom(signedIn);
 
-    const me = await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(200);
+    const me = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', cookie)
+      .expect(200);
     expect(me.body.roles).toEqual(['manager']);
     expect(me.body.permissions).toContain('users.manage');
   });
@@ -126,7 +130,10 @@ describe('signing in over HTTP', () => {
     const signedIn = await signIn(CLERK).expect(200);
     const cookie = cookiesFrom(signedIn);
 
-    const me = await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(200);
+    const me = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', cookie)
+      .expect(200);
     expect(me.body.roles).toEqual(['data_entry']);
     expect(me.body.permissions).not.toContain('users.manage');
     expect(me.body.permissions.some((p: string) => p.includes('approve'))).toBe(false);
@@ -134,7 +141,7 @@ describe('signing in over HTTP', () => {
 
   it('rejects a forged cookie', async () => {
     await request(app.getHttpServer())
-      .get('/auth/me')
+      .get('/api/auth/me')
       .set('Cookie', ['amc_session=01JABCDEF.made-up-secret'])
       .expect(401);
   });
@@ -143,13 +150,13 @@ describe('signing in over HTTP', () => {
     const signedIn = await signIn(MANAGER).expect(200);
     const cookie = cookiesFrom(signedIn);
 
-    await request(app.getHttpServer()).post('/auth/sign-out').set('Cookie', cookie).expect(204);
-    await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(401);
+    await request(app.getHttpServer()).post('/api/auth/sign-out').set('Cookie', cookie).expect(204);
+    await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', cookie).expect(401);
   });
 
   it('keeps the health endpoints reachable without a session', async () => {
-    await request(app.getHttpServer()).get('/health/live').expect(200);
-    await request(app.getHttpServer()).get('/health/ready').expect(200);
+    await request(app.getHttpServer()).get('/api/health/live').expect(200);
+    await request(app.getHttpServer()).get('/api/health/ready').expect(200);
   });
 });
 
@@ -167,6 +174,7 @@ describe('two-factor over HTTP', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
 
     await app.get(RegisterUser).execute({
@@ -184,7 +192,9 @@ describe('two-factor over HTTP', () => {
   });
 
   function signIn() {
-    return request(app.getHttpServer()).post('/auth/sign-in').send({ email, password: PASSWORD });
+    return request(app.getHttpServer())
+      .post('/api/auth/sign-in')
+      .send({ email, password: PASSWORD });
   }
 
   it('enrols, confirms with a real time-based code, and then demands one at sign-in', async () => {
@@ -193,7 +203,7 @@ describe('two-factor over HTTP', () => {
     const cookie = cookiesFrom(first);
 
     const enrolment = await request(app.getHttpServer())
-      .post('/auth/two-factor/enrol')
+      .post('/api/auth/two-factor/enrol')
       .set('Cookie', cookie)
       .expect(201);
     expect(enrolment.body.uri).toContain('otpauth://totp/');
@@ -201,7 +211,7 @@ describe('two-factor over HTTP', () => {
     // A genuine code, from the implementation proved against the RFC vectors.
     const code = totp(enrolment.body.secret, Date.now());
     await request(app.getHttpServer())
-      .post('/auth/two-factor/confirm')
+      .post('/api/auth/two-factor/confirm')
       .set('Cookie', cookie)
       .send({ code })
       .expect(204);
@@ -215,9 +225,9 @@ describe('two-factor over HTTP', () => {
     const cookie = cookiesFrom(signedIn);
 
     // The password alone buys nothing but the verification step.
-    await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(401);
+    await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', cookie).expect(401);
     await request(app.getHttpServer())
-      .post('/auth/two-factor/enrol')
+      .post('/api/auth/two-factor/enrol')
       .set('Cookie', cookie)
       .expect(401);
   });
@@ -227,7 +237,7 @@ describe('two-factor over HTTP', () => {
     const cookie = cookiesFrom(signedIn);
 
     await request(app.getHttpServer())
-      .post('/auth/two-factor/verify')
+      .post('/api/auth/two-factor/verify')
       .set('Cookie', cookie)
       .send({ code: '000000' })
       .expect(401);
@@ -242,19 +252,22 @@ describe('two-factor over HTTP', () => {
     const code = totp(box.open(secret?.totp_secret ?? ''), Date.now());
 
     await request(app.getHttpServer())
-      .post('/auth/two-factor/verify')
+      .post('/api/auth/two-factor/verify')
       .set('Cookie', cookie)
       .send({ code })
       .expect(204);
 
-    const me = await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookie).expect(200);
+    const me = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', cookie)
+      .expect(200);
     expect(me.body.roles).toEqual(['manager']);
   });
 
   it('lets a half-authenticated session sign out, so it is not simply stuck', async () => {
     const signedIn = await signIn().expect(200);
     const cookie = cookiesFrom(signedIn);
-    await request(app.getHttpServer()).post('/auth/sign-out').set('Cookie', cookie).expect(204);
+    await request(app.getHttpServer()).post('/api/auth/sign-out').set('Cookie', cookie).expect(204);
   });
 
   it('never stores the secret in the clear', async () => {
@@ -279,6 +292,7 @@ describe('the audit trail of a real sign-in', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
   });
 
@@ -312,17 +326,17 @@ describe('the audit trail of a real sign-in', () => {
     const userId = registered.value.userId;
 
     await request(app.getHttpServer())
-      .post('/auth/sign-in')
+      .post('/api/auth/sign-in')
       .send({ email, password: 'the wrong password' })
       .expect(401);
 
     const signedIn = await request(app.getHttpServer())
-      .post('/auth/sign-in')
+      .post('/api/auth/sign-in')
       .send({ email, password: PASSWORD })
       .expect(200);
     const cookie = cookiesFrom(signedIn);
 
-    await request(app.getHttpServer()).post('/auth/sign-out').set('Cookie', cookie).expect(204);
+    await request(app.getHttpServer()).post('/api/auth/sign-out').set('Cookie', cookie).expect(204);
 
     const actions = (await entriesFor(userId)).map((row) => row.action);
     expect(actions).toContain('identity.signin.failed');
@@ -362,7 +376,7 @@ describe('the audit trail of a real sign-in', () => {
     const before = await sql<{ count: string }[]>`SELECT count(*)::text AS count FROM audit_log`;
 
     await request(app.getHttpServer())
-      .post('/auth/sign-in')
+      .post('/api/auth/sign-in')
       .send({ email: 'no-such-person@nowhere.ae', password: 'whatever12345' })
       .expect(401);
 
@@ -388,6 +402,7 @@ describe('reading the audit log over HTTP', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
 
     const register = app.get(RegisterUser);
@@ -413,7 +428,7 @@ describe('reading the audit log over HTTP', () => {
 
   async function cookieFor(email: string) {
     const signedIn = await request(app.getHttpServer())
-      .post('/auth/sign-in')
+      .post('/api/auth/sign-in')
       .send({ email, password: PASSWORD })
       .expect(200);
     return cookiesFrom(signedIn);
@@ -421,7 +436,7 @@ describe('reading the audit log over HTTP', () => {
 
   it('lets the manager read it', async () => {
     const response = await request(app.getHttpServer())
-      .get('/audit')
+      .get('/api/audit')
       .query({ limit: 5 })
       .set('Cookie', await cookieFor(manager))
       .expect(200);
@@ -432,20 +447,20 @@ describe('reading the audit log over HTTP', () => {
 
   it('refuses data entry, who has no business reading it', async () => {
     await request(app.getHttpServer())
-      .get('/audit')
+      .get('/api/audit')
       .set('Cookie', await cookieFor(clerk))
       .expect(403);
   });
 
   it('refuses anyone who is not signed in', async () => {
-    await request(app.getHttpServer()).get('/audit').expect(401);
+    await request(app.getHttpServer()).get('/api/audit').expect(401);
   });
 
   it('filters by action and rejects an unreasonable page size', async () => {
     const cookie = await cookieFor(manager);
 
     const filtered = await request(app.getHttpServer())
-      .get('/audit')
+      .get('/api/audit')
       .query({ action: 'identity.session.started', limit: 3 })
       .set('Cookie', cookie)
       .expect(200);
@@ -454,7 +469,7 @@ describe('reading the audit log over HTTP', () => {
     }
 
     await request(app.getHttpServer())
-      .get('/audit')
+      .get('/api/audit')
       .query({ limit: 5000 })
       .set('Cookie', cookie)
       .expect(400);

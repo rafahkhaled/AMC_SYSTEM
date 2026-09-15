@@ -25,6 +25,7 @@ describe('health endpoints', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     app.use(new RequestContextMiddleware().use.bind(new RequestContextMiddleware()));
     await app.init();
   });
@@ -34,13 +35,13 @@ describe('health endpoints', () => {
   });
 
   it('reports liveness while the process is up', async () => {
-    const response = await request(app.getHttpServer()).get('/health/live').expect(200);
+    const response = await request(app.getHttpServer()).get('/api/health/live').expect(200);
     expect(response.body.status).toBe('ok');
     expect(response.body.uptimeSeconds).toBeGreaterThanOrEqual(0);
   });
 
   it('separates readiness from liveness, so a cold database does not cause a restart loop', async () => {
-    const response = await request(app.getHttpServer()).get('/health/ready').expect(200);
+    const response = await request(app.getHttpServer()).get('/api/health/ready').expect(200);
     expect(response.body.status).toBe('not-ready');
     expect(response.body.checks).toEqual([
       { name: 'database', healthy: false, detail: 'not connected yet' },
@@ -48,7 +49,7 @@ describe('health endpoints', () => {
   });
 
   it('echoes a request id that ties a complaint to its log lines', async () => {
-    const response = await request(app.getHttpServer()).get('/health/live').expect(200);
+    const response = await request(app.getHttpServer()).get('/api/health/live').expect(200);
     expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 });

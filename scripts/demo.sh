@@ -56,39 +56,39 @@ API_PID=$!
 WORKER_PID=$!
 
 for _ in $(seq 1 20); do
-  curl -sf "http://localhost:$PORT/health/live" > /dev/null 2>&1 && break
+  curl -sf "http://localhost:$PORT/api/health/live" > /dev/null 2>&1 && break
   sleep 0.5
 done
 green "both running"
 
 blue "5. Is it ready? (liveness and readiness are separate questions)"
-curl -s "http://localhost:$PORT/health/ready" | python3 -m json.tool
+curl -s "http://localhost:$PORT/api/health/ready" | python3 -m json.tool
 
 blue "6. A locked door: /auth/me without signing in"
-curl -s "http://localhost:$PORT/auth/me" | python3 -m json.tool
+curl -s "http://localhost:$PORT/api/auth/me" | python3 -m json.tool
 
 blue "7. A wrong password"
-curl -s -X POST "http://localhost:$PORT/auth/sign-in" \
+curl -s -X POST "http://localhost:$PORT/api/auth/sign-in" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"not the password\"}" | python3 -m json.tool
 
 blue "8. An address that does not exist. Note the identical wording."
-curl -s -X POST "http://localhost:$PORT/auth/sign-in" \
+curl -s -X POST "http://localhost:$PORT/api/auth/sign-in" \
   -H 'content-type: application/json' \
   -d '{"email":"nobody@nowhere.ae","password":"whatever12345"}' | python3 -m json.tool
 
 blue "9. Signing in properly"
-curl -s -i -X POST "http://localhost:$PORT/auth/sign-in" \
+curl -s -i -X POST "http://localhost:$PORT/api/auth/sign-in" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
   -c "$COOKIE_JAR" | grep -iE '^HTTP|^set-cookie'
 grey "httpOnly keeps it away from scripts; SameSite=Strict stops other sites sending it"
 
 blue "10. Who am I, and what may I do?"
-curl -s -b "$COOKIE_JAR" "http://localhost:$PORT/auth/me" | python3 -m json.tool
+curl -s -b "$COOKIE_JAR" "http://localhost:$PORT/api/auth/me" | python3 -m json.tool
 
 blue "11. The audit trail that sign-in just wrote"
-curl -s -b "$COOKIE_JAR" "http://localhost:$PORT/audit?limit=6" \
+curl -s -b "$COOKIE_JAR" "http://localhost:$PORT/api/audit?limit=6" \
   | python3 -c "
 import json,sys
 for e in json.load(sys.stdin)['entries']:
@@ -98,9 +98,9 @@ for e in json.load(sys.stdin)['entries']:
 
 blue "12. Signing out, then trying the same cookie again"
 curl -s -o /dev/null -w "  sign-out returned %{http_code}\n" \
-  -X POST -b "$COOKIE_JAR" "http://localhost:$PORT/auth/sign-out"
+  -X POST -b "$COOKIE_JAR" "http://localhost:$PORT/api/auth/sign-out"
 curl -s -o /dev/null -w "  reusing the cookie returned %{http_code}\n" \
-  -b "$COOKIE_JAR" "http://localhost:$PORT/auth/me"
+  -b "$COOKIE_JAR" "http://localhost:$PORT/api/auth/me"
 
 blue "13. What the worker did with the events"
 sleep 2
