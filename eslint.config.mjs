@@ -52,6 +52,7 @@ export default tseslint.config(
         { type: 'database', pattern: 'packages/database/**' },
         { type: 'queue', pattern: 'packages/queue/**' },
         { type: 'storage', pattern: 'packages/storage/**' },
+        { type: 'vault', pattern: 'packages/vault/**' },
         { type: 'http-kit', pattern: 'packages/http-kit/**' },
         // Built entry points first: @amc/identity/http resolves to
         // packages/modules/identity/dist/http/index.d.ts, and that file must
@@ -101,6 +102,10 @@ export default tseslint.config(
             // Storage is an adapter concern and knows nothing of the domain.
             { from: 'storage', allow: ['kernel', 'storage'] },
 
+            // The vault knows about actors, for the access it records, and
+            // nothing else of ours.
+            { from: 'vault', allow: ['kernel', 'vault'] },
+
             // Shared HTTP vocabulary: access decorators and the caller shape.
             // It depends on nothing of ours, which is what makes it safe for
             // every module to import without coupling them to each other.
@@ -132,6 +137,7 @@ export default tseslint.config(
                 'database',
                 'queue',
                 'storage',
+                'vault',
               ],
             },
             {
@@ -155,6 +161,7 @@ export default tseslint.config(
                 'database',
                 'queue',
                 'storage',
+                'vault',
                 'http-kit',
                 'domain',
                 'application',

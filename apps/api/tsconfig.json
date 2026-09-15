@@ -18,6 +18,7 @@
     { "path": "../../packages/kernel" },
     { "path": "../../packages/contracts" },
     { "path": "../../packages/database" },
+    { "path": "../../packages/vault" },
     { "path": "../../packages/modules/audit" },
     { "path": "../../packages/modules/identity" }
   ]

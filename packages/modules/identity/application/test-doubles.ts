@@ -123,11 +123,11 @@ export class FakeTwoFactorService implements TwoFactorService {
     return code.replace(/\s/g, '') === secretBase32;
   }
 
-  seal(secretBase32: string): string {
+  async seal(secretBase32: string): Promise<string> {
     return `sealed:${secretBase32}`;
   }
 
-  open(sealed: string): string {
+  async open(sealed: string): Promise<string> {
     if (!sealed.startsWith('sealed:')) throw new Error('not sealed by this service');
     return sealed.slice('sealed:'.length);
   }

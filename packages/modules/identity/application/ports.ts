@@ -45,8 +45,13 @@ export interface TwoFactorService {
   /** The enrolment URI an authenticator app reads. */
   enrolmentUri(secretBase32: string, account: string): string;
   verify(secretBase32: string, code: string, at: Date): boolean;
-  seal(secretBase32: string): string;
-  open(sealed: string): string;
+  /**
+   * Sealing and opening are asynchronous because real key custody is a call to
+   * KMS, not a local computation. Pretending otherwise would mean rewriting
+   * every caller the day production stopped holding its own master key.
+   */
+  seal(secretBase32: string): Promise<string>;
+  open(sealed: string): Promise<string>;
 }
 
 export interface SessionTokenService {

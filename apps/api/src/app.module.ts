@@ -7,10 +7,10 @@ import {
   CryptoSessionTokens,
   DrizzleSessionRepository,
   DrizzleUserRepository,
-  SecretBox,
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { type EventCollector, SystemClock } from '@amc/kernel';
+import { EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ulid } from 'ulid';
@@ -52,7 +52,10 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
         },
         hasher: new Argon2PasswordHasher(),
         tokens: new CryptoSessionTokens(),
-        twoFactor: new TotpTwoFactorService(new SecretBox(encryptionKey(environment)), 'AMC'),
+        twoFactor: new TotpTwoFactorService(
+          new EnvelopeCipher(new LocalKeyProvider(encryptionKey(environment))),
+          'AMC',
+        ),
         clock: new SystemClock(),
         ids: { next: () => ulid() },
         limits: {

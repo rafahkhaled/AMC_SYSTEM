@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { MIGRATIONS_DIRECTORY, runMigrations } from '@amc/database';
 import { RegisterUser } from '@amc/identity';
-import { SecretBox, totp } from '@amc/identity/infrastructure';
+import { totp } from '@amc/identity/infrastructure';
+import { EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import postgres from 'postgres';
@@ -245,11 +246,13 @@ describe('two-factor over HTTP', () => {
     const [secret] = await sql<{ totp_secret: string }[]>`
       SELECT totp_secret FROM users WHERE email = ${email}
     `;
-    const box = new SecretBox(
-      process.env.SECRET_ENCRYPTION_KEY ??
-        Buffer.alloc(32, 'amc-development-key').toString('base64'),
+    const cipher = new EnvelopeCipher(
+      new LocalKeyProvider(
+        process.env.SECRET_ENCRYPTION_KEY ??
+          Buffer.alloc(32, 'amc-development-key').toString('base64'),
+      ),
     );
-    const code = totp(box.open(secret?.totp_secret ?? ''), Date.now());
+    const code = totp(await cipher.open(secret?.totp_secret ?? ''), Date.now());
 
     await request(app.getHttpServer())
       .post('/api/auth/two-factor/verify')
@@ -274,7 +277,7 @@ describe('two-factor over HTTP', () => {
     const [row] = await sql<{ totp_secret: string }[]>`
       SELECT totp_secret FROM users WHERE email = ${email}
     `;
-    expect(row?.totp_secret).toMatch(/^v1\./);
+    expect(row?.totp_secret).toMatch(/^v2\./);
     expect(row?.totp_secret).not.toMatch(/^[A-Z2-7]+$/);
   });
 });

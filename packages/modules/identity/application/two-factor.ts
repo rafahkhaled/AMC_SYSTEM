@@ -22,7 +22,7 @@ export class StartTwoFactorEnrolment {
     }
 
     const secret = this.twoFactor.newSecret();
-    user.beginTwoFactorEnrolment(this.twoFactor.seal(secret), this.clock.now());
+    user.beginTwoFactorEnrolment(await this.twoFactor.seal(secret), this.clock.now());
     await this.users.save(user);
 
     return ok({ secret, uri: this.twoFactor.enrolmentUri(secret, user.email.value) });
@@ -49,7 +49,7 @@ export class ConfirmTwoFactorEnrolment {
     }
 
     const now = this.clock.now();
-    if (!this.twoFactor.verify(this.twoFactor.open(user.totpSecret), params.code, now)) {
+    if (!this.twoFactor.verify(await this.twoFactor.open(user.totpSecret), params.code, now)) {
       return err(new Conflict('That code is not right'));
     }
 
@@ -92,7 +92,7 @@ export class VerifyTwoFactor {
     const allowed = user.canSignInAt(now);
     if (!allowed.ok) return err(allowed.error);
 
-    if (!this.twoFactor.verify(this.twoFactor.open(user.totpSecret), params.code, now)) {
+    if (!this.twoFactor.verify(await this.twoFactor.open(user.totpSecret), params.code, now)) {
       user.recordFailedAttempt(now);
       await this.users.save(user);
       return err(new Conflict('That code is not right'));
