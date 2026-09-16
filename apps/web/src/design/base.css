@@ -150,7 +150,7 @@ a {
 }
 
 .page {
-  max-inline-size: 64rem;
+  max-inline-size: 72rem;
   margin-inline: auto;
   padding: clamp(var(--space-4), 4vw, var(--space-6));
   display: grid;
@@ -163,15 +163,6 @@ a {
    */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
-}
-
-.app-bar__inner {
-  max-inline-size: 64rem;
-  margin-inline: auto;
-}
-
-.nav {
-  gap: var(--space-1);
 }
 
 .nav__item {
@@ -195,10 +186,160 @@ a {
   font-weight: 580;
 }
 
-.app-bar {
+/* ---- the frame ------------------------------------------------------- */
+
+/*
+ * Menu first, work second.
+ *
+ * Which side the menu lands on is never stated. Grid columns follow the
+ * writing direction, so the first column is on the left in English and on the
+ * right in Arabic, and the whole layout mirrors with no direction rule.
+ */
+.shell {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  min-block-size: 100vh;
+}
+
+.shell__menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
   background: var(--surface);
-  border-block-end: 1px solid var(--line);
-  padding: var(--space-3) clamp(var(--space-4), 4vw, var(--space-6));
+  border-inline-end: 1px solid var(--line);
+  /* Stays put while the work scrolls, which is the point of a side menu. */
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100vh;
+  overflow-y: auto;
+}
+
+.shell__brand {
+  font-size: var(--text-base);
+  padding-inline: var(--space-2);
+}
+
+.shell__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The foot sinks to the bottom, so the menu items are not pushed down by it. */
+.shell__foot {
+  margin-block-start: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--line);
+}
+
+.shell__who {
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.shell__main {
+  min-inline-size: 0;
+}
+
+/* The phone bar and its scrim have nothing to do until the screen is small. */
+.shell__bar,
+.shell__scrim {
+  display: none;
+}
+
+.shell__toggle {
+  font: inherit;
+  font-size: var(--text-xl);
+  line-height: 1;
+  background: none;
+  border: 0;
+  color: inherit;
+  padding: var(--space-2);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.shell__toggle:hover {
+  background: var(--surface-sunken);
+}
+
+/*
+ * A menu item fills the column and reads from the leading edge, rather than
+ * sitting centred in the middle of it.
+ */
+.shell__list .nav__item {
+  inline-size: 100%;
+  text-align: start;
+  padding: var(--space-2) var(--space-3);
+}
+
+@media (max-width: 60rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface);
+    border-block-end: 1px solid var(--line);
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 3;
+  }
+
+  /*
+   * Off the leading edge, not off the left: `inset-inline-start` with a
+   * translation of minus one hundred percent slides out of whichever side the
+   * language puts it on.
+   */
+  .shell__menu {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: min(17rem, 82vw);
+    z-index: 5;
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+    box-shadow: var(--shadow);
+  }
+
+  [dir="rtl"] .shell__menu {
+    transform: translateX(100%);
+  }
+
+  .shell--open .shell__menu,
+  [dir="rtl"] .shell--open .shell__menu {
+    transform: translateX(0);
+  }
+
+  .shell--open .shell__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    background: rgb(0 0 0 / 45%);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+}
+
+/* Somebody who has asked for less movement gets the drawer without the slide. */
+@media (prefers-reduced-motion: reduce) {
+  .shell__menu {
+    transition: none;
+  }
 }
 
 /* ---- buttons --------------------------------------------------------- */
