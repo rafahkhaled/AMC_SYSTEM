@@ -29,6 +29,9 @@
       "path": "./packages/modules/clients"
     },
     {
+      "path": "./packages/modules/deadlines"
+    },
+    {
       "path": "./packages/modules/identity"
     },
     {

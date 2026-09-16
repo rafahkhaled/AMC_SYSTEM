@@ -1,0 +1,27 @@
+{
+  "name": "@amc/deadlines",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "types": "./dist/application/index.d.ts", "default": "./dist/application/index.js" },
+    "./domain": { "types": "./dist/domain/index.d.ts", "default": "./dist/domain/index.js" },
+    "./infrastructure": {
+      "types": "./dist/infrastructure/index.d.ts",
+      "default": "./dist/infrastructure/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@amc/database": "workspace:*",
+    "@amc/kernel": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": { "typescript": "^5.7.2", "vitest": "^3.2.4" }
+}
