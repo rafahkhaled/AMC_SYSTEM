@@ -1,0 +1,120 @@
+import type { ClientDetail, ClientSummary, DocumentSummary, TaskSummary } from '@amc/contracts';
+import type { Clock } from '@amc/kernel';
+import { scopeFor } from '../domain/index.js';
+import type { ClientRepository, DocumentRepository } from './ports.js';
+
+/** Supplied by the composition root, because tasks belong to another module. */
+export interface TaskSummaryReader {
+  forClient(clientId: string, scope: ReturnType<typeof scopeFor>): Promise<TaskSummary[]>;
+  openCountsByClient(scope: ReturnType<typeof scopeFor>): Promise<Map<string, number>>;
+}
+
+export interface CallerLike {
+  readonly userId: string;
+  readonly permissions: ReadonlySet<string> | readonly string[];
+}
+
+/**
+ * Everything the client screens read.
+ *
+ * The scope is derived here, from the caller's permissions, rather than passed
+ * in by a controller. That keeps the one decision about who sees what in a
+ * single place that every route goes through.
+ */
+export class ReadClients {
+  constructor(
+    private readonly clients: ClientRepository,
+    private readonly documents: DocumentRepository,
+    private readonly tasks: TaskSummaryReader,
+    private readonly clock: Clock,
+  ) {}
+
+  private scope(caller: CallerLike) {
+    const held =
+      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
+    return scopeFor(held, caller.userId);
+  }
+
+  async list(caller: CallerLike, limit?: number): Promise<ClientSummary[]> {
+    const scope = this.scope(caller);
+    const summaries = await this.clients.list(scope, limit ? { limit } : {});
+    const openTasks = await this.tasks.openCountsByClient(scope);
+    const today = this.clock.now();
+
+    return Promise.all(
+      summaries.map(async (summary) => {
+        const documents = await this.documents.currentFor(summary.id, scope);
+        return {
+          id: summary.id,
+          legalName: summary.legalName,
+          legalNameArabic: null,
+          status: summary.status as ClientSummary['status'],
+          vatState: summary.vatState as ClientSummary['vatState'],
+          vatTrn: summary.vatTrn,
+          ctState: 'not_registered' as const,
+          // What needs attention, which is the only reason a list column earns
+          // its place.
+          documentsExpiring: documents.filter((document) =>
+            ['expiring', 'expired'].includes(document.expiryStateOn(today)),
+          ).length,
+          openTasks: openTasks.get(summary.id) ?? 0,
+        };
+      }),
+    );
+  }
+
+  async detail(caller: CallerLike, clientId: string): Promise<ClientDetail | null> {
+    const scope = this.scope(caller);
+    const client = await this.clients.findById(clientId, scope);
+    if (!client) return null;
+
+    const today = this.clock.now();
+    const state = client.snapshot();
+    const documents = await this.documents.currentFor(clientId, scope);
+    const tasks = await this.tasks.forClient(clientId, scope);
+
+    const documentSummaries: DocumentSummary[] = documents.map((document) => {
+      const detail = document.snapshot();
+      return {
+        id: document.id,
+        type: detail.type,
+        status: detail.status,
+        expiresOn: detail.expiresOn?.toISOString().slice(0, 10) ?? null,
+        expiryState: document.expiryStateOn(today),
+        daysUntilExpiry: document.daysUntilExpiry(today),
+        originalName: detail.originalName,
+      };
+    });
+
+    const currentRate = state.rates.on(today);
+
+    return {
+      id: client.id,
+      legalName: state.legalName,
+      legalNameArabic: state.legalNameArabic,
+      status: state.status,
+      vatState: state.vat.state,
+      vatTrn: state.vat.trn?.value ?? null,
+      ctState: state.corporateTax.state,
+      ctTrn: state.corporateTax.trn?.value ?? null,
+      tradeLicenceNumber: state.tradeLicenceNumber,
+      // Staggered per client, so the screen shows which months rather than
+      // implying everyone files on calendar quarters.
+      vatPeriodEndMonths: state.vatPeriods?.endMonths() ?? [],
+      financialYearEndMonth: state.financialYear?.endMonth ?? null,
+      currentRate: currentRate?.perHour.toMajorString() ?? null,
+      rateHistory: state.rates.all.map((change) => ({
+        perHour: change.rate.perHour.toMajorString(),
+        currency: change.rate.currency,
+        effectiveFrom: change.effectiveFrom.toISOString().slice(0, 10),
+        note: change.note ?? null,
+      })),
+      documents: documentSummaries,
+      tasks,
+      documentsExpiring: documentSummaries.filter((document) =>
+        ['expiring', 'expired'].includes(document.expiryState),
+      ).length,
+      openTasks: tasks.filter((task) => !['completed', 'cancelled'].includes(task.state)).length,
+    };
+  }
+}

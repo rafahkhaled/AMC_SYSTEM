@@ -1,5 +1,8 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
+import { ReadClients } from '@amc/clients';
+import { ClientsModule } from '@amc/clients/http';
+import { DrizzleClientRepository, DrizzleDocumentRepository } from '@amc/clients/infrastructure';
 import type { Database } from '@amc/database';
 import { IdentityModule } from '@amc/identity/http';
 import {
@@ -14,6 +17,7 @@ import { EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ulid } from 'ulid';
+import { taskSummaries } from './clients/task-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
@@ -32,6 +36,16 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
     LoggerModule,
     DatabaseModule,
     HealthModule,
+    ClientsModule.forRootAsync({
+      inject: [DATABASE],
+      useFactory: (db: Database) =>
+        new ReadClients(
+          new DrizzleClientRepository(db),
+          new DrizzleDocumentRepository(db),
+          taskSummaries(db),
+          new SystemClock(),
+        ),
+    }),
     AuditModule.forRootAsync({
       inject: [DATABASE],
       useFactory: (db: Database) => new DrizzleAuditReader(db),

@@ -44,6 +44,9 @@ importers:
       '@amc/audit':
         specifier: workspace:*
         version: link:../../packages/modules/audit
+      '@amc/clients':
+        specifier: workspace:*
+        version: link:../../packages/modules/clients
       '@amc/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -68,6 +71,9 @@ importers:
       '@nestjs/platform-express':
         specifier: ^12.0.1
         version: 12.0.1(@nestjs/common@12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.0.1)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
       pino:
         specifier: ^9.5.0
         version: 9.14.0
@@ -309,18 +315,30 @@ importers:
 
   packages/modules/clients:
     dependencies:
+      '@amc/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
       '@amc/database':
         specifier: workspace:*
         version: link:../../database
+      '@amc/http-kit':
+        specifier: workspace:*
+        version: link:../../http-kit
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../kernel
+      '@nestjs/common':
+        specifier: ^12.0.1
+        version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
     devDependencies:
       typescript:
         specifier: ^5.7.2

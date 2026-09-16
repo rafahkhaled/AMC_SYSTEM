@@ -102,7 +102,14 @@ describe('an accountant only sees their own clients', () => {
   it('shows the manager everything', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const { clients } = await scenario(tx);
-      const all = (await clients.list(ALL_CLIENTS)).map((c) => c.id).sort();
+
+      // Filtered to this test's own clients. Other packages share this
+      // database and commit as they run, so asserting on every row passes or
+      // fails depending on what else happens to be running.
+      const all = (await clients.list(ALL_CLIENTS))
+        .map((c) => c.id)
+        .filter((id) => id.startsWith('c-'))
+        .sort();
       expect(all).toEqual(['c-mine', 'c-shared', 'c-theirs']);
     });
   });
@@ -123,9 +130,11 @@ describe('an accountant only sees their own clients', () => {
       const clerk = scopeFor(['invoices.upload'], 'user-c');
       const manager = scopeFor(['clients.view.all'], 'user-m');
 
-      expect((await clients.list(accountant)).length).toBe(2);
+      const mine = (id: string) => id.startsWith('c-');
+
+      expect((await clients.list(accountant)).filter((c) => mine(c.id)).length).toBe(2);
       expect((await clients.list(clerk)).length).toBe(0);
-      expect((await clients.list(manager)).length).toBe(3);
+      expect((await clients.list(manager)).filter((c) => mine(c.id)).length).toBe(3);
     });
   });
 

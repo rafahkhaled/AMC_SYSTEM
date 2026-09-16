@@ -19,6 +19,19 @@ async function call(path: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
+/**
+ * A GET that returns parsed JSON, or throws an ApiError.
+ *
+ * Shared so every feature reaches the API the same way: same credentials, same
+ * error envelope, same failure type. A second fetch helper somewhere else is
+ * how one screen quietly stops sending the session cookie.
+ */
+export async function request(path: string): Promise<unknown> {
+  const response = await call(path);
+  if (!response.ok) throw await failure(response);
+  return response.json();
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,

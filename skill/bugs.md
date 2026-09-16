@@ -66,13 +66,22 @@ once.
 
 ### Tests asserting on every row in a shared database
 
-**Symptom:** `expected 3 to be 2`, intermittently.
+**Happened twice.** Once for tasks, then again for clients a few commits
+later, because the first fix was applied only where it had bitten.
+
+**Symptom:** `expected 3 to be 2`, intermittently, and only when other
+packages happen to be running.
 
 **Cause:** packages run in parallel and share one test database. Tests using
-the rollback harness are isolated; tests that commit are not. A test counting
-every open task passes or fails depending on what else is running.
+the rollback harness are isolated; tests that commit are not, and the worker's
+integration tests commit. A test that counts every open task, or every visible
+client, passes or fails depending on what else is running at that moment.
 
-**Fix:** count only your own rows, by prefix.
+**Fix:** filter to your own rows by prefix. Never assert on a global count.
+
+**Lesson:** when a test is fixed for this reason, search for the same shape
+elsewhere in the same breath. The second occurrence cost more than the first,
+because by then it looked like a new problem.
 
 ### Two refusals in one transaction
 

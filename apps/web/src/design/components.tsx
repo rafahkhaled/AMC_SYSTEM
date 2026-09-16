@@ -138,8 +138,12 @@ export function Alert({ tone = 'info', children }: { tone?: AlertTone; children:
   );
 }
 
-export function Badge({ children, accent }: { children: ReactNode; accent?: boolean }) {
-  return <span className={classes('badge', accent && 'badge--accent')}>{children}</span>;
+export type BadgeTone = 'neutral' | 'accent' | 'warning' | 'danger' | 'success';
+
+export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: BadgeTone }) {
+  return (
+    <span className={classes('badge', tone !== 'neutral' && `badge--${tone}`)}>{children}</span>
+  );
 }
 
 export function Card({

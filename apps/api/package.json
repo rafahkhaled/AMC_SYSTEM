@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "create-user": "node dist/cli/create-user.js"
+    "create-user": "node dist/cli/create-user.js",
+    "seed-demo": "node dist/cli/seed-demo.js"
   },
   "dependencies": {
     "@amc/kernel": "workspace:*",
@@ -27,7 +28,9 @@
     "ulid": "^2.3.0",
     "postgres": "^3.4.9",
     "@amc/audit": "workspace:*",
-    "@amc/vault": "workspace:*"
+    "@amc/vault": "workspace:*",
+    "@amc/clients": "workspace:*",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@nestjs/testing": "^12.0.1",

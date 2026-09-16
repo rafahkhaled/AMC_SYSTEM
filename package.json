@@ -20,7 +20,8 @@
     "db:migrate": "pnpm --filter @amc/database db:migrate",
     "db:seed": "pnpm --filter @amc/database db:seed",
     "db:generate": "pnpm --filter @amc/database db:generate",
-    "create-user": "pnpm --filter @amc/api create-user"
+    "create-user": "pnpm --filter @amc/api create-user",
+    "seed-demo": "pnpm --filter @amc/api seed-demo"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
