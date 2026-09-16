@@ -12,14 +12,28 @@ const stopTimer = vi.hoisted(() => vi.fn());
 const holdTimer = vi.hoisted(() => vi.fn());
 const resumeTimer = vi.hoisted(() => vi.fn());
 const beat = vi.hoisted(() => vi.fn());
-vi.mock('./api.js', () => ({
-  timerState,
-  stopTimer,
-  holdTimer,
-  resumeTimer,
-  beat,
-  startTimer: vi.fn(),
-}));
+const replayPending = vi.hoisted(() => vi.fn());
+const pendingCount = vi.hoisted(() => vi.fn());
+const timesheet = vi.hoisted(() => vi.fn());
+vi.mock('./api.js', async () => {
+  // The real module is kept for PendingSync, which the screen compares
+  // against with instanceof: a mocked class is a different class, and the
+  // check would silently never match.
+  const actual = await vi.importActual<typeof import('./api.js')>('./api.js');
+  return {
+    ...actual,
+    timerState,
+    stopTimer,
+    holdTimer,
+    resumeTimer,
+    beat,
+    startTimer: vi.fn(),
+    replayPending,
+    pendingCount,
+    recordManual: vi.fn(),
+    timesheet,
+  };
+});
 
 const empty: TimerState = { running: null, today: [], todaySeconds: 0, todayBillableSeconds: 0 };
 
@@ -66,6 +80,18 @@ function show(state: TimerState) {
 describe('the timer screen', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    replayPending.mockResolvedValue({ sent: 0, remaining: 0, state: null });
+    pendingCount.mockResolvedValue(0);
+    // Given a value rather than left undefined: an unresolved query prints a
+    // warning on every test, and warnings nobody reads hide the ones that matter.
+    timesheet.mockResolvedValue({
+      from: '2026-09-10',
+      to: '2026-09-16',
+      days: [],
+      totalSeconds: 0,
+      billableSeconds: 0,
+      entries: [],
+    });
     localStorage.setItem('amc.language', 'en');
     await setUpI18n();
   });
@@ -132,6 +158,28 @@ describe('the timer screen', () => {
 
     expect(stopTimer).toHaveBeenCalledOnce();
     expect(await screen.findByText('No timer running')).toBeInTheDocument();
+  });
+
+  it('says an action is kept on the device rather than reporting a failure', async () => {
+    /*
+     * A person taps stop and the train goes into a tunnel. The hour is written
+     * down before the network is attempted, so the honest thing to say is that
+     * it is kept — not that it did not work.
+     */
+    pendingCount.mockResolvedValue(1);
+    show({ ...empty, running: running() });
+
+    expect(
+      await screen.findByText(
+        'One action is kept on this device and will be sent when the connection returns.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing when the queue is empty', async () => {
+    show({ ...empty, running: running() });
+    await screen.findByRole('button', { name: 'Stop' });
+    expect(screen.queryByText(/kept on this device/)).not.toBeInTheDocument();
   });
 
   it('offers a hold while running, and a resume once held', async () => {

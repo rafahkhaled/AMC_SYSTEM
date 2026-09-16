@@ -80,7 +80,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-19 | Time domain: TimeEntry bound to a task assignment, Duration arithmetic, billable flag | FR-20, FR-23 | P1-15 | 1 |
 | P1-20 | Running timer: start and stop, one active timer per person enforced in the database, auto-stop of the previous task | FR-21 | P1-19 | 1 |
 | P1-21 | Manual entry with a mandatory reason, flagged as manual and audited | FR-22 | P1-19 | 0.5 |
-| P1-22 | Offline resilience: append timer events to IndexedDB, sync on reconnect, server-side reconciliation with a confirmation prompt | NFR-03 | P1-20 | 2 |
+| P1-22 | Offline resilience: timer actions queued in IndexedDB before the network, replayed in order on reconnect, replayed instants clamped server-side | NFR-03 | P1-20 | 2 |
 | P1-23 | Idle and after-hours detection against each person's working hours, with confirmation before counting | FR-25 | P1-20 | 1 |
 | P1-24 | Timesheet: a person's own week day by day, total hours and billable percentage | FR-24 | P1-19 | 1 |
 | P1-25 | Timer UI, mobile first: one-tap start, hold and resume, visible running state, works as an installed PWA | FR-20, FR-21, NFR-07 | P1-20 | 2 |

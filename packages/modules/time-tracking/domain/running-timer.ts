@@ -124,6 +124,29 @@ export class RunningTimer {
   }
 
   /**
+   * The instant an action actually happened, as far as this timer can accept.
+   *
+   * A browser that was offline replays what somebody did while it was, and the
+   * time they did it is the time that should be recorded. That means trusting
+   * a value from the client, which for billable time needs a boundary rather
+   * than a promise.
+   *
+   * The boundary is this: a replayed instant may fall between the timer's
+   * start and now, and nowhere else. Later than now is refused because the
+   * future has not happened; earlier than the start is refused because the
+   * timer was not running. Inside that window the client can only ever record
+   * *less* than the server already believes elapsed — it cannot inflate a
+   * span, only shorten one, which is the direction that cannot be abused.
+   */
+  clamp(claimed: Date | undefined, now: Date): Date {
+    if (!claimed) return now;
+    const floor = this.state.heldAt ?? this.state.startedAt;
+    if (claimed.getTime() > now.getTime()) return now;
+    if (claimed.getTime() < floor.getTime()) return floor;
+    return claimed;
+  }
+
+  /**
    * Stop, and hand back what should be recorded.
    *
    * The timer itself records nothing. It reports a span and lets the caller

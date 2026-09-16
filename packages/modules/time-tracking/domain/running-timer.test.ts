@@ -122,3 +122,50 @@ describe('holding a timer (FR-21)', () => {
     expect(running.hold(at('2026-04-01T09:50:00Z')).ok).toBe(false);
   });
 });
+
+describe('replaying what happened while the browser was offline (NFR-03)', () => {
+  /*
+   * The client supplies the instant it believes an action happened. For
+   * billable time that needs a boundary rather than a promise, and the
+   * boundary is chosen so the client can only ever shorten a span.
+   */
+  it('accepts an instant between the start and now', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+    const claimed = at('2026-04-01T09:40:00Z');
+
+    expect(running.clamp(claimed, at('2026-04-01T10:00:00Z'))).toEqual(claimed);
+  });
+
+  it('refuses the future, because it has not happened', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+    const now = at('2026-04-01T10:00:00Z');
+
+    expect(running.clamp(at('2026-04-01T18:00:00Z'), now)).toEqual(now);
+  });
+
+  it('refuses an instant before the timer was running', () => {
+    // Otherwise a client could claim a stop that predates the start and write
+    // a negative span, or bill an hour the timer was not counting.
+    const running = timer('2026-04-01T09:00:00Z');
+
+    expect(running.clamp(at('2026-04-01T06:00:00Z'), at('2026-04-01T10:00:00Z'))).toEqual(
+      at('2026-04-01T09:00:00Z'),
+    );
+  });
+
+  it('measures a held timer from the hold, not from the original start', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+    running.hold(at('2026-04-01T09:40:00Z'));
+
+    expect(running.clamp(at('2026-04-01T09:10:00Z'), at('2026-04-01T12:00:00Z'))).toEqual(
+      at('2026-04-01T09:40:00Z'),
+    );
+  });
+
+  it('uses now when the client claims nothing', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+    const now = at('2026-04-01T10:00:00Z');
+
+    expect(running.clamp(undefined, now)).toEqual(now);
+  });
+});

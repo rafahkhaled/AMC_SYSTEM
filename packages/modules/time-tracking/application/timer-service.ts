@@ -45,8 +45,15 @@ export class TimerService {
     userId: string;
     taskId: string;
     deviceId?: string | null;
+    /**
+     * When the person actually started, replayed from a browser that was
+     * offline. Never later than now, because a timer cannot begin in the
+     * future and a client that says otherwise is wrong or lying.
+     */
+    at?: Date | undefined;
   }): Promise<Result<{ stopped: StoppedEntry | null }, Conflict>> {
-    const now = this.clock.now();
+    const server = this.clock.now();
+    const now = params.at && params.at.getTime() < server.getTime() ? params.at : server;
 
     const assignment = await this.assignments.forUserOnTask({
       userId: params.userId,
@@ -55,7 +62,10 @@ export class TimerService {
     });
     if (!assignment) return err(new Conflict('No such task'));
 
-    const stopped = await this.stop({ userId: params.userId });
+    // Whatever was running stops at the moment the new one began, not now.
+    // Replaying an afternoon of switches otherwise books every gap to
+    // whichever task happened to be running when the connection returned.
+    const stopped = await this.stop({ userId: params.userId, at: now });
 
     await this.timers.start(
       RunningTimer.start({
@@ -70,11 +80,15 @@ export class TimerService {
   }
 
   /** Stop whatever is running, and record it. Stopping nothing is not an error. */
-  async stop(params: { userId: string }): Promise<Result<StoppedEntry | null, Conflict>> {
+  async stop(params: {
+    userId: string;
+    /** When the person actually stopped, replayed from a browser that was offline. */
+    at?: Date | undefined;
+  }): Promise<Result<StoppedEntry | null, Conflict>> {
     const running = await this.timers.forUser(params.userId);
     if (!running) return ok(null);
 
-    const now = this.clock.now();
+    const now = running.clamp(params.at, this.clock.now());
     // An abandoned timer is trimmed to its last heartbeat rather than billing
     // the intervening night (FR-25).
     const span = running.isAbandonedAt(now)
@@ -124,11 +138,14 @@ export class TimerService {
    * was in hand and make resuming a search through the client file. Holding
    * keeps the task and bills none of the interruption.
    */
-  async hold(params: { userId: string }): Promise<Result<StoppedEntry | null, Conflict>> {
+  async hold(params: {
+    userId: string;
+    at?: Date | undefined;
+  }): Promise<Result<StoppedEntry | null, Conflict>> {
     const running = await this.timers.forUser(params.userId);
     if (!running) return err(new Conflict('No timer is running'));
 
-    const now = this.clock.now();
+    const now = running.clamp(params.at, this.clock.now());
     const span = running.hold(now);
     if (!span.ok) return err(span.error);
 
@@ -137,11 +154,11 @@ export class TimerService {
   }
 
   /** Lift a hold. The next span starts now, so the pause bills nothing. */
-  async resume(params: { userId: string }): Promise<Result<void, Conflict>> {
+  async resume(params: { userId: string; at?: Date | undefined }): Promise<Result<void, Conflict>> {
     const running = await this.timers.forUser(params.userId);
     if (!running) return err(new Conflict('No timer is held'));
 
-    const lifted = running.resume(this.clock.now());
+    const lifted = running.resume(running.clamp(params.at, this.clock.now()));
     if (!lifted.ok) return lifted;
 
     await this.timers.save(running);

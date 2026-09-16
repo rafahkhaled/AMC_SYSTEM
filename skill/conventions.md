@@ -62,3 +62,20 @@ sql`WHERE expires_on < ${on(today)}::date`
 The query builder converts dates on its own; only hand-written templates need
 this. It has cost three afternoons, which is why the helper is in the kernel
 rather than rewritten beside each query.
+
+## Trusting a time the client sent
+
+A browser that was offline replays what somebody did while it was, and the
+instant they did it is the instant that should be billed. That means accepting
+a timestamp from the client, which for billable time needs a boundary rather
+than a promise.
+
+The boundary is `RunningTimer.clamp`: a replayed instant may fall between the
+timer's start (or its hold) and now, and nowhere else. Later than now is the
+future; earlier than the start is time the timer was not running. Inside that
+window a client can only ever record **less** than the server already believes
+elapsed — it can shorten a span, never inflate one, and that is the direction
+that cannot be abused.
+
+Anything else arriving from a browser about time is a suggestion, and the
+server's clock decides.

@@ -151,6 +151,8 @@ export const translations = {
       weekHint: 'وقتك أنت، يومًا بيوم.',
       thisWeek: 'هذا الأسبوع',
       billableShare: '{{percent}}٪ قابل للفوترة',
+      waitingToSync_one: 'إجراء واحد محفوظ على هذا الجهاز، سيُرسَل عند عودة الاتصال.',
+      waitingToSync_other: '{{count}} إجراءات محفوظة على هذا الجهاز، ستُرسَل عند عودة الاتصال.',
       underAMinute: 'أقل من دقيقة',
       failed: 'تعذّر تحميل المؤقّت.',
     },
@@ -387,6 +389,10 @@ export const translations = {
       weekHint: 'Your own time, day by day.',
       thisWeek: 'This week',
       billableShare: '{{percent}}% billable',
+      waitingToSync_one:
+        'One action is kept on this device and will be sent when the connection returns.',
+      waitingToSync_other:
+        '{{count}} actions are kept on this device and will be sent when the connection returns.',
       underAMinute: 'under a minute',
       failed: 'The timer could not be loaded.',
     },

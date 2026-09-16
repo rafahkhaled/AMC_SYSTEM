@@ -1,5 +1,5 @@
 import type { TimerState, Timesheet } from '@amc/contracts';
-import { manualEntrySchema, startTimerSchema } from '@amc/contracts';
+import { manualEntrySchema, startTimerSchema, timerActionSchema } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import {
   BadRequestException,
@@ -23,6 +23,21 @@ import { TimerService } from '../application/timer-service.js';
  * to fall back on: a timer belongs to the person using it, so the permission
  * is the whole check.
  */
+/**
+ * A replayed instant, or nothing.
+ *
+ * Spread rather than passed as `at: undefined`, because the service's options
+ * are exact and an explicit undefined is not the same as an absent key. A
+ * malformed value is dropped rather than refused: the person did the work,
+ * and losing it over a bad timestamp would be the wrong trade — the server
+ * falls back to now, which is what it did before any of this existed.
+ */
+function replayed(value: string | undefined): { at?: Date } {
+  if (!value) return {};
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? {} : { at: parsed };
+}
+
 /** Dubai is UTC+4 all year: the UAE has never observed daylight saving. */
 const DUBAI_OFFSET = '+04:00';
 
@@ -77,6 +92,7 @@ export class TimerController {
     const outcome = await this.timer.start({
       userId: caller.userId,
       taskId: parsed.data.taskId,
+      ...replayed(parsed.data.at),
     });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
 
@@ -85,8 +101,11 @@ export class TimerController {
 
   @Post('stop')
   @RequirePermissions('time.record')
-  async stop(@CurrentCaller() caller: Caller): Promise<TimerState> {
-    const outcome = await this.timer.stop({ userId: caller.userId });
+  async stop(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<TimerState> {
+    const outcome = await this.timer.stop({
+      userId: caller.userId,
+      ...replayed(timerActionSchema.safeParse(body).data?.at),
+    });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
     return this.read.forUser(caller.userId);
   }
@@ -100,16 +119,22 @@ export class TimerController {
    */
   @Post('hold')
   @RequirePermissions('time.record')
-  async hold(@CurrentCaller() caller: Caller): Promise<TimerState> {
-    const outcome = await this.timer.hold({ userId: caller.userId });
+  async hold(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<TimerState> {
+    const outcome = await this.timer.hold({
+      userId: caller.userId,
+      ...replayed(timerActionSchema.safeParse(body).data?.at),
+    });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
     return this.read.forUser(caller.userId);
   }
 
   @Post('resume')
   @RequirePermissions('time.record')
-  async resume(@CurrentCaller() caller: Caller): Promise<TimerState> {
-    const outcome = await this.timer.resume({ userId: caller.userId });
+  async resume(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<TimerState> {
+    const outcome = await this.timer.resume({
+      userId: caller.userId,
+      ...replayed(timerActionSchema.safeParse(body).data?.at),
+    });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
     return this.read.forUser(caller.userId);
   }

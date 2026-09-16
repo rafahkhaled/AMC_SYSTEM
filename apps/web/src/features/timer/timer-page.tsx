@@ -2,10 +2,20 @@ import type { TimeEntryView, TimerState } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Loading } from '../../design/index.js';
 import { clockFace, duration, hoursAndMinutes } from '../../lib/duration.js';
 import { taskBoard } from '../tasks/api.js';
-import { beat, holdTimer, resumeTimer, startTimer, stopTimer, timerState } from './api.js';
+import {
+  PendingSync,
+  beat,
+  holdTimer,
+  pendingCount,
+  replayPending,
+  resumeTimer,
+  startTimer,
+  stopTimer,
+  timerState,
+} from './api.js';
 import { ManualEntry } from './manual-entry.js';
 import { TimesheetPanel } from './timesheet.js';
 
@@ -25,13 +35,26 @@ export function TimerPage() {
   const hold = useMutation({ mutationFn: holdTimer, onSuccess: settle });
   const resume = useMutation({ mutationFn: resumeTimer, onSuccess: settle });
 
+  const waiting = useSync(queries);
+
   if (state.isLoading) return <Loading label={t('loading')} />;
   if (state.isError) return <p className="alert alert--error">{t('timer.failed')}</p>;
 
   const data = state.data as TimerState;
+  const held = [stop.error, hold.error, resume.error].find(
+    (failure) => failure instanceof PendingSync,
+  );
 
   return (
     <div className="u-stack">
+      {/*
+        An action kept on the device is not a failure, and must not read like
+        one. The hour is written down; only the server has not heard yet.
+      */}
+      {held || waiting > 0 ? (
+        <Alert tone="warning">{t('timer.waitingToSync', { count: Math.max(waiting, 1) })}</Alert>
+      ) : null}
+
       <RunningPanel
         state={data}
         onStop={() => stop.mutate()}
@@ -82,6 +105,41 @@ export function TimerPage() {
       <TimesheetPanel />
     </div>
   );
+}
+
+/**
+ * Sends whatever the device is still holding, when it can.
+ *
+ * On mount, because a tab reopened after a flight is the common case, and on
+ * `online`, because that is the browser saying the connection is back. The
+ * count is what lets the screen admit there is something outstanding rather
+ * than quietly looking correct.
+ */
+function useSync(queries: ReturnType<typeof useQueryClient>): number {
+  const [waiting, setWaiting] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function drain() {
+      const outcome = await replayPending().catch(() => null);
+      if (cancelled) return;
+      if (outcome && outcome.sent > 0) {
+        void queries.invalidateQueries({ queryKey: ['timer'] });
+        void queries.invalidateQueries({ queryKey: ['timesheet'] });
+      }
+      setWaiting(await pendingCount().catch(() => 0));
+    }
+
+    void drain();
+    window.addEventListener('online', drain);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', drain);
+    };
+  }, [queries]);
+
+  return waiting;
 }
 
 function RunningPanel({

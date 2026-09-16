@@ -41,7 +41,17 @@ export const timerStateSchema = z.object({
 });
 export type TimerState = z.infer<typeof timerStateSchema>;
 
-export const startTimerSchema = z.object({ taskId: z.string().min(1) });
+/**
+ * When a timer action actually happened.
+ *
+ * Sent only when replaying what somebody did while their browser was offline
+ * (NFR-03). The server clamps it to the window between the timer's start and
+ * now, so a client can shorten a span but never invent one.
+ */
+const replayedAt = z.string().datetime().optional();
+
+export const startTimerSchema = z.object({ taskId: z.string().min(1), at: replayedAt });
+export const timerActionSchema = z.object({ at: replayedAt });
 
 /** An instant the person typed, as the browser's datetime-local produces it. */
 const localInstant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use a date and a time');
