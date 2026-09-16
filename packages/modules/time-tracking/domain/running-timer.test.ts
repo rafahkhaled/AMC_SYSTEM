@@ -60,3 +60,65 @@ describe('abandoned timers (FR-25)', () => {
     expect(timer().snapshot().deviceId).toBe('phone');
   });
 });
+
+describe('holding a timer (FR-21)', () => {
+  it('records the span up to the hold, and counts nothing after it', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+
+    const held = running.hold(at('2026-04-01T09:40:00Z'));
+
+    expect(held.ok).toBe(true);
+    if (held.ok) {
+      expect(held.value.startedAt.toISOString()).toBe('2026-04-01T09:00:00.000Z');
+      expect(held.value.endedAt.toISOString()).toBe('2026-04-01T09:40:00.000Z');
+    }
+    expect(running.isHeld).toBe(true);
+    // An hour of interruption later, still nothing.
+    expect(running.elapsedAt(at('2026-04-01T10:40:00Z')).seconds).toBe(0);
+  });
+
+  it('starts a fresh span on resume, so the interruption bills nothing', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+    running.hold(at('2026-04-01T09:40:00Z'));
+
+    expect(running.resume(at('2026-04-01T11:00:00Z')).ok).toBe(true);
+    expect(running.isHeld).toBe(false);
+    // Ten minutes since resuming, not two hours and ten since starting.
+    expect(running.elapsedAt(at('2026-04-01T11:10:00Z')).seconds).toBe(600);
+  });
+
+  it('records nothing when a held timer is stopped', () => {
+    // The span was written when the hold began. Writing it again on stop
+    // would bill the same minutes twice.
+    const running = timer('2026-04-01T09:00:00Z');
+    running.hold(at('2026-04-01T09:40:00Z'));
+
+    const stopped = running.stop(at('2026-04-01T14:00:00Z'));
+
+    expect(stopped.ok).toBe(true);
+    if (stopped.ok) {
+      expect(stopped.value.endedAt.getTime()).toBe(stopped.value.startedAt.getTime());
+    }
+  });
+
+  it('is never abandoned while held, because nothing is at risk', () => {
+    // A held timer has no open span to trim. Sweeping it would only lose the
+    // task somebody paused, which is the one thing holding exists to keep.
+    const running = timer('2026-04-01T09:00:00Z');
+    running.hold(at('2026-04-01T09:40:00Z'));
+
+    const daysLater = at('2026-04-05T09:00:00Z');
+    expect(running.isAbandonedAt(daysLater)).toBe(false);
+    expect(running.stopAsAbandoned().endedAt.getTime()).toBe(
+      running.stopAsAbandoned().startedAt.getTime(),
+    );
+  });
+
+  it('refuses to hold twice, and to resume what is not held', () => {
+    const running = timer('2026-04-01T09:00:00Z');
+    expect(running.resume(at('2026-04-01T09:10:00Z')).ok).toBe(false);
+
+    running.hold(at('2026-04-01T09:40:00Z'));
+    expect(running.hold(at('2026-04-01T09:50:00Z')).ok).toBe(false);
+  });
+});

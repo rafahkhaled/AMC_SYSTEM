@@ -29,4 +29,5 @@ export const runningTimers = pgTable('running_timers', {
   startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
   deviceId: text('device_id'),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
+  heldAt: timestamp('held_at', { withTimezone: true }),
 });

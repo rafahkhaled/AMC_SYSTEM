@@ -596,3 +596,18 @@ a {
     font-size: var(--text-xl);
   }
 }
+
+/*
+ * The reading and its label sit together so the number is never ambiguous:
+ * a held timer shows the day's total on the task, a running one shows the
+ * current sitting, and they are very different numbers.
+ */
+.running__reading {
+  align-items: flex-end;
+  text-align: end;
+  gap: 0;
+}
+
+.running__clock--held {
+  color: var(--text-soft);
+}

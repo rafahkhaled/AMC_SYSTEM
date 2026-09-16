@@ -83,7 +83,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-22 | Offline resilience: append timer events to IndexedDB, sync on reconnect, server-side reconciliation with a confirmation prompt | NFR-03 | P1-20 | 2 |
 | P1-23 | Idle and after-hours detection against each person's working hours, with confirmation before counting | FR-25 | P1-20 | 1 |
 | P1-24 | Timesheets: daily and weekly per person, total hours and billable percentage | FR-24 | P1-19 | 1 |
-| P1-25 | Timer UI, mobile first: one-tap start, visible running state, works as an installed PWA | FR-20, NFR-07 | P1-20 | 2 |
+| P1-25 | Timer UI, mobile first: one-tap start, hold and resume, visible running state, works as an installed PWA | FR-20, FR-21, NFR-07 | P1-20 | 2 |
 
 ### Deadline engine
 

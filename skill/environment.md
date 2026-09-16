@@ -68,3 +68,12 @@ failed.
 - **KMS**, same.
 
 All three are on the first-deploy checklist in `docs/deployment.md`.
+
+- **Service worker registration.** The browser available here refuses to
+  register one at all — "an unknown error occurred when fetching the script",
+  with the script served correctly as `text/javascript` and reachable by
+  `curl`. The manifest, the icons and the worker's own logic are all checked
+  (`apps/web/src/pwa/service-worker.test.ts` runs the real file and proves it
+  never answers for `/api`), but whether the application installs to a home
+  screen has to be confirmed on a real phone. It belongs in the P1 acceptance
+  run.

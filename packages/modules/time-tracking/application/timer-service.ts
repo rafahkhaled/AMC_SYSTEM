@@ -85,10 +85,22 @@ export class TimerService {
         })();
 
     await this.timers.clear(params.userId);
+    return this.record(span);
+  }
 
-    // A span of no length records nothing. Someone who starts and immediately
-    // stops has not worked, and a zero-length entry on a statement is a
-    // question the firm does not want to answer.
+  /**
+   * Write a finished span down, if there is anything to write.
+   *
+   * A span of no length records nothing. Someone who starts and immediately
+   * stops has not worked, and a zero-length entry on a statement is a question
+   * the firm does not want to answer. The same is true of a timer stopped
+   * while already held, whose span was recorded when the hold began.
+   */
+  private async record(span: {
+    assignmentId: string;
+    startedAt: Date;
+    endedAt: Date;
+  }): Promise<Result<StoppedEntry | null, Conflict>> {
     const seconds = Math.floor((span.endedAt.getTime() - span.startedAt.getTime()) / 1000);
     if (seconds <= 0) return ok(null);
 
@@ -102,6 +114,38 @@ export class TimerService {
 
     await this.entries.save(entry.value);
     return ok({ entryId: entry.value.id, seconds });
+  }
+
+  /**
+   * Hold the timer, recording the span so far.
+   *
+   * The work is interrupted, not finished: a call comes in, a colleague asks
+   * something, the client is on the other line. Stopping would lose which task
+   * was in hand and make resuming a search through the client file. Holding
+   * keeps the task and bills none of the interruption.
+   */
+  async hold(params: { userId: string }): Promise<Result<StoppedEntry | null, Conflict>> {
+    const running = await this.timers.forUser(params.userId);
+    if (!running) return err(new Conflict('No timer is running'));
+
+    const now = this.clock.now();
+    const span = running.hold(now);
+    if (!span.ok) return err(span.error);
+
+    await this.timers.save(running);
+    return this.record(span.value);
+  }
+
+  /** Lift a hold. The next span starts now, so the pause bills nothing. */
+  async resume(params: { userId: string }): Promise<Result<void, Conflict>> {
+    const running = await this.timers.forUser(params.userId);
+    if (!running) return err(new Conflict('No timer is held'));
+
+    const lifted = running.resume(this.clock.now());
+    if (!lifted.ok) return lifted;
+
+    await this.timers.save(running);
+    return ok(undefined);
   }
 
   /** Tell the server the timer is still on screen (FR-25). */

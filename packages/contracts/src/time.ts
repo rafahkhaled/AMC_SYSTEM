@@ -7,8 +7,15 @@ export const runningTimerSchema = z.object({
   clientName: z.string(),
   service: z.string(),
   startedAt: z.string(),
-  /** Seconds so far, from the server, so a stale tab cannot drift. */
+  /** Seconds so far, from the server, so a stale tab cannot drift. Zero while held. */
   elapsedSeconds: z.number().int().nonnegative(),
+  /** Held: the work is interrupted, the task is remembered, nothing is counting. */
+  held: z.boolean(),
+  /**
+   * Everything recorded against this task today, held or running. It is what
+   * somebody actually wants to know when they come back to a paused job.
+   */
+  todayOnTaskSeconds: z.number().int().nonnegative(),
 });
 export type RunningTimerView = z.infer<typeof runningTimerSchema>;
 

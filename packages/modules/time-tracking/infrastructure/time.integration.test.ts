@@ -388,4 +388,87 @@ describe('the running timer against a real database', () => {
       expect(await timers.forUser('user-a')).toBeNull();
     });
   });
+
+  it('survives a hold, keeping the task and counting nothing', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { timers } = await scenario(tx);
+      const running = RunningTimer.start({
+        userId: 'user-a',
+        assignmentId: 'as-1',
+        now: at('2026-04-01T09:00:00Z'),
+      });
+      await timers.start(running);
+
+      running.hold(at('2026-04-01T09:40:00Z'));
+      await timers.save(running);
+
+      const reloaded = await timers.forUser('user-a');
+      expect(reloaded?.isHeld).toBe(true);
+      expect(reloaded?.assignmentId).toBe('as-1');
+      expect(reloaded?.elapsedAt(at('2026-04-01T18:00:00Z')).seconds).toBe(0);
+    });
+  });
+
+  it('counts from the resume, not from the original start', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { timers } = await scenario(tx);
+      const running = RunningTimer.start({
+        userId: 'user-a',
+        assignmentId: 'as-1',
+        now: at('2026-04-01T09:00:00Z'),
+      });
+      await timers.start(running);
+      running.hold(at('2026-04-01T09:40:00Z'));
+      await timers.save(running);
+
+      const held = await timers.forUser('user-a');
+      held?.resume(at('2026-04-01T11:00:00Z'));
+      if (held) await timers.save(held);
+
+      const resumed = await timers.forUser('user-a');
+      expect(resumed?.isHeld).toBe(false);
+      // Ten minutes, not the two hours and ten since it first started.
+      expect(resumed?.elapsedAt(at('2026-04-01T11:10:00Z')).seconds).toBe(600);
+    });
+  });
+
+  it('leaves held timers out of the sweep for abandoned ones', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { timers } = await scenario(tx);
+      const running = RunningTimer.start({
+        userId: 'user-a',
+        assignmentId: 'as-1',
+        now: at('2026-04-01T09:00:00Z'),
+      });
+      await timers.start(running);
+      running.hold(at('2026-04-01T09:40:00Z'));
+      await timers.save(running);
+
+      // Long past any heartbeat deadline. A held timer still has nothing to
+      // trim, and sweeping it would only lose the task somebody paused.
+      const stale = await timers.stale(at('2026-04-09T00:00:00Z'));
+      expect(stale.map((timer) => timer.userId)).not.toContain('user-a');
+    });
+  });
+
+  it('refuses a hold recorded before the span it belongs to', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { db, timers } = await scenario(tx);
+      await timers.start(
+        RunningTimer.start({
+          userId: 'user-a',
+          assignmentId: 'as-1',
+          now: at('2026-04-01T09:00:00Z'),
+        }),
+      );
+
+      // The domain will not produce this. The database refuses it anyway,
+      // because what the schema permits is what eventually arrives.
+      await expect(
+        db.execute(
+          `UPDATE running_timers SET held_at = '2026-03-01T09:00:00Z' WHERE user_id = 'user-a'`,
+        ),
+      ).rejects.toThrow();
+    });
+  });
 });

@@ -69,6 +69,12 @@ module.exports = {
     tsConfig: { fileName: 'tsconfig.base.json' },
     // Build output is not source. Cruising it produces orphan warnings about
     // compiled files that say nothing about the architecture.
-    exclude: { path: '(/dist/|/dist-types/|\\.(test|spec)\\.tsx?$)' },
+    /*
+     * `public/` holds files the browser fetches by URL rather than files
+     * anything imports — the service worker above all. They are orphans by
+     * definition, and reporting them as such trains people to ignore the
+     * one warning that would matter.
+     */
+    exclude: { path: '(/dist/|/dist-types/|/public/|\\.(test|spec)\\.tsx?$)' },
   },
 };

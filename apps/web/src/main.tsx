@@ -35,4 +35,20 @@ async function start(): Promise<void> {
   );
 }
 
+/*
+ * Registered only in a built application. In development the worker would sit
+ * between Vite and the page and serve a stale module after every edit, which
+ * costs more time than it saves.
+ */
+function registerServiceWorker(): void {
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/service-worker.js').catch(() => {
+      // An unregistered worker means no offline shell, not a broken
+      // application. Nothing on screen should change because of it.
+    });
+  });
+}
+
 void start();
+registerServiceWorker();

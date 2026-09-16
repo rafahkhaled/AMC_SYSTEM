@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
-import { beat, startTimer, stopTimer, timerState } from './api.js';
+import { beat, holdTimer, resumeTimer, startTimer, stopTimer, timerState } from './api.js';
 
 /** Seconds as h:mm:ss, which is what a running timer should read like. */
 function clockFace(seconds: number): string {
@@ -33,10 +33,10 @@ export function TimerPage() {
   const queries = useQueryClient();
   const state = useQuery({ queryKey: ['timer'], queryFn: timerState });
 
-  const stop = useMutation({
-    mutationFn: stopTimer,
-    onSuccess: (next) => queries.setQueryData(['timer'], next),
-  });
+  const settle = (next: TimerState) => queries.setQueryData(['timer'], next);
+  const stop = useMutation({ mutationFn: stopTimer, onSuccess: settle });
+  const hold = useMutation({ mutationFn: holdTimer, onSuccess: settle });
+  const resume = useMutation({ mutationFn: resumeTimer, onSuccess: settle });
 
   if (state.isLoading) return <Loading label={t('loading')} />;
   if (state.isError) return <p className="alert alert--error">{t('timer.failed')}</p>;
@@ -45,7 +45,13 @@ export function TimerPage() {
 
   return (
     <div className="u-stack">
-      <RunningPanel state={data} onStop={() => stop.mutate()} stopping={stop.isPending} />
+      <RunningPanel
+        state={data}
+        onStop={() => stop.mutate()}
+        onHold={() => hold.mutate()}
+        onResume={() => resume.mutate()}
+        busy={stop.isPending || hold.isPending || resume.isPending}
+      />
 
       <Card title={t('timer.today')} description={t('timer.todayHint')}>
         {data.today.length === 0 ? (
@@ -77,11 +83,15 @@ export function TimerPage() {
 function RunningPanel({
   state,
   onStop,
-  stopping,
+  onHold,
+  onResume,
+  busy,
 }: {
   state: TimerState;
   onStop: () => void;
-  stopping: boolean;
+  onHold: () => void;
+  onResume: () => void;
+  busy: boolean;
 }) {
   const { t } = useTranslation();
   const [elapsed, setElapsed] = useState(state.running?.elapsedSeconds ?? 0);
@@ -93,9 +103,14 @@ function RunningPanel({
    * to, and the heartbeat is what separates working from a browser somebody
    * forgot to close.
    */
+  const held = state.running?.held ?? false;
+
   useEffect(() => {
     if (!state.running) return;
     setElapsed(state.running.elapsedSeconds);
+    // A held timer counts nothing, so there is nothing to tick and no reason
+    // to tell the server a paused tab is still awake.
+    if (held) return;
 
     const tick = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
     const pulse = setInterval(() => void beat(), 60_000);
@@ -103,7 +118,7 @@ function RunningPanel({
       clearInterval(tick);
       clearInterval(pulse);
     };
-  }, [state.running]);
+  }, [state.running, held]);
 
   if (!state.running) {
     return (
@@ -119,10 +134,27 @@ function RunningPanel({
         <div className="u-stack-tight">
           <strong>{state.running.clientName}</strong>
           <span className="u-text-soft">{t(`services.${state.running.service}`)}</span>
+          {held ? <Badge tone="warning">{t('timer.held')}</Badge> : null}
         </div>
         <span className="u-grow" />
-        <span className="running__clock u-ltr u-numeric">{clockFace(elapsed)}</span>
-        <Button tone="danger" onClick={onStop} busy={stopping}>
+        <div className="u-stack-tight running__reading">
+          <span className={`running__clock u-ltr u-numeric${held ? ' running__clock--held' : ''}`}>
+            {held ? hoursAndMinutes(state.running.todayOnTaskSeconds) : clockFace(elapsed)}
+          </span>
+          <span className="u-text-faint">
+            {held ? t('timer.todayOnTask') : t('timer.thisSitting')}
+          </span>
+        </div>
+        {held ? (
+          <Button onClick={onResume} busy={busy}>
+            {t('timer.resume')}
+          </Button>
+        ) : (
+          <Button tone="secondary" onClick={onHold} busy={busy}>
+            {t('timer.hold')}
+          </Button>
+        )}
+        <Button tone="danger" onClick={onStop} busy={busy}>
           {t('timer.stop')}
         </Button>
       </div>

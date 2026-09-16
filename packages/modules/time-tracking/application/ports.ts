@@ -34,6 +34,8 @@ export interface RunningTimerRepository {
   /** Timers that have not been heard from, for the sweep that trims them. */
   stale(before: Date): Promise<RunningTimer[]>;
   start(timer: RunningTimer): Promise<void>;
+  /** Writes back a timer that was held or resumed. */
+  save(timer: RunningTimer): Promise<void>;
   beat(userId: string, at: Date): Promise<void>;
   clear(userId: string): Promise<void>;
 }

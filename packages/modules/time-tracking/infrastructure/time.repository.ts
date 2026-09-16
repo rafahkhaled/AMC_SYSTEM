@@ -1,5 +1,5 @@
 import type { EventCollector } from '@amc/kernel';
-import { asc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lt, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type {
   RunningTimerRepository,
@@ -163,6 +163,7 @@ export class DrizzleRunningTimerRepository implements RunningTimerRepository {
           startedAt: row.startedAt,
           deviceId: row.deviceId,
           lastSeenAt: row.lastSeenAt,
+          heldAt: row.heldAt,
         })
       : null;
   }
@@ -171,7 +172,9 @@ export class DrizzleRunningTimerRepository implements RunningTimerRepository {
     const rows = await this.db
       .select()
       .from(runningTimers)
-      .where(lt(runningTimers.lastSeenAt, before));
+      // A held timer has no open span, so there is nothing for the sweep to
+      // trim and no reason to forget which task somebody paused.
+      .where(and(lt(runningTimers.lastSeenAt, before), isNull(runningTimers.heldAt)));
 
     return rows.map((row) =>
       RunningTimer.rehydrate({
@@ -180,6 +183,7 @@ export class DrizzleRunningTimerRepository implements RunningTimerRepository {
         startedAt: row.startedAt,
         deviceId: row.deviceId,
         lastSeenAt: row.lastSeenAt,
+        heldAt: row.heldAt,
       }),
     );
   }
@@ -203,6 +207,7 @@ export class DrizzleRunningTimerRepository implements RunningTimerRepository {
           startedAt: state.startedAt,
           deviceId: state.deviceId,
           lastSeenAt: state.lastSeenAt,
+          heldAt: state.heldAt,
         },
       });
   }
@@ -212,6 +217,15 @@ export class DrizzleRunningTimerRepository implements RunningTimerRepository {
       .update(runningTimers)
       .set({ lastSeenAt: at })
       .where(eq(runningTimers.userId, userId));
+  }
+
+  /** Writes back a held or resumed timer. The row is keyed by the person. */
+  async save(timer: RunningTimer): Promise<void> {
+    const state = timer.snapshot();
+    await this.db
+      .update(runningTimers)
+      .set({ startedAt: state.startedAt, lastSeenAt: state.lastSeenAt, heldAt: state.heldAt })
+      .where(eq(runningTimers.userId, state.userId));
   }
 
   async clear(userId: string): Promise<void> {

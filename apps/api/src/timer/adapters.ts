@@ -48,9 +48,24 @@ export function timerViewReader(db: Database): TimerViewReader {
         client_name: string;
         service: string;
         started_at: string;
+        held_at: string | null;
+        today_on_task_seconds: string | number;
       }>(sql`
         SELECT t.id AS task_id, r.assignment_id, t.client_id, c.legal_name AS client_name,
-               t.service, r.started_at
+               t.service, r.started_at, r.held_at,
+               -- What has already been banked on this task today, which is the
+               -- figure somebody wants when they come back to a held job. The
+               -- day is Dubai's, because a working day is local.
+               COALESCE((
+                 SELECT SUM(e.duration_seconds)
+                 FROM time_entries e
+                 JOIN task_assignments ea ON ea.id = e.assignment_id
+                 WHERE ea.task_id = t.id
+                   AND ea.user_id = r.user_id
+                   AND e.ended_at IS NOT NULL
+                   AND (e.started_at AT TIME ZONE 'Asia/Dubai')::date
+                       = (now() AT TIME ZONE 'Asia/Dubai')::date
+               ), 0) AS today_on_task_seconds
         FROM running_timers r
         JOIN task_assignments a ON a.id = r.assignment_id
         JOIN tasks t ON t.id = a.task_id
@@ -60,6 +75,7 @@ export function timerViewReader(db: Database): TimerViewReader {
       if (!row) return null;
 
       const startedAt = new Date(row.started_at);
+      const held = row.held_at !== null;
       return {
         taskId: row.task_id,
         assignmentId: row.assignment_id,
@@ -68,8 +84,13 @@ export function timerViewReader(db: Database): TimerViewReader {
         service: row.service,
         startedAt: startedAt.toISOString(),
         // Counted on the server. A tab left open overnight would otherwise
-        // show whatever its own clock had drifted to.
-        elapsedSeconds: Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000)),
+        // show whatever its own clock had drifted to. A held timer counts
+        // nothing, because its span was closed when the hold began.
+        elapsedSeconds: held
+          ? 0
+          : Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000)),
+        held,
+        todayOnTaskSeconds: Number(row.today_on_task_seconds ?? 0),
       };
     },
 

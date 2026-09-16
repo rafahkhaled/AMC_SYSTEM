@@ -59,6 +59,29 @@ export class TimerController {
   }
 
   /**
+   * Hold. The interruption is not billed and the task is not lost.
+   *
+   * Separate from stop because the two mean different things to the person
+   * using it, even though both write the same entry: stopping says the work
+   * is finished, holding says it is interrupted.
+   */
+  @Post('hold')
+  @RequirePermissions('time.record')
+  async hold(@CurrentCaller() caller: Caller): Promise<TimerState> {
+    const outcome = await this.timer.hold({ userId: caller.userId });
+    if (!outcome.ok) throw new BadRequestException(outcome.error.message);
+    return this.read.forUser(caller.userId);
+  }
+
+  @Post('resume')
+  @RequirePermissions('time.record')
+  async resume(@CurrentCaller() caller: Caller): Promise<TimerState> {
+    const outcome = await this.timer.resume({ userId: caller.userId });
+    if (!outcome.ok) throw new BadRequestException(outcome.error.message);
+    return this.read.forUser(caller.userId);
+  }
+
+  /**
    * Still here. Sent while the timer is on screen, so a browser closed on
    * Friday is distinguishable from somebody working late.
    */

@@ -9,8 +9,17 @@ import { TimerPage } from './timer-page.js';
 
 const timerState = vi.hoisted(() => vi.fn());
 const stopTimer = vi.hoisted(() => vi.fn());
+const holdTimer = vi.hoisted(() => vi.fn());
+const resumeTimer = vi.hoisted(() => vi.fn());
 const beat = vi.hoisted(() => vi.fn());
-vi.mock('./api.js', () => ({ timerState, stopTimer, beat, startTimer: vi.fn() }));
+vi.mock('./api.js', () => ({
+  timerState,
+  stopTimer,
+  holdTimer,
+  resumeTimer,
+  beat,
+  startTimer: vi.fn(),
+}));
 
 const empty: TimerState = { running: null, today: [], todaySeconds: 0, todayBillableSeconds: 0 };
 
@@ -26,6 +35,21 @@ function entry(over: Partial<TimerState['today'][number]> = {}): TimerState['tod
     billable: true,
     source: 'timer',
     locked: false,
+    ...over,
+  };
+}
+
+function running(over: Partial<NonNullable<TimerState['running']>> = {}) {
+  return {
+    taskId: 't1',
+    assignmentId: 'a1',
+    clientId: 'c1',
+    clientName: 'Gulf Trading LLC',
+    service: 'vat_return',
+    startedAt: '2026-09-16T06:00:00.000Z',
+    elapsedSeconds: 60,
+    held: false,
+    todayOnTaskSeconds: 60,
     ...over,
   };
 }
@@ -57,18 +81,7 @@ describe('the timer screen', () => {
   });
 
   it('reads the running timer as a clock, starting from the server count', async () => {
-    show({
-      ...empty,
-      running: {
-        taskId: 't1',
-        assignmentId: 'a1',
-        clientId: 'c1',
-        clientName: 'Gulf Trading LLC',
-        service: 'vat_return',
-        startedAt: '2026-09-16T06:00:00.000Z',
-        elapsedSeconds: 3725,
-      },
-    });
+    show({ ...empty, running: running({ elapsedSeconds: 3725 }) });
 
     // Not 0:00:00. A tab opened onto a timer already running has to show the
     // hour the server has counted, not the second the component mounted.
@@ -107,18 +120,7 @@ describe('the timer screen', () => {
 
   it('stops through the server and shows what the server returns', async () => {
     const user = userEvent.setup();
-    show({
-      ...empty,
-      running: {
-        taskId: 't1',
-        assignmentId: 'a1',
-        clientId: 'c1',
-        clientName: 'Gulf Trading LLC',
-        service: 'vat_return',
-        startedAt: '2026-09-16T06:00:00.000Z',
-        elapsedSeconds: 60,
-      },
-    });
+    show({ ...empty, running: running() });
     stopTimer.mockResolvedValue({
       ...empty,
       today: [entry({ seconds: 60 })],
@@ -130,5 +132,60 @@ describe('the timer screen', () => {
 
     expect(stopTimer).toHaveBeenCalledOnce();
     expect(await screen.findByText('No timer running')).toBeInTheDocument();
+  });
+
+  it('offers a hold while running, and a resume once held', async () => {
+    const user = userEvent.setup();
+    show({ ...empty, running: running() });
+    holdTimer.mockResolvedValue({
+      ...empty,
+      running: running({ held: true, elapsedSeconds: 0, todayOnTaskSeconds: 2400 }),
+      today: [entry({ seconds: 2400 })],
+      todaySeconds: 2400,
+      todayBillableSeconds: 2400,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Hold' }));
+
+    expect(holdTimer).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('button', { name: 'Resume' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hold' })).not.toBeInTheDocument();
+    expect(screen.getByText('Held')).toBeInTheDocument();
+    // Still on the task, which is the whole difference between this and stop.
+    // Twice: once in the held panel, once in the entry the hold just recorded.
+    expect(screen.getAllByText('Gulf Trading LLC')).toHaveLength(2);
+  });
+
+  it('shows the day on the task while held, not a clock counting the pause', async () => {
+    show({
+      ...empty,
+      running: running({ held: true, elapsedSeconds: 0, todayOnTaskSeconds: 5400 }),
+    });
+
+    expect(await screen.findByText('1:30')).toBeInTheDocument();
+    expect(screen.getByText('today on this task')).toBeInTheDocument();
+    // A running clock reads h:mm:ss. Nothing on a held screen should.
+    expect(screen.queryByText(/^\d+:\d\d:\d\d$/)).not.toBeInTheDocument();
+  });
+
+  it('sends no heartbeat while held, because nothing is being counted', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    show({ ...empty, running: running({ held: true, elapsedSeconds: 0 }) });
+    await screen.findByRole('button', { name: 'Resume' });
+
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+    expect(beat).not.toHaveBeenCalled();
+  });
+
+  it('resumes through the server', async () => {
+    const user = userEvent.setup();
+    show({ ...empty, running: running({ held: true, elapsedSeconds: 0 }) });
+    resumeTimer.mockResolvedValue({ ...empty, running: running({ elapsedSeconds: 0 }) });
+
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+
+    expect(resumeTimer).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('button', { name: 'Hold' })).toBeInTheDocument();
   });
 });

@@ -16,6 +16,11 @@ export interface RunningTimerState {
   readonly deviceId: string | null;
   /** Last sign of life, which is how an abandoned timer is spotted (FR-25). */
   readonly lastSeenAt: Date;
+  /**
+   * Set while the timer is held. The span up to this instant has already been
+   * recorded, so a held timer has no open span and owes nobody anything.
+   */
+  readonly heldAt: Date | null;
 }
 
 export interface StoppedTimer {
@@ -42,6 +47,7 @@ export class RunningTimer {
       startedAt: params.now,
       deviceId: params.deviceId ?? null,
       lastSeenAt: params.now,
+      heldAt: null,
     });
   }
 
@@ -61,9 +67,38 @@ export class RunningTimer {
     return this.state.startedAt;
   }
 
+  get isHeld(): boolean {
+    return this.state.heldAt !== null;
+  }
+
+  /** How long the current span has run. A held timer has no open span. */
   elapsedAt(now: Date): Duration {
+    if (this.state.heldAt) return Duration.zero();
     const length = Duration.tryBetween(this.state.startedAt, now);
     return length.ok ? length.value : Duration.zero();
+  }
+
+  /**
+   * Hold, recording the span so far.
+   *
+   * The difference between this and stopping is only that the timer is
+   * remembered: the same entry is written either way. That is deliberate. A
+   * held timer that stored a running total would be a second account of the
+   * day's hours, and two accounts of the same hours eventually disagree.
+   */
+  hold(now: Date): Result<StoppedTimer, Conflict> {
+    if (this.state.heldAt) return err(new Conflict('The timer is already held'));
+    const span = this.stop(now);
+    if (!span.ok) return span;
+    this.state = { ...this.state, heldAt: now, lastSeenAt: now };
+    return span;
+  }
+
+  /** Lift the hold. The next span starts now, not when the hold began. */
+  resume(now: Date): Result<void, Conflict> {
+    if (!this.state.heldAt) return err(new Conflict('The timer is not held'));
+    this.state = { ...this.state, startedAt: now, heldAt: null, lastSeenAt: now };
+    return ok(undefined);
   }
 
   /**
@@ -76,8 +111,14 @@ export class RunningTimer {
     this.state = { ...this.state, lastSeenAt: now };
   }
 
-  /** Nothing has been heard for long enough that the time is in doubt. */
+  /**
+   * Nothing has been heard for long enough that the time is in doubt.
+   *
+   * A held timer is never abandoned. There is no open span to trim, so the
+   * only thing a sweep could do is forget which task somebody had paused.
+   */
   isAbandonedAt(now: Date): boolean {
+    if (this.state.heldAt) return false;
     const silent = now.getTime() - this.state.lastSeenAt.getTime();
     return silent > ABANDONED_AFTER_MINUTES * 60_000;
   }
@@ -90,6 +131,16 @@ export class RunningTimer {
    * back to its last heartbeat instead of billing the night.
    */
   stop(now: Date): Result<StoppedTimer, Conflict> {
+    // A held timer's span was recorded when it was held, so stopping it has
+    // nothing left to record. Reporting the hold instant as the end gives a
+    // span of no length, which the caller already knows to discard.
+    if (this.state.heldAt) {
+      return ok({
+        assignmentId: this.state.assignmentId,
+        startedAt: this.state.heldAt,
+        endedAt: this.state.heldAt,
+      });
+    }
     if (now.getTime() < this.state.startedAt.getTime()) {
       return err(new Conflict('A timer cannot stop before it started'));
     }
@@ -108,6 +159,13 @@ export class RunningTimer {
    * person is asked to confirm it (FR-25).
    */
   stopAsAbandoned(): StoppedTimer {
+    if (this.state.heldAt) {
+      return {
+        assignmentId: this.state.assignmentId,
+        startedAt: this.state.heldAt,
+        endedAt: this.state.heldAt,
+      };
+    }
     return {
       assignmentId: this.state.assignmentId,
       startedAt: this.state.startedAt,

@@ -13,6 +13,15 @@ export async function stopTimer(): Promise<TimerState> {
   return timerStateSchema.parse(await send('/timer/stop'));
 }
 
+/** Hold: the work is interrupted. The span so far is recorded either way. */
+export async function holdTimer(): Promise<TimerState> {
+  return timerStateSchema.parse(await send('/timer/hold'));
+}
+
+export async function resumeTimer(): Promise<TimerState> {
+  return timerStateSchema.parse(await send('/timer/resume'));
+}
+
 /** Tells the server the timer is still on screen. */
 export async function beat(): Promise<void> {
   await send('/timer/beat').catch(() => {
