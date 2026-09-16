@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSession } from '../features/auth/session.js';
 import { SignInPage } from '../features/auth/sign-in-page.js';
 import { TwoFactorPage } from '../features/auth/two-factor-page.js';
+import { CalendarPage } from '../features/calendar/calendar-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
 import { TaskPage } from '../features/tasks/task-page.js';
@@ -25,6 +26,7 @@ type View =
   | { name: 'clients' }
   | { name: 'tasks' }
   | { name: 'task'; id: string }
+  | { name: 'calendar' }
   | { name: 'timer' }
   | { name: 'client'; id: string };
 
@@ -34,7 +36,7 @@ type View =
  * A detail screen belongs to the section it was opened from, so the nav does
  * not go blank the moment somebody looks at one thing in detail.
  */
-function activeNav(view: View): 'clients' | 'tasks' | 'timer' | 'home' {
+function activeNav(view: View): 'clients' | 'tasks' | 'calendar' | 'timer' | 'home' {
   if (view.name === 'client') return 'clients';
   if (view.name === 'task') return 'tasks';
   return view.name;
@@ -70,6 +72,9 @@ export function App() {
           ) : null}
           {view.name === 'task' ? (
             <TaskPage id={view.id} onBack={() => setView({ name: 'tasks' })} />
+          ) : null}
+          {view.name === 'calendar' ? (
+            <CalendarPage onOpenTask={(id) => setView({ name: 'task', id })} />
           ) : null}
           {view.name === 'timer' ? <TimerPage /> : null}
           {view.name === 'client' ? (

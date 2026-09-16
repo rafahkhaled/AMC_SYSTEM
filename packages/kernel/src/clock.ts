@@ -46,3 +46,23 @@ export function businessDate(instant: Date, timeZone: string = BUSINESS_TIME_ZON
     day: '2-digit',
   }).format(instant);
 }
+
+/**
+ * A `Date` in a form a raw SQL template will bind.
+ *
+ * Drizzle's `sql` tag passes values straight to the driver, and the driver
+ * refuses a `Date`: "The string argument must be of type string". The query
+ * builder converts them; a hand-written template does not, and the failure
+ * arrives at runtime with a message that names neither the column nor the
+ * value. This has cost three separate afternoons, so it lives here rather
+ * than being rewritten beside each query.
+ *
+ * Always cast at the other end, because a string is not a timestamp:
+ *
+ *   sql`WHERE run_at <= ${at(now)}::timestamptz`
+ *   sql`WHERE expires_on < ${on(today)}::date`
+ */
+export const at = (value: Date): string => value.toISOString();
+
+/** The calendar day of an instant, for a `::date` comparison. */
+export const on = (value: Date): string => value.toISOString().slice(0, 10);

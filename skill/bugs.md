@@ -119,6 +119,23 @@ reason.
 **Fix:** declare it in `turbo.json`. Proven by pointing it at a dead port and
 checking the failure names that port.
 
+### A whole layer of tests that never ran
+
+**Symptom:** none. That is the point.
+
+**Cause:** the deadlines module's vitest config listed
+`{domain,infrastructure}` because it had no application layer when it was
+written. Adding one meant every test in it was skipped — and a suite that runs
+no tests from a directory reports success, not a warning.
+
+**Fix:** all six modules now list `{domain,application,infrastructure}`, and
+the config says why leaving a directory out is dangerous rather than merely
+incomplete.
+
+**Lesson:** when adding a layer or a directory to a package, check the test
+config includes it. A missing path is invisible: the only signal is a test
+count that nobody had a reason to expect.
+
 ### Two copies of Vite
 
 **Symptom:** `'test' does not exist in type 'UserConfigExport'`, then plugin

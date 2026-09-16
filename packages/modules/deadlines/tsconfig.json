@@ -1,11 +1,20 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "verbatimModuleSyntax": false,
+    "strictPropertyInitialization": false,
     "rootDir": ".",
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["domain/**/*.ts", "infrastructure/**/*.ts"],
+  "include": ["domain/**/*.ts", "application/**/*.ts", "infrastructure/**/*.ts", "http/**/*.ts"],
   "exclude": ["**/*.test.ts", "dist"],
-  "references": [{ "path": "../../kernel" }, { "path": "../../database" }]
+  "references": [
+    { "path": "../../kernel" },
+    { "path": "../../contracts" },
+    { "path": "../../http-kit" },
+    { "path": "../../database" }
+  ]
 }

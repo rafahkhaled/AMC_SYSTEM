@@ -4,6 +4,8 @@ import { ReadClients, ReceiveDocument } from '@amc/clients';
 import { ClientsModule } from '@amc/clients/http';
 import { DrizzleClientRepository, DrizzleDocumentRepository } from '@amc/clients/infrastructure';
 import type { Database } from '@amc/database';
+import { ReadCalendar } from '@amc/deadlines';
+import { CalendarModule } from '@amc/deadlines/http';
 import { IdentityModule } from '@amc/identity/http';
 import {
   Argon2PasswordHasher,
@@ -27,6 +29,7 @@ import { EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ulid } from 'ulid';
+import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { taskSummaries } from './clients/task-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
@@ -72,6 +75,11 @@ import { assignmentResolver, timerViewReader } from './timer/adapters.js';
           { next: () => ulid() },
         ),
       }),
+    }),
+    CalendarModule.forRootAsync({
+      inject: [DATABASE],
+      useFactory: (db: Database) =>
+        new ReadCalendar(deadlineSource(db), holidaySource(db), new SystemClock()),
     }),
     TasksModule.forRootAsync({
       inject: [DATABASE],

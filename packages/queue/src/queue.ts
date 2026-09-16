@@ -1,14 +1,13 @@
-import type { Clock, IdGenerator } from '@amc/kernel';
+import { type Clock, type IdGenerator, at } from '@amc/kernel';
 import { sql } from 'drizzle-orm';
 import { type Job, type JobRequest, backoffSeconds } from './job.js';
 
-/**
- * Timestamps are sent as ISO text with an explicit cast. The raw SQL template
- * hands parameters straight to the driver, which does not know a Date is meant
- * to be a timestamp, and a silent type mismatch here would be a bad way to
- * discover that a job never ran.
+/*
+ * `at` comes from the kernel now. Timestamps are sent as ISO text with an
+ * explicit cast because the raw SQL template hands parameters straight to the
+ * driver, which does not know a Date is meant to be a timestamp. A silent type
+ * mismatch here would be a bad way to discover that a job never ran.
  */
-const at = (value: Date) => value.toISOString();
 
 /**
  * Anything that can run SQL: the pool, or one transaction from it.

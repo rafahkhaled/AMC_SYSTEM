@@ -47,3 +47,18 @@ are missing", not "start() returns error".
 Explain why, not what. The comments worth keeping are the ones that say what
 would go wrong otherwise: why the default is billable, why expiry is computed
 rather than stored, why the lock comes before the create.
+
+## Dates in raw SQL
+
+Drizzle's `sql` template hands parameters straight to the driver, and the
+driver refuses a `Date`. Use `at(date)` for a timestamp and `on(date)` for a
+calendar day, both from the kernel, and always cast at the other end:
+
+```ts
+sql`WHERE run_at <= ${at(now)}::timestamptz`
+sql`WHERE expires_on < ${on(today)}::date`
+```
+
+The query builder converts dates on its own; only hand-written templates need
+this. It has cost three afternoons, which is why the helper is in the kernel
+rather than rewritten beside each query.
