@@ -1,8 +1,16 @@
 import type { Database } from '@amc/database';
 import type { Clock } from '@amc/kernel';
 import type { PostgresJobQueue } from '@amc/queue';
+import { RecurringWork } from '@amc/services';
+import { ALL_SERVICES } from '@amc/services/domain';
+import {
+  DrizzleClientServiceRepository,
+  DrizzleTaskRepository,
+} from '@amc/services/infrastructure';
 import { AlertLog } from './alerts.js';
+import { loadClientCycles } from './client-cycles.js';
 import { sweepDocumentExpiry } from './document-expiry.js';
+import { scheduleEscalations } from './escalations.js';
 
 export const DAILY_SWEEP = 'schedule.daily';
 
@@ -30,6 +38,8 @@ export function nextDailyRun(after: Date): Date {
 
 export interface DailySweepResult {
   readonly expiryWarnings: number;
+  readonly tasksCreated: number;
+  readonly escalationsScheduled: number;
 }
 
 /**
@@ -63,8 +73,43 @@ export async function runDailySweep(params: {
     });
   }
 
+  /*
+   * Create the work that has come round again (FR-14, FR-41).
+   *
+   * Running this daily rather than monthly is what delivers the day-one
+   * trigger: the task appears on the first morning after a period closes,
+   * which is the whole point of not waiting for the deadline.
+   */
+  const cycles = await loadClientCycles(params.db);
+  const recurring = new RecurringWork(
+    new DrizzleClientServiceRepository(params.db),
+    new DrizzleTaskRepository(params.db),
+    params.clock,
+    params.ids,
+  );
+
+  let tasksCreated = 0;
+  for (const template of ALL_SERVICES) {
+    for (const created of await recurring.sweep(template.code, cycles)) {
+      tasksCreated += 1;
+      params.log?.('work created', {
+        service: created.service,
+        clientId: created.clientId,
+        period: created.periodKey,
+        dueAt: created.dueAt?.toISOString().slice(0, 10) ?? null,
+      });
+    }
+  }
+
+  // Chase what is stuck, now that today's work exists to be chased.
+  const escalationsScheduled = await scheduleEscalations({
+    db: params.db,
+    queue: params.queue,
+    now: today,
+  });
+
   await scheduleNextDailySweep(params.queue, today);
-  return { expiryWarnings: warnings.length };
+  return { expiryWarnings: warnings.length, tasksCreated, escalationsScheduled };
 }
 
 export async function scheduleNextDailySweep(queue: PostgresJobQueue, after: Date): Promise<void> {

@@ -13,6 +13,7 @@
     { "path": "../../packages/queue" },
     { "path": "../../packages/modules/audit" },
     { "path": "../../packages/modules/clients" },
-    { "path": "../../packages/modules/deadlines" }
+    { "path": "../../packages/modules/deadlines" },
+    { "path": "../../packages/modules/services" }
   ]
 }

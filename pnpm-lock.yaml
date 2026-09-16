@@ -184,6 +184,9 @@ importers:
       '@amc/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@amc/services':
+        specifier: workspace:*
+        version: link:../../packages/modules/services
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)

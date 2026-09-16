@@ -1,7 +1,9 @@
 import type { Database } from '@amc/database';
 import type { Clock } from '@amc/kernel';
 import type { JobRunner, PostgresJobQueue } from '@amc/queue';
+import { AlertLog } from './handlers/alerts.js';
 import { DAILY_SWEEP, runDailySweep, scheduleNextDailySweep } from './handlers/daily.js';
+import { ESCALATION_JOB, type EscalationPayload, fireEscalation } from './handlers/escalations.js';
 import type { OutboxPublisher } from './outbox-publisher.js';
 
 /**
@@ -21,10 +23,27 @@ export function registerJobHandlers(
     log: (message: string, detail: Record<string, unknown>) => void;
   },
 ): JobRunner {
-  return runner.register(DAILY_SWEEP, async () => {
-    const result = await runDailySweep(context);
-    context.log('daily sweep finished', { expiryWarnings: result.expiryWarnings });
-  });
+  return runner
+    .register(DAILY_SWEEP, async () => {
+      const result = await runDailySweep(context);
+      context.log('daily sweep finished', {
+        expiryWarnings: result.expiryWarnings,
+        tasksCreated: result.tasksCreated,
+        escalationsScheduled: result.escalationsScheduled,
+      });
+    })
+    .register<EscalationPayload>(ESCALATION_JOB, async (job) => {
+      const outcome = await fireEscalation({
+        db: context.db,
+        alerts: new AlertLog(context.db, context.ids),
+        payload: job.payload,
+      });
+      context.log('escalation', {
+        task: job.payload.taskId,
+        stage: job.payload.stage,
+        outcome,
+      });
+    });
 }
 
 export function registerEventSubscribers(publisher: OutboxPublisher): OutboxPublisher {

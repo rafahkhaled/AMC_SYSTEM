@@ -105,23 +105,44 @@ export class RecurringWork {
 
       case 'per_vat_period': {
         if (!cycle?.vatPeriodFor) return null;
-        // The period that has just ended. Asking about today would start the
-        // work for a quarter that is still running.
-        const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15));
-        const period = cycle.vatPeriodFor(lastMonth);
-        // Only once the period has actually closed.
-        if (period.end.getTime() >= now.getTime()) return null;
-        return { key: period.key, dueAt: vatReturnDueDate(period.end) };
+
+        /*
+         * The period that has most recently closed, found by stepping back
+         * from the one running now.
+         *
+         * Looking at "the period containing last month" seemed right and was
+         * not: for a client whose quarter runs August to October, last month
+         * is inside the quarter still open, so nothing would ever be created
+         * for the quarter that closed in July. Stepping back from today finds
+         * the closed one whether the sweep ran last month or not.
+         */
+        const running = cycle.vatPeriodFor(now);
+        const dayBefore = new Date(running.start.getTime() - 86_400_000);
+        const closed = cycle.vatPeriodFor(dayBefore);
+
+        if (closed.end.getTime() >= now.getTime()) return null;
+        return { key: closed.key, dueAt: vatReturnDueDate(closed.end) };
       }
 
       case 'per_financial_year': {
         if (!cycle?.financialYearEndFor || !cycle.financialYearKeyFor) return null;
-        const lastYear = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 15));
-        const yearEnd = cycle.financialYearEndFor(lastYear);
-        if (yearEnd.getTime() >= now.getTime()) return null;
+
+        // Same reasoning as the VAT period: step back from the year that is
+        // running to the one that has closed, rather than guessing at an
+        // offset that happens to work in some months.
+        const runningEnd = cycle.financialYearEndFor(now);
+        const closedEnd = new Date(
+          Date.UTC(
+            runningEnd.getUTCFullYear() - 1,
+            runningEnd.getUTCMonth(),
+            runningEnd.getUTCDate(),
+          ),
+        );
+
+        if (closedEnd.getTime() >= now.getTime()) return null;
         return {
-          key: cycle.financialYearKeyFor(lastYear),
-          dueAt: corporateTaxDueDate(yearEnd),
+          key: cycle.financialYearKeyFor(closedEnd),
+          dueAt: corporateTaxDueDate(closedEnd),
         };
       }
 

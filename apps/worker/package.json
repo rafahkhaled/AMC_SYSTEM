@@ -21,7 +21,8 @@
     "zod": "^3.24.1",
     "@amc/clients": "workspace:*",
     "@amc/deadlines": "workspace:*",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "@amc/services": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

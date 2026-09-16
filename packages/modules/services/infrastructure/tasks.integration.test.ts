@@ -137,7 +137,18 @@ describe('tasks against a real database', () => {
 
       const mine = await tasks.open(assignedTo('user-a'));
       expect(mine.map((task) => task.id)).toEqual(['t-c-1']);
-      expect((await tasks.open(ALL)).length).toBe(2);
+
+      // Counted among this test's own tasks rather than every row in the
+      // database. Other packages share this database and commit as they go,
+      // so a global count would pass or fail depending on what else is
+      // running at the time.
+      const all = await tasks.open(ALL);
+      expect(
+        all
+          .filter((task) => task.id.startsWith('t-c-'))
+          .map((task) => task.id)
+          .sort(),
+      ).toEqual(['t-c-1', 't-c-2']);
     });
   });
 
