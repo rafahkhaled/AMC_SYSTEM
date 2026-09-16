@@ -4,12 +4,21 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
 import { clockFace, duration, hoursAndMinutes } from '../../lib/duration.js';
+import { taskBoard } from '../tasks/api.js';
 import { beat, holdTimer, resumeTimer, startTimer, stopTimer, timerState } from './api.js';
+import { ManualEntry } from './manual-entry.js';
+import { TimesheetPanel } from './timesheet.js';
 
 export function TimerPage() {
   const { t } = useTranslation();
   const queries = useQueryClient();
   const state = useQuery({ queryKey: ['timer'], queryFn: timerState });
+  /*
+   * The open work, so time can be booked against a task without going to find
+   * it first. The board is already fetched elsewhere and shares its cache, so
+   * this usually costs nothing.
+   */
+  const board = useQuery({ queryKey: ['tasks'], queryFn: taskBoard });
 
   const settle = (next: TimerState) => queries.setQueryData(['timer'], next);
   const stop = useMutation({ mutationFn: stopTimer, onSuccess: settle });
@@ -54,6 +63,23 @@ export function TimerPage() {
           </>
         )}
       </Card>
+
+      <ManualEntry
+        tasks={(board.data?.columns ?? []).flatMap((column) =>
+          column.tasks.map((task) => ({
+            taskId: task.id,
+            label: `${task.clientName} — ${t(`services.${task.service}`)}`,
+          })),
+        )}
+        onRecorded={(next) => {
+          queries.setQueryData(['timer'], next);
+          // The entry may belong to a past day, so the week has to be refetched
+          // rather than patched from a response that only describes today.
+          void queries.invalidateQueries({ queryKey: ['timesheet'] });
+        }}
+      />
+
+      <TimesheetPanel />
     </div>
   );
 }

@@ -148,6 +148,55 @@ export class TimerService {
     return ok(undefined);
   }
 
+  /**
+   * Record time that was worked but not timed (FR-22).
+   *
+   * The reason is not optional, in the domain or in the database. Time typed
+   * in afterwards is the part of a client statement most likely to be
+   * questioned, and an entry that cannot say why it exists is one the firm
+   * has to defend without evidence.
+   *
+   * Nothing here touches the running timer. Someone remembering yesterday
+   * afternoon should not lose what they are timing right now.
+   */
+  async recordManual(params: {
+    userId: string;
+    taskId: string;
+    startedAt: Date;
+    endedAt: Date;
+    reason: string;
+    billable?: boolean;
+    note?: string | null;
+  }): Promise<Result<StoppedEntry, Conflict>> {
+    const assignment = await this.assignments.forUserOnTask({
+      userId: params.userId,
+      taskId: params.taskId,
+      assignedBy: params.userId,
+    });
+    if (!assignment) return err(new Conflict('No such task'));
+
+    if (params.endedAt.getTime() > this.clock.now().getTime()) {
+      return err(new Conflict('Time cannot be recorded for work not yet done'));
+    }
+
+    const entry = TimeEntry.manual({
+      id: this.ids.next(),
+      assignmentId: assignment.assignmentId,
+      startedAt: params.startedAt,
+      endedAt: params.endedAt,
+      reason: params.reason,
+      ...(params.billable === undefined ? {} : { billable: params.billable }),
+      ...(params.note === undefined ? {} : { note: params.note }),
+    });
+    if (!entry.ok) return err(entry.error);
+
+    await this.entries.save(entry.value);
+    return ok({
+      entryId: entry.value.id,
+      seconds: entry.value.length.seconds,
+    });
+  }
+
   /** Tell the server the timer is still on screen (FR-25). */
   async beat(userId: string): Promise<void> {
     await this.timers.beat(userId, this.clock.now());

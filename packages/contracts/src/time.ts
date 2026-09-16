@@ -42,3 +42,44 @@ export const timerStateSchema = z.object({
 export type TimerState = z.infer<typeof timerStateSchema>;
 
 export const startTimerSchema = z.object({ taskId: z.string().min(1) });
+
+/** An instant the person typed, as the browser's datetime-local produces it. */
+const localInstant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use a date and a time');
+
+export const manualEntrySchema = z
+  .object({
+    taskId: z.string().min(1),
+    startedAt: localInstant,
+    endedAt: localInstant,
+    /**
+     * Why this was typed rather than timed (FR-22).
+     *
+     * Required by the domain and by a database constraint. Time entered by
+     * hand is the part of a client statement most likely to be questioned,
+     * and "I forgot to start the timer" is an answer; a blank field is not.
+     */
+    reason: z.string().trim().min(3, 'Say why this was entered by hand'),
+    billable: z.boolean().default(true),
+    note: z.string().trim().max(500).optional(),
+  })
+  .refine((entry) => entry.endedAt > entry.startedAt, {
+    message: 'It has to end after it started',
+    path: ['endedAt'],
+  });
+export type ManualEntryRequest = z.infer<typeof manualEntrySchema>;
+
+export const timesheetDaySchema = z.object({
+  day: z.string(),
+  seconds: z.number().int().nonnegative(),
+  billableSeconds: z.number().int().nonnegative(),
+});
+
+export const timesheetSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  days: z.array(timesheetDaySchema),
+  totalSeconds: z.number().int().nonnegative(),
+  billableSeconds: z.number().int().nonnegative(),
+  entries: z.array(timeEntrySchema),
+});
+export type Timesheet = z.infer<typeof timesheetSchema>;

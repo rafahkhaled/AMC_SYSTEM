@@ -1,7 +1,8 @@
 import type { TimeEntryView, TimerState } from '@amc/contracts';
 import type { Database } from '@amc/database';
+import { at } from '@amc/kernel';
 import type { AssignmentResolver, TimerViewReader } from '@amc/time-tracking';
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
 
 /**
  * Finds the assignment a person books time against, creating one if they are
@@ -35,6 +36,52 @@ export function assignmentResolver(db: Database, ids: { next(): string }): Assig
       return { assignmentId: id };
     },
   };
+}
+
+/**
+ * One query behind both readings of someone's time.
+ *
+ * The day view and the timesheet differ only in which rows they want, and
+ * duplicating the joins would let the two drift — a column added for one and
+ * forgotten in the other is exactly how a timesheet ends up disagreeing with
+ * the screen it was meant to summarise.
+ */
+async function readEntries(db: Database, userId: string, where: SQL): Promise<TimeEntryView[]> {
+  const rows = await db.execute<{
+    id: string;
+    task_id: string;
+    client_name: string;
+    service: string;
+    started_at: string;
+    ended_at: string | null;
+    duration_seconds: number;
+    billable: boolean;
+    source: string;
+    statement_line_id: string | null;
+  }>(sql`
+    SELECT e.id, t.id AS task_id, c.legal_name AS client_name, t.service,
+           e.started_at, e.ended_at, e.duration_seconds, e.billable, e.source,
+           e.statement_line_id
+    FROM time_entries e
+    JOIN task_assignments a ON a.id = e.assignment_id
+    JOIN tasks t ON t.id = a.task_id
+    JOIN clients c ON c.id = t.client_id
+    WHERE a.user_id = ${userId} AND ${where}
+    ORDER BY e.started_at DESC
+  `);
+
+  return rows.map((row) => ({
+    id: row.id,
+    taskId: row.task_id,
+    clientName: row.client_name,
+    service: row.service,
+    startedAt: new Date(row.started_at).toISOString(),
+    endedAt: row.ended_at ? new Date(row.ended_at).toISOString() : null,
+    seconds: row.duration_seconds,
+    billable: row.billable,
+    source: row.source as 'timer' | 'manual',
+    locked: row.statement_line_id !== null,
+  }));
 }
 
 /** What the timer screen shows: the running timer and today's entries. */
@@ -94,45 +141,22 @@ export function timerViewReader(db: Database): TimerViewReader {
       };
     },
 
-    async entriesOn(userId, day): Promise<TimeEntryView[]> {
-      const rows = await db.execute<{
-        id: string;
-        task_id: string;
-        client_name: string;
-        service: string;
-        started_at: string;
-        ended_at: string | null;
-        duration_seconds: number;
-        billable: boolean;
-        source: string;
-        statement_line_id: string | null;
-      }>(sql`
-        SELECT e.id, t.id AS task_id, c.legal_name AS client_name, t.service,
-               e.started_at, e.ended_at, e.duration_seconds, e.billable, e.source,
-               e.statement_line_id
-        FROM time_entries e
-        JOIN task_assignments a ON a.id = e.assignment_id
-        JOIN tasks t ON t.id = a.task_id
-        JOIN clients c ON c.id = t.client_id
-        WHERE a.user_id = ${userId}
-          -- The person's own day in Dubai, not the server's day in UTC.
-          AND (e.started_at AT TIME ZONE 'Asia/Dubai')::date
-              = (${day.toISOString()}::timestamptz AT TIME ZONE 'Asia/Dubai')::date
-        ORDER BY e.started_at DESC
-      `);
+    async entriesOn(userId, day) {
+      // The person's own day in Dubai, not the server's day in UTC.
+      return readEntries(
+        db,
+        userId,
+        sql`(e.started_at AT TIME ZONE 'Asia/Dubai')::date
+            = (${at(day)}::timestamptz AT TIME ZONE 'Asia/Dubai')::date`,
+      );
+    },
 
-      return rows.map((row) => ({
-        id: row.id,
-        taskId: row.task_id,
-        clientName: row.client_name,
-        service: row.service,
-        startedAt: new Date(row.started_at).toISOString(),
-        endedAt: row.ended_at ? new Date(row.ended_at).toISOString() : null,
-        seconds: row.duration_seconds,
-        billable: row.billable,
-        source: row.source as 'timer' | 'manual',
-        locked: row.statement_line_id !== null,
-      }));
+    async entriesBetween(userId, from, to) {
+      return readEntries(
+        db,
+        userId,
+        sql`e.started_at >= ${at(from)}::timestamptz AND e.started_at < ${at(to)}::timestamptz`,
+      );
     },
   };
 }

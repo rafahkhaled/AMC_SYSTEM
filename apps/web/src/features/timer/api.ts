@@ -1,4 +1,10 @@
-import { type TimerState, timerStateSchema } from '@amc/contracts';
+import {
+  type ManualEntryRequest,
+  type TimerState,
+  type Timesheet,
+  timerStateSchema,
+  timesheetSchema,
+} from '@amc/contracts';
 import { request, send } from '../auth/api.js';
 
 export async function timerState(): Promise<TimerState> {
@@ -28,4 +34,15 @@ export async function beat(): Promise<void> {
     // A missed heartbeat is not worth interrupting anyone over. The next one
     // will land, and the server trims an abandoned timer to the last it saw.
   });
+}
+
+/** Record work that was done but not timed (FR-22). */
+export async function recordManual(entry: ManualEntryRequest): Promise<TimerState> {
+  return timerStateSchema.parse(await send('/timer/entries', entry));
+}
+
+export async function timesheet(from: string, to: string): Promise<Timesheet> {
+  return timesheetSchema.parse(
+    await request(`/timer/timesheet?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  );
 }
