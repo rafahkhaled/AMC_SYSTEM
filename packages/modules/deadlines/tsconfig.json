@@ -5,7 +5,7 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["domain/**/*.ts", "application/**/*.ts", "infrastructure/**/*.ts"],
+  "include": ["domain/**/*.ts", "infrastructure/**/*.ts"],
   "exclude": ["**/*.test.ts", "dist"],
   "references": [{ "path": "../../kernel" }, { "path": "../../database" }]
 }
