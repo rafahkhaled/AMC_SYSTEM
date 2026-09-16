@@ -1,5 +1,6 @@
 import type {
   Client,
+  ClientCredential,
   ClientDocument,
   ClientId,
   ClientScope,
@@ -70,6 +71,12 @@ export interface CallerLike {
   readonly roles: readonly string[];
   readonly displayName: string;
   readonly sessionId?: string | undefined;
+}
+
+export interface CredentialRepository {
+  currentFor(clientId: string, scope: ClientScope): Promise<ClientCredential[]>;
+  findById(id: string, scope: ClientScope): Promise<ClientCredential | null>;
+  save(credential: ClientCredential): Promise<void>;
 }
 
 export interface DocumentRepository {

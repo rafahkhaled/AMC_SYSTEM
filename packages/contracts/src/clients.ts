@@ -76,3 +76,39 @@ export const clientDetailSchema = clientSummarySchema.extend({
 export type ClientDetail = z.infer<typeof clientDetailSchema>;
 
 export const clientListSchema = z.object({ clients: z.array(clientSummarySchema) });
+
+export const credentialKinds = ['emaratax', 'ftaportal', 'bank_portal', 'other'] as const;
+
+/** A stored login, with the password still sealed. */
+export const credentialSummarySchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  username: z.string(),
+  note: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type CredentialSummary = z.infer<typeof credentialSummarySchema>;
+
+export const storeCredentialSchema = z.object({
+  kind: z.enum(credentialKinds),
+  username: z.string().trim().min(1, 'The portal needs a username'),
+  secret: z.string().min(1, 'The portal needs a password'),
+  note: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Reading a password requires saying why.
+ *
+ * The reason goes in the audit log. Without it the log records that somebody
+ * looked, which an auditor could have guessed; with it the log answers the
+ * question they are actually asking.
+ */
+export const revealCredentialSchema = z.object({
+  reason: z.string().trim().min(3, 'Say why the password is needed'),
+});
+
+export const revealedCredentialSchema = z.object({
+  username: z.string(),
+  secret: z.string(),
+});
+export type RevealedCredential = z.infer<typeof revealedCredentialSchema>;

@@ -1061,3 +1061,34 @@ a {
   block-size: 1rem;
   accent-color: var(--accent);
 }
+
+/* ---- the credential vault -------------------------------------------- */
+
+.credential + .credential {
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--line);
+}
+
+.credential__ask,
+.credential__form {
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+/*
+ * A revealed password. Monospaced so a zero and an O can be told apart, and
+ * marked out so it is obvious this is the thing that was just logged.
+ */
+.credential__secret {
+  border-block-end: none;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.credential__secret code {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  user-select: all;
+}

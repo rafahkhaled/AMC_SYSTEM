@@ -146,3 +146,23 @@ export const clientDocuments = pgTable(
   },
   (table) => [index('client_documents_client_idx').on(table.clientId, table.type)],
 );
+
+/**
+ * Client logins to government portals (FR-05).
+ *
+ * `secretSealed` is the only place a password exists here, and it is
+ * encrypted. There is deliberately no plaintext column, so a careless
+ * `select()` cannot put one in a log.
+ */
+export const clientCredentials = pgTable('client_credentials', {
+  id: text('id').primaryKey(),
+  clientId: text('client_id').notNull(),
+  kind: text('kind').notNull(),
+  username: text('username').notNull(),
+  secretSealed: text('secret_sealed').notNull(),
+  note: text('note'),
+  retiredAt: timestamp('retired_at', { withTimezone: true }),
+  retiredBy: text('retired_by'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

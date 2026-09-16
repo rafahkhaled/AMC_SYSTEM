@@ -42,6 +42,13 @@ export async function send(path: string, body?: unknown): Promise<unknown> {
   return response.status === 204 ? null : response.json();
 }
 
+/** A DELETE that returns parsed JSON, or throws an ApiError. */
+export async function del(path: string): Promise<unknown> {
+  const response = await call(path, { method: 'DELETE' });
+  if (!response.ok) throw await failure(response);
+  return response.status === 204 ? null : response.json();
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,

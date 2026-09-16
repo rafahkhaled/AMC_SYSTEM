@@ -1,8 +1,12 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
-import { ReadClients, ReceiveDocument } from '@amc/clients';
+import { ClientVault, ReadClients, ReceiveDocument } from '@amc/clients';
 import { ClientsModule } from '@amc/clients/http';
-import { DrizzleClientRepository, DrizzleDocumentRepository } from '@amc/clients/infrastructure';
+import {
+  DrizzleClientRepository,
+  DrizzleCredentialRepository,
+  DrizzleDocumentRepository,
+} from '@amc/clients/infrastructure';
 import type { Database } from '@amc/database';
 import { ReadCalendar } from '@amc/deadlines';
 import { CalendarModule } from '@amc/deadlines/http';
@@ -25,7 +29,7 @@ import {
   DrizzleRunningTimerRepository,
   DrizzleTimeEntryRepository,
 } from '@amc/time-tracking/infrastructure';
-import { EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
+import { AuditedVault, EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ulid } from 'ulid';
@@ -42,6 +46,7 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
 import { FILE_STORAGE, StorageModule } from './storage/storage.module.js';
 import { taskContext } from './tasks/adapters.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
+import { secretAccessRecorder } from './vault/adapters.js';
 
 /**
  * The composition root. This is the only file allowed to know which adapter
@@ -56,8 +61,8 @@ import { assignmentResolver, timerViewReader } from './timer/adapters.js';
     StorageModule,
     ClientsModule.forRootAsync({
       imports: [StorageModule],
-      inject: [DATABASE, FILE_STORAGE],
-      useFactory: (db: Database, storage: FileStorage) => ({
+      inject: [DATABASE, FILE_STORAGE, ENVIRONMENT],
+      useFactory: (db: Database, storage: FileStorage, environment: Environment) => ({
         read: new ReadClients(
           new DrizzleClientRepository(db),
           new DrizzleDocumentRepository(db),
@@ -72,6 +77,20 @@ import { assignmentResolver, timerViewReader } from './timer/adapters.js';
           },
           new DrizzleDocumentRepository(db),
           documentFileStore(storage),
+          { next: () => ulid() },
+        ),
+        /*
+         * The vault writes the audit row before it hands back a plaintext, so
+         * a credential that could not be logged is not revealed. Its recorder
+         * is the audit module's, given here because neither package may
+         * depend on the other.
+         */
+        vault: new ClientVault(
+          new DrizzleCredentialRepository(db),
+          new AuditedVault(
+            new EnvelopeCipher(new LocalKeyProvider(encryptionKey(environment))),
+            secretAccessRecorder(db, { next: () => ulid() }),
+          ),
           { next: () => ulid() },
         ),
       }),

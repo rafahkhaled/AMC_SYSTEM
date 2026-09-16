@@ -56,7 +56,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-05 | Row-level scoping enforced inside repositories, with tests proving an accountant cannot read an unassigned client | 2.2 | P1-04 | 1 |
 | P1-06 | Document types and client documents: storage key, issue and expiry dates, status lifecycle | FR-04 | P0-13 | 1 |
 | P1-07 | Document upload UI, drag and drop, renewal, expiry badges, short-lived download links | FR-04 | P1-06 | 1 |
-| P1-08 | EmaraTax credential vault UI, permission-gated, every view logged | FR-05 | P0-14 | 0.5 |
+| P1-08 | EmaraTax credential vault: sealed at rest, permission-gated, every read logged with its reason | FR-05 | P0-14 | 0.5 |
 | P1-09 | Contact log with screenshot attachments | FR-06 | P1-06 | 0.5 |
 | P1-10 | Clients UI: list with filters, client file page with tabs, lead pipeline board | FR-01, FR-02 | P1-03, P1-07 | 2 |
 
