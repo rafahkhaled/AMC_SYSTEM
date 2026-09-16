@@ -3,30 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { clockFace, duration, hoursAndMinutes } from '../../lib/duration.js';
 import { beat, holdTimer, resumeTimer, startTimer, stopTimer, timerState } from './api.js';
-
-/** Seconds as h:mm:ss, which is what a running timer should read like. */
-function clockFace(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const rest = seconds % 60;
-  return `${hours}:${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
-}
-
-/** Seconds as 1:30, which is what a recorded entry should read like. */
-function hoursAndMinutes(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  return `${hours}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}`;
-}
-
-/*
- * A span shorter than a minute has to say so rather than round down to 0:00.
- * Four rows reading 0:00 above a total of 0:01 looks like broken arithmetic
- * to the one profession least willing to overlook it.
- */
-function duration(seconds: number, t: (key: string) => string): string {
-  return seconds < 60 ? t('timer.underAMinute') : hoursAndMinutes(seconds);
-}
 
 export function TimerPage() {
   const { t } = useTranslation();

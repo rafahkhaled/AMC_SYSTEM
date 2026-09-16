@@ -31,7 +31,8 @@
     "@amc/vault": "workspace:*",
     "@amc/clients": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "@amc/time-tracking": "workspace:*"
+    "@amc/time-tracking": "workspace:*",
+    "@amc/services": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/testing": "^12.0.1",

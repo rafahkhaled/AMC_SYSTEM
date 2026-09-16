@@ -5,6 +5,8 @@ import { SignInPage } from '../features/auth/sign-in-page.js';
 import { TwoFactorPage } from '../features/auth/two-factor-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
+import { TaskPage } from '../features/tasks/task-page.js';
+import { TasksPage } from '../features/tasks/tasks-page.js';
 import { TimerPage } from '../features/timer/timer-page.js';
 import { AppShell } from './app-shell.js';
 import { HomePage } from './home-page.js';
@@ -21,8 +23,22 @@ import { HomePage } from './home-page.js';
 type View =
   | { name: 'home' }
   | { name: 'clients' }
+  | { name: 'tasks' }
+  | { name: 'task'; id: string }
   | { name: 'timer' }
   | { name: 'client'; id: string };
+
+/**
+ * Which nav item is lit.
+ *
+ * A detail screen belongs to the section it was opened from, so the nav does
+ * not go blank the moment somebody looks at one thing in detail.
+ */
+function activeNav(view: View): 'clients' | 'tasks' | 'timer' | 'home' {
+  if (view.name === 'client') return 'clients';
+  if (view.name === 'task') return 'tasks';
+  return view.name;
+}
 
 export function App() {
   const { state } = useSession();
@@ -42,12 +58,18 @@ export function App() {
       return (
         <AppShell
           caller={state.caller}
-          active={view.name === 'client' ? 'clients' : view.name}
+          active={activeNav(view)}
           onNavigate={(name) => setView({ name } as View)}
         >
           {view.name === 'home' ? <HomePage caller={state.caller} /> : null}
           {view.name === 'clients' ? (
             <ClientsPage onOpen={(id) => setView({ name: 'client', id })} />
+          ) : null}
+          {view.name === 'tasks' ? (
+            <TasksPage onOpen={(id) => setView({ name: 'task', id })} />
+          ) : null}
+          {view.name === 'task' ? (
+            <TaskPage id={view.id} onBack={() => setView({ name: 'tasks' })} />
           ) : null}
           {view.name === 'timer' ? <TimerPage /> : null}
           {view.name === 'client' ? (

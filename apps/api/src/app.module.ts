@@ -13,6 +13,9 @@ import {
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { type EventCollector, SystemClock } from '@amc/kernel';
+import { ReadTasks, TaskWorkflow } from '@amc/services';
+import { TasksModule } from '@amc/services/http';
+import { DrizzleTaskRepository } from '@amc/services/infrastructure';
 import { ReadTimer, TimerService } from '@amc/time-tracking';
 import { TimerModule } from '@amc/time-tracking/http';
 import {
@@ -31,6 +34,7 @@ import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
+import { taskContext } from './tasks/adapters.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
 
 /**
@@ -52,6 +56,19 @@ import { assignmentResolver, timerViewReader } from './timer/adapters.js';
           taskSummaries(db),
           new SystemClock(),
         ),
+    }),
+    TasksModule.forRootAsync({
+      inject: [DATABASE],
+      useFactory: (db: Database) => ({
+        read: new ReadTasks(new DrizzleTaskRepository(db), taskContext(db), new SystemClock()),
+        workflow: new TaskWorkflow(
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) =>
+              new DrizzleTaskRepository(transaction as Database, collector),
+          },
+        ),
+      }),
     }),
     TimerModule.forRootAsync({
       inject: [DATABASE],

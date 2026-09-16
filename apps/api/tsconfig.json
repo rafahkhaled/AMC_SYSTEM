@@ -21,6 +21,7 @@
     { "path": "../../packages/vault" },
     { "path": "../../packages/modules/audit" },
     { "path": "../../packages/modules/clients" },
+    { "path": "../../packages/modules/services" },
     { "path": "../../packages/modules/time-tracking" },
     { "path": "../../packages/modules/identity" }
   ]

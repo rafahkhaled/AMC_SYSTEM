@@ -59,6 +59,9 @@ importers:
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@amc/services':
+        specifier: workspace:*
+        version: link:../../packages/modules/services
       '@amc/time-tracking':
         specifier: workspace:*
         version: link:../../packages/modules/time-tracking
@@ -432,18 +435,30 @@ importers:
 
   packages/modules/services:
     dependencies:
+      '@amc/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
       '@amc/database':
         specifier: workspace:*
         version: link:../../database
+      '@amc/http-kit':
+        specifier: workspace:*
+        version: link:../../http-kit
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../kernel
+      '@nestjs/common':
+        specifier: ^12.0.1
+        version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
     devDependencies:
       typescript:
         specifier: ^5.7.2

@@ -5,7 +5,7 @@ import { LanguageSwitch } from '../components/language-switch.js';
 import { Button } from '../design/index.js';
 import { useSession } from '../features/auth/session.js';
 
-type NavView = 'clients' | 'timer' | 'home';
+type NavView = 'clients' | 'tasks' | 'timer' | 'home';
 
 /** The frame every signed-in screen sits in. */
 export function AppShell({
@@ -29,7 +29,7 @@ export function AppShell({
           <div className="u-row">
             <strong>{t('appName')}</strong>
             <nav className="u-row nav">
-              {(['clients', 'timer', 'home'] as const).map((view) => (
+              {(['clients', 'tasks', 'timer', 'home'] as const).map((view) => (
                 <button
                   key={view}
                   type="button"

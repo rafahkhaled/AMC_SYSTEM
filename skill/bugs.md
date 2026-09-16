@@ -181,6 +181,42 @@ expires in *fewer* than ninety days now, not more).
 **Lesson:** when a constraint refuses something, assume the constraint is right
 until shown otherwise. It usually is.
 
+### A log of changes attributed to nobody
+
+**Symptom:** task changes appeared in the audit log with an empty actor, while
+sign-in rows were correctly named.
+
+**Cause:** `Actor.label` is optional, and the HTTP `Caller` carries the name in
+`displayName`. Passing a `Caller` where an `Actor` is expected therefore
+typechecks perfectly and silently drops the only field a reader of the log
+actually wants.
+
+**Fix:** one function builds the `Actor`, in the application layer, so no
+controller can forget the field. Checked against `audit_log` rather than
+against the API, since the API happily returned rows either way.
+
+**Lesson:** an optional field on a type that crosses a boundary is a field
+that will eventually be absent. When the value matters, make one place
+responsible for supplying it.
+
+### Two audit rows for one change
+
+**Symptom:** moving a task wrote both `services.task.moved` and
+`services.task.state_changed`, describing the same thing under two names.
+
+**Cause:** the unit of work already turns every recorded domain event into an
+audit row. The explicit `context.audit(...)` call in the use case was a second
+account of the same change.
+
+**Fix:** removed it. Explicit entries are for what is *not* a domain event —
+reading a credential, exporting a file. Where an operation recorded nothing,
+the aggregate gained a real event instead, which is better anyway: another
+module can act on an event but not on an audit row.
+
+**Lesson:** before writing an audit entry by hand, check whether the aggregate
+already says it. Two rows that disagree about the name of one change are worse
+than either row alone.
+
 ## The ones only the browser showed
 
 ### The stylesheet edit that never landed

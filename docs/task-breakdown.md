@@ -71,7 +71,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-15 | Append-only `task_assignments`, reassignment, and the per-person workload view | FR-13 | P1-13 | 1 |
 | P1-16 | Recurrence engine: monthly, quarterly and annual renewal keyed by period, idempotent on replay | FR-14 | P1-13, P0-12 | 1.5 |
 | P1-17 | Document generation from company templates, pre-filled and ready for signature | FR-15 | P1-14 | 1.5 |
-| P1-18 | Tasks UI: board and list views, task detail with steps, documents and assignment | FR-12, FR-13 | P1-15 | 2 |
+| P1-18 | Tasks UI: board by state, task detail with steps, documents and assignment | FR-12, FR-13 | P1-15 | 2 |
 
 ### Time tracking
 

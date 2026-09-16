@@ -218,6 +218,14 @@ export class Task extends AggregateRoot<TaskId> {
       ),
     };
 
+    this.record(
+      domainEvent('services.task.document_detached', this.id, now, {
+        taskId: this.id,
+        type,
+        documentId: requirement.documentId,
+      }),
+    );
+
     if (this.isBlocked && this.state.state === 'ready') {
       this.transitionTo('awaiting_documents', now);
     }
@@ -240,6 +248,17 @@ export class Task extends AggregateRoot<TaskId> {
       );
     }
     return this.moveTo('in_progress', now);
+  }
+
+  /**
+   * What this task may move to next.
+   *
+   * Read from the same table the move itself checks, so a screen can never
+   * offer a button the domain would refuse. There is one account of the
+   * lifecycle, not one for the rules and another for the buttons.
+   */
+  allowedNext(): readonly TaskState[] {
+    return ALLOWED[this.state.state];
   }
 
   moveTo(next: TaskState, now: Date): Result<true, Conflict> {
@@ -265,6 +284,7 @@ export class Task extends AggregateRoot<TaskId> {
   completeStep(order: number, now: Date): Result<true, Conflict> {
     const step = this.state.steps.find((candidate) => candidate.order === order);
     if (!step) return err(new Conflict('No such step', { order }));
+    if (step.doneAt) return err(new Conflict('That step is already done', { order }));
 
     this.state = {
       ...this.state,
@@ -272,6 +292,13 @@ export class Task extends AggregateRoot<TaskId> {
         candidate.order === order ? { ...candidate, doneAt: now } : candidate,
       ),
     };
+    this.record(
+      domainEvent('services.task.step_completed', this.id, now, {
+        taskId: this.id,
+        order,
+        remaining: this.stepsRemaining,
+      }),
+    );
     return ok(true);
   }
 

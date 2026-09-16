@@ -21,6 +21,18 @@ export type TaskScope =
   | { readonly kind: 'assigned'; readonly userId: string }
   | { readonly kind: 'none' };
 
+/**
+ * The caller: enough to decide what they may see, and enough to name them in
+ * the audit log. The display name is not optional for that second reason.
+ */
+export interface CallerLike {
+  readonly userId: string;
+  readonly permissions: ReadonlySet<string> | readonly string[];
+  readonly roles: readonly string[];
+  readonly displayName: string;
+  readonly sessionId?: string | undefined;
+}
+
 export interface TaskRepository {
   findById(id: TaskId, scope: TaskScope): Promise<Task | null>;
   forClient(clientId: string, scope: TaskScope): Promise<Task[]>;

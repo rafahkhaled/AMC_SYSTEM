@@ -183,3 +183,54 @@ describe('steps and dates', () => {
     expect(subject.isOverdueAt(at('2026-05-30T00:00:00Z'))).toBe(false);
   });
 });
+
+describe('what a task tells the rest of the system', () => {
+  /*
+   * The unit of work turns every recorded event into an audit row. A change
+   * that records nothing is therefore a change nobody can account for later,
+   * which is the failure NFR-05 exists to prevent — so the events are worth
+   * asserting on directly rather than trusting they were remembered.
+   */
+  it('records completing a step, with how much is left', () => {
+    const subject = satisfy(task());
+    subject.pullEvents();
+
+    subject.completeStep(1, NOW);
+    const [event] = subject.pullEvents();
+
+    expect(event?.name).toBe('services.task.step_completed');
+    expect(event?.payload).toMatchObject({ order: 1 });
+    expect((event?.payload as { remaining: number }).remaining).toBe(subject.stepsRemaining);
+  });
+
+  it('refuses to complete a step twice', () => {
+    // Without this a double tap writes a second audit row saying the same
+    // step was finished at a different time, and neither reader can tell
+    // which one was the work.
+    const subject = satisfy(task());
+    expect(subject.completeStep(1, NOW).ok).toBe(true);
+    expect(subject.completeStep(1, at('2026-04-02T06:00:00Z')).ok).toBe(false);
+  });
+
+  it('records removing a document, naming the one removed', () => {
+    const subject = satisfy(task());
+    const type = subject.requirements[0]?.type ?? '';
+    subject.pullEvents();
+
+    expect(subject.detachDocument(type, NOW).ok).toBe(true);
+    const names = subject.pullEvents().map((event) => event.name);
+
+    expect(names).toContain('services.task.document_detached');
+    // Losing a mandatory document puts the work back, and that is its own
+    // event rather than something a reader has to infer.
+    expect(names).toContain('services.task.state_changed');
+  });
+
+  it('will not let a completed task shed the documents it was done with', () => {
+    const subject = satisfy(task());
+    subject.start(NOW);
+    subject.moveTo('completed', NOW);
+
+    expect(subject.detachDocument(subject.requirements[0]?.type ?? '', NOW).ok).toBe(false);
+  });
+});
