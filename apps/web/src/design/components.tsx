@@ -67,6 +67,15 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   /** For identifiers read left to right whatever the interface language. */
   ltr?: boolean;
   affix?: ReactNode;
+  /**
+   * A control other than a text input — a select, say.
+   *
+   * It is given the field's id and description through a render function
+   * rather than plain children, because a label that points at nothing and a
+   * hint no screen reader reaches are the two failures this component exists
+   * to prevent, and passing children would make both easy again.
+   */
+  control?: (props: { id: string; 'aria-describedby': string | undefined }) => ReactNode;
 }
 
 /**
@@ -77,7 +86,7 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
  * form, one of those is always forgotten; done here, none of them is.
  */
 export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
-  { label, hint, error, ltr, affix, className, id, ...rest },
+  { label, hint, error, ltr, affix, className, id, control, ...rest },
   ref,
 ) {
   const generated = useId();
@@ -93,14 +102,23 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
         {label}
       </label>
       <div className="field__control">
-        <input
-          ref={ref}
-          id={inputId}
-          className={classes('input', ltr && 'input--ltr', affix && 'input--with-affix', className)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy || undefined}
-          {...rest}
-        />
+        {control ? (
+          control({ id: inputId, 'aria-describedby': describedBy || undefined })
+        ) : (
+          <input
+            ref={ref}
+            id={inputId}
+            className={classes(
+              'input',
+              ltr && 'input--ltr',
+              affix && 'input--with-affix',
+              className,
+            )}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy || undefined}
+            {...rest}
+          />
+        )}
         {affix ? <span className="field__affix">{affix}</span> : null}
       </div>
       {hint ? (

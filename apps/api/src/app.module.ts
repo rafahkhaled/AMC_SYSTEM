@@ -1,6 +1,6 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
-import { ReadClients } from '@amc/clients';
+import { ReadClients, ReceiveDocument } from '@amc/clients';
 import { ClientsModule } from '@amc/clients/http';
 import { DrizzleClientRepository, DrizzleDocumentRepository } from '@amc/clients/infrastructure';
 import type { Database } from '@amc/database';
@@ -16,6 +16,7 @@ import { type EventCollector, SystemClock } from '@amc/kernel';
 import { ReadTasks, TaskWorkflow } from '@amc/services';
 import { TasksModule } from '@amc/services/http';
 import { DrizzleTaskRepository } from '@amc/services/infrastructure';
+import type { FileStorage } from '@amc/storage';
 import { ReadTimer, TimerService } from '@amc/time-tracking';
 import { TimerModule } from '@amc/time-tracking/http';
 import {
@@ -29,11 +30,13 @@ import { ulid } from 'ulid';
 import { taskSummaries } from './clients/task-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
+import { documentFileStore } from './documents/adapters.js';
 import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
+import { FILE_STORAGE, StorageModule } from './storage/storage.module.js';
 import { taskContext } from './tasks/adapters.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
 
@@ -47,15 +50,28 @@ import { assignmentResolver, timerViewReader } from './timer/adapters.js';
     LoggerModule,
     DatabaseModule,
     HealthModule,
+    StorageModule,
     ClientsModule.forRootAsync({
-      inject: [DATABASE],
-      useFactory: (db: Database) =>
-        new ReadClients(
+      imports: [StorageModule],
+      inject: [DATABASE, FILE_STORAGE],
+      useFactory: (db: Database, storage: FileStorage) => ({
+        read: new ReadClients(
           new DrizzleClientRepository(db),
           new DrizzleDocumentRepository(db),
           taskSummaries(db),
           new SystemClock(),
         ),
+        documents: new ReceiveDocument(
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) =>
+              new DrizzleDocumentRepository(transaction as Database, collector),
+          },
+          new DrizzleDocumentRepository(db),
+          documentFileStore(storage),
+          { next: () => ulid() },
+        ),
+      }),
     }),
     TasksModule.forRootAsync({
       inject: [DATABASE],

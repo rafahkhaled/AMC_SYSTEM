@@ -704,3 +704,62 @@ a {
 .u-wrap {
   flex-wrap: wrap;
 }
+
+/*
+ * Where a document is dropped.
+ *
+ * A label for the file input rather than a div with a click handler, so it is
+ * reachable by keyboard and announced as a file control. Dropping is an
+ * addition to that, never the only way in — a person who cannot drag must
+ * still be able to upload.
+ */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-block-size: 7rem;
+  padding: var(--space-5);
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone:hover,
+.dropzone:focus-within {
+  border-color: var(--accent);
+}
+
+.dropzone--over {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+
+/*
+ * Present to a screen reader, absent to the eye. `display: none` would remove
+ * it from the accessibility tree as well, which for the input behind the drop
+ * area would mean no keyboard route to uploading at all.
+ */
+.u-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Fields side by side line up by their tops, not their middles. A label that
+ * wraps to two lines would otherwise push its input out of step with the one
+ * beside it, and two date boxes at different heights read as a mistake.
+ */
+.u-row-top {
+  align-items: flex-start;
+}

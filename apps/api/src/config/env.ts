@@ -34,6 +34,19 @@ export const environmentSchema = z.object({
    */
   SECRET_ENCRYPTION_KEY: z.string().optional(),
 
+  /**
+   * Where client documents live.
+   *
+   * `local` is a folder on disk and exists so the storage path is exercised
+   * for real in development rather than mocked: the same keys, the same
+   * checksums, the same signed links. Production uses `s3`, in me-central-1,
+   * because the data is a UAE firm's client records.
+   */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_ROOT: z.string().default('.data/storage'),
+  STORAGE_BUCKET: z.string().optional(),
+  STORAGE_REGION: z.string().default('me-central-1'),
+
   // Business rules. Stored times are UTC; rules are expressed in Dubai time.
   BUSINESS_TIME_ZONE: z.string().default('Asia/Dubai'),
   DEFAULT_CURRENCY: z.enum(['AED', 'USD', 'EUR', 'GBP', 'SAR']).default('AED'),
@@ -47,6 +60,23 @@ const validatedSchema = environmentSchema.superRefine((environment, context) => 
       code: z.ZodIssueCode.custom,
       path: ['SECRET_ENCRYPTION_KEY'],
       message: 'is required in production. Generate one with: openssl rand -base64 32',
+    });
+  }
+  // A folder on the application server is not where a firm's client records
+  // belong, and the failure would be silent: uploads would work, and the
+  // documents would vanish with the next deployment.
+  if (environment.NODE_ENV === 'production' && environment.STORAGE_DRIVER !== 's3') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STORAGE_DRIVER'],
+      message: 'must be s3 in production. Local storage does not survive a deployment.',
+    });
+  }
+  if (environment.STORAGE_DRIVER === 's3' && !environment.STORAGE_BUCKET) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STORAGE_BUCKET'],
+      message: 'is required when the storage driver is s3',
     });
   }
 });

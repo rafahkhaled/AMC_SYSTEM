@@ -171,6 +171,30 @@ together no order worked.
 **Fix:** `DEFERRABLE INITIALLY DEFERRED` on the link. Supersede first, insert
 second, both checked at commit.
 
+### A schema fix the use case did not know about
+
+**Symptom:** uploading a renewed trade licence returned a 500. Underneath:
+`duplicate key value violates unique constraint client_documents_current_idx`.
+
+**Cause:** the renewal order had already been worked out once and written into
+migration 0008 — supersede the old row first, insert the replacement second,
+with the foreign key deferred to commit so that order is possible. The new use
+case wrote them the other way round. Both rules then fired exactly as designed.
+
+**Fix:** supersede first. The comment in the use case now names the migration,
+because the order is not arbitrary and the next person to write it will
+otherwise pick the one that reads more naturally.
+
+**Lesson:** a constraint solved in the schema is only half solved. If the
+solution depends on writing in a particular order, the order is part of the
+design and belongs in a comment where the writing happens — not only in the
+migration that made it possible.
+
+A second thing this showed: a unique-index violation reached the client as
+`INTERNAL_ERROR`. It was the right refusal for the wrong reason and unreadable
+either way. Constraint violations that represent a real domain rule should be
+caught and named.
+
 ### Constraints doing their job, mistaken for bugs
 
 Twice a "failure" was a fixture that was wrong: assignments created with
@@ -216,6 +240,23 @@ module can act on an event but not on an audit row.
 **Lesson:** before writing an audit entry by hand, check whether the aggregate
 already says it. Two rows that disagree about the name of one change are worse
 than either row alone.
+
+### A module and its controller importing each other
+
+**Symptom:** `ReferenceError: Cannot access 'FILE_STORAGE' before
+initialization` at boot. The build was clean.
+
+**Cause:** the injection token was declared in `storage.module.ts`, which
+imports its controller, which imports the token back. TypeScript is happy with
+a cycle; at runtime the module body runs first and reads a `const` still in its
+temporal dead zone.
+
+**Fix:** the token lives alone in `tokens.ts`. It has no dependencies, so
+nothing should have to import a module to reach it.
+
+**Lesson:** in a Nest application, tokens and interfaces go in leaf files. A
+cycle involving a value — rather than only types — is invisible to the compiler
+and fatal at boot.
 
 ## The ones only the browser showed
 

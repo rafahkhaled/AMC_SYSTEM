@@ -60,6 +60,18 @@ export interface ExpiringDocument {
   readonly daysRemaining: number;
 }
 
+/**
+ * The caller: enough to decide what they may see, and enough to name them in
+ * the audit log. The display name is not optional for that second reason.
+ */
+export interface CallerLike {
+  readonly userId: string;
+  readonly permissions: ReadonlySet<string> | readonly string[];
+  readonly roles: readonly string[];
+  readonly displayName: string;
+  readonly sessionId?: string | undefined;
+}
+
 export interface DocumentRepository {
   findById(id: DocumentId, scope: ClientScope): Promise<ClientDocument | null>;
   /** The live documents for a client: superseded versions are not included. */

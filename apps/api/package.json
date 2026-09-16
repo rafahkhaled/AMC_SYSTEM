@@ -32,7 +32,11 @@
     "@amc/clients": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "@amc/time-tracking": "workspace:*",
-    "@amc/services": "workspace:*"
+    "@amc/services": "workspace:*",
+    "@amc/storage": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1132.0",
+    "multer": "^2.0.2",
+    "@amc/http-kit": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/testing": "^12.0.1",
@@ -40,6 +44,7 @@
     "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@types/multer": "^2.0.0"
   }
 }

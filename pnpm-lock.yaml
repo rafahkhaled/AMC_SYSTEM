@@ -53,6 +53,9 @@ importers:
       '@amc/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@amc/http-kit':
+        specifier: workspace:*
+        version: link:../../packages/http-kit
       '@amc/identity':
         specifier: workspace:*
         version: link:../../packages/modules/identity
@@ -62,12 +65,18 @@ importers:
       '@amc/services':
         specifier: workspace:*
         version: link:../../packages/modules/services
+      '@amc/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@amc/time-tracking':
         specifier: workspace:*
         version: link:../../packages/modules/time-tracking
       '@amc/vault':
         specifier: workspace:*
         version: link:../../packages/vault
+      '@aws-sdk/client-s3':
+        specifier: ^3.1132.0
+        version: 3.1132.0
       '@nestjs/common':
         specifier: ^12.0.1
         version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -80,6 +89,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
+      multer:
+        specifier: ^2.0.2
+        version: 2.2.0
       pino:
         specifier: ^9.5.0
         version: 9.14.0
@@ -105,6 +117,9 @@ importers:
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.6
+      '@types/multer':
+        specifier: ^2.0.0
+        version: 2.2.0
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -336,9 +351,15 @@ importers:
       '@nestjs/common':
         specifier: ^12.0.1
         version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^12.0.1
+        version: 12.0.1(@nestjs/common@12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.0.1)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
+      multer:
+        specifier: ^2.0.2
+        version: 2.2.0
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
@@ -346,6 +367,9 @@ importers:
         specifier: ^0.2.2
         version: 0.2.2
     devDependencies:
+      '@types/multer':
+        specifier: ^2.0.0
+        version: 2.2.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -1800,6 +1824,9 @@ packages:
 
   '@types/methods@1.1.4':
     resolution: {integrity: sha512-ymXWVrDiCxTBE3+RIrrP533E70eA+9qu7zdWoHuOmGujkYtzf4HQF96b8nwHLqhuf4ykX61IGRIB38CC6/sImQ==}
+
+  '@types/multer@2.2.0':
+    resolution: {integrity: sha512-3U1troeqGV8Ntp7Q3klwf4zr23VEoqYVocYXaswm9+8z3O9UHDYAqLxjJ/h550iRADTjKdOdhhasXw6gD6kYtg==}
 
   '@types/node@22.20.2':
     resolution: {integrity: sha512-xlvWf4Vs9n1PEVYwP1n4vvG07M6y8WgvJ2t0vbrWTmijsIHp1cS+uJ2kMIRdY3nHZK0nCYKrPeD171+SzF4/zw==}
@@ -4773,6 +4800,10 @@ snapshots:
   '@types/json-schema@7.0.15': {}
 
   '@types/methods@1.1.4': {}
+
+  '@types/multer@2.2.0':
+    dependencies:
+      '@types/express': 5.0.6
 
   '@types/node@22.20.2':
     dependencies:

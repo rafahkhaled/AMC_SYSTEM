@@ -36,6 +36,18 @@ export const EXPIRES: Readonly<Record<DocumentTypeCode, boolean>> = {
 };
 
 /**
+ * Whether a string names a document type this system keeps.
+ *
+ * The check lives beside the list, so adding a type cannot leave a validator
+ * somewhere else quietly rejecting it. The database has the same allowlist as
+ * a constraint, and a value that got past both would be a type nobody can
+ * chase for renewal.
+ */
+export function isDocumentType(value: string): value is DocumentTypeCode {
+  return Object.hasOwn(EXPIRES, value);
+}
+
+/**
  * Where a document is in the practice's workflow.
  *
  * Deliberately not including "expired". Expiry is a fact about a date, and

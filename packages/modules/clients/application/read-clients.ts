@@ -1,17 +1,12 @@
 import type { ClientDetail, ClientSummary, DocumentSummary, TaskSummary } from '@amc/contracts';
 import type { Clock } from '@amc/kernel';
 import { scopeFor } from '../domain/index.js';
-import type { ClientRepository, DocumentRepository } from './ports.js';
+import type { CallerLike, ClientRepository, DocumentRepository } from './ports.js';
 
 /** Supplied by the composition root, because tasks belong to another module. */
 export interface TaskSummaryReader {
   forClient(clientId: string, scope: ReturnType<typeof scopeFor>): Promise<TaskSummary[]>;
   openCountsByClient(scope: ReturnType<typeof scopeFor>): Promise<Map<string, number>>;
-}
-
-export interface CallerLike {
-  readonly userId: string;
-  readonly permissions: ReadonlySet<string> | readonly string[];
 }
 
 /**

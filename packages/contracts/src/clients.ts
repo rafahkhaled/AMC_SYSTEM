@@ -31,6 +31,19 @@ export const documentSummarySchema = z.object({
 });
 export type DocumentSummary = z.infer<typeof documentSummarySchema>;
 
+/** A date the person typed, not an instant. Kept as a plain calendar day. */
+const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date in the form 2026-03-31');
+
+export const documentUploadSchema = z.object({
+  type: z.string().min(1),
+  label: z.string().trim().max(200).optional(),
+  issuedOn: calendarDay.optional(),
+  expiresOn: calendarDay.optional(),
+  /** Set when replacing a document already on file, which supersedes it. */
+  replacesId: z.string().optional(),
+});
+export type DocumentUploadRequest = z.infer<typeof documentUploadSchema>;
+
 export const taskSummarySchema = z.object({
   id: z.string(),
   service: z.string(),

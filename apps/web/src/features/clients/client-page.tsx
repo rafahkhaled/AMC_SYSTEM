@@ -1,7 +1,10 @@
-import type { DocumentSummary, TaskSummary } from '@amc/contracts';
-import { useQuery } from '@tanstack/react-query';
+import type { ClientDetail, DocumentSummary, TaskSummary } from '@amc/contracts';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { documentLink } from '../documents/api.js';
+import { DocumentUpload } from '../documents/document-upload.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import { getClient } from './api.js';
 
@@ -37,6 +40,7 @@ const MONTHS_EN = [
 /** The client file: who they are, what we hold, and what is outstanding. */
 export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
   const { t, i18n } = useTranslation();
+  const queries = useQueryClient();
   const client = useQuery({ queryKey: ['clients', id], queryFn: () => getClient(id) });
 
   if (client.isLoading) return <Loading label={t('loading')} />;
@@ -110,6 +114,20 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
         )}
       </Card>
 
+      <Card title={t('documents.add')} description={t('documents.addHint')}>
+        <DocumentUpload
+          clientId={id}
+          onUploaded={(documents) =>
+            // The server hands back the client's whole current document list,
+            // so the section above is right immediately rather than after a
+            // refetch that might race the one already in flight.
+            queries.setQueryData(['clients', id], (previous: ClientDetail | undefined) =>
+              previous ? { ...previous, documents } : previous,
+            )
+          }
+        />
+      </Card>
+
       <Card title={t('clients.work')}>
         {detail.tasks.length === 0 ? (
           <Empty title={t('clients.noWork')} />
@@ -136,6 +154,26 @@ function Fact({ label, value, mono }: { label: string; value: string | null; mon
 
 function DocumentRow({ document }: { document: DocumentSummary }) {
   const { t } = useTranslation();
+  const [opening, setOpening] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  /*
+   * The link is fetched when it is wanted rather than sent with the list.
+   * A link minted for every row would start expiring the moment the page
+   * loaded, and most of them would never be used.
+   */
+  async function open() {
+    setOpening(true);
+    setFailed(false);
+    try {
+      const url = await documentLink(document.id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setFailed(true);
+    } finally {
+      setOpening(false);
+    }
+  }
 
   const tone =
     document.expiryState === 'expired'
@@ -149,6 +187,7 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
       <span>{t(`documentTypes.${document.type}`)}</span>
       <span className="u-grow" />
       {document.status === 'required' ? <Badge tone="warning">{t('clients.awaited')}</Badge> : null}
+      {failed ? <span className="u-danger">{t('documents.openFailed')}</span> : null}
       {document.expiresOn ? (
         <>
           <span className="u-text-faint u-ltr u-numeric">{document.expiresOn}</span>
@@ -160,6 +199,11 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
             </Badge>
           ) : null}
         </>
+      ) : null}
+      {document.status !== 'required' ? (
+        <Button small tone="quiet" busy={opening} onClick={() => void open()}>
+          {opening ? t('documents.opening') : t('documents.open')}
+        </Button>
       ) : null}
     </div>
   );

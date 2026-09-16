@@ -17,8 +17,10 @@
   "references": [
     { "path": "../../packages/kernel" },
     { "path": "../../packages/contracts" },
+    { "path": "../../packages/http-kit" },
     { "path": "../../packages/database" },
     { "path": "../../packages/vault" },
+    { "path": "../../packages/storage" },
     { "path": "../../packages/modules/audit" },
     { "path": "../../packages/modules/clients" },
     { "path": "../../packages/modules/services" },
