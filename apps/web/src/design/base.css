@@ -1092,3 +1092,23 @@ a {
   font-size: var(--text-base);
   user-select: all;
 }
+
+/* ---- the contact log -------------------------------------------------- */
+
+.contact-entry + .contact-entry {
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--line);
+}
+
+.contact-entry__summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  /* Whatever was typed, including the line breaks somebody used. */
+  white-space: pre-wrap;
+}
+
+.contact-entry__form {
+  padding: var(--space-4);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+}

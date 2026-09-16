@@ -1,9 +1,10 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
-import { ClientVault, ReadClients, ReceiveDocument } from '@amc/clients';
+import { ClientVault, ContactLog, ReadClients, ReceiveDocument } from '@amc/clients';
 import { ClientsModule } from '@amc/clients/http';
 import {
   DrizzleClientRepository,
+  DrizzleContactLogRepository,
   DrizzleCredentialRepository,
   DrizzleDocumentRepository,
 } from '@amc/clients/infrastructure';
@@ -37,7 +38,7 @@ import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { taskSummaries } from './clients/task-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
-import { documentFileStore } from './documents/adapters.js';
+import { contactFileStore, documentFileStore } from './documents/adapters.js';
 import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { LoggerModule } from './observability/logger.module.js';
@@ -93,6 +94,9 @@ import { secretAccessRecorder } from './vault/adapters.js';
           ),
           { next: () => ulid() },
         ),
+        contactLog: new ContactLog(new DrizzleContactLogRepository(db), contactFileStore(storage), {
+          next: () => ulid(),
+        }),
       }),
     }),
     CalendarModule.forRootAsync({

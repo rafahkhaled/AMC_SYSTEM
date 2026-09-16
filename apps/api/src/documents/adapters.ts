@@ -1,6 +1,12 @@
-import type { DocumentFileStore } from '@amc/clients';
+import type { ContactFileStore, DocumentFileStore } from '@amc/clients';
 import { Conflict, type Result, err, ok } from '@amc/kernel';
-import { type FileStorage, clientDocumentKey, contentTypeFor, extensionOf } from '@amc/storage';
+import {
+  type FileStorage,
+  clientDocumentKey,
+  contentTypeFor,
+  extensionOf,
+  storageKey,
+} from '@amc/storage';
 
 /** How long a download link lives. Long enough to click, short enough to leak safely. */
 const LINK_SECONDS = 5 * 60;
@@ -51,6 +57,52 @@ export function documentFileStore(storage: FileStorage): DocumentFileStore {
 
     async linkTo(storageKey, downloadName) {
       return storage.presignGet(storageKey, {
+        expiresInSeconds: LINK_SECONDS,
+        ...(downloadName ? { downloadName } : {}),
+      });
+    },
+  };
+}
+
+/**
+ * Where a screenshot of a conversation goes.
+ *
+ * Under the client, beside their documents but not among them: a WhatsApp
+ * screenshot is evidence that somebody was asked, not a trade licence, and a
+ * task's document checklist must never be able to pick one up.
+ */
+export function contactFileStore(storage: FileStorage): ContactFileStore {
+  return {
+    async put({ clientId, entryId, attachmentId, filename, body }) {
+      const extension = extensionOf(filename);
+      const accepted = contentTypeFor(extension);
+      if (!accepted) {
+        return err(new Conflict('A screenshot should be an image or a PDF', { filename }));
+      }
+
+      const key = storageKey([
+        'clients',
+        clientId,
+        'contact-log',
+        entryId,
+        `${attachmentId}.${extension}`,
+      ]);
+      if (!key.ok) return err(new Conflict(key.error.message));
+
+      const stored = await storage.put(key.value, body, {
+        contentType: accepted,
+        originalName: filename,
+        metadata: { clientId, entryId },
+      });
+      return ok({
+        storageKey: stored.key,
+        checksum: stored.checksum,
+        sizeBytes: stored.size,
+      });
+    },
+
+    async linkTo(key, downloadName) {
+      return storage.presignGet(key, {
         expiresInSeconds: LINK_SECONDS,
         ...(downloadName ? { downloadName } : {}),
       });

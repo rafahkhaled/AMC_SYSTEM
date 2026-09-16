@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
 import { documentLink } from '../documents/api.js';
 import { DocumentUpload } from '../documents/document-upload.js';
 import { StartTimerButton } from '../timer/timer-page.js';
@@ -128,6 +129,8 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
           }
         />
       </Card>
+
+      <ContactLogPanel clientId={id} />
 
       <VaultPanel clientId={id} />
 

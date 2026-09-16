@@ -4,6 +4,7 @@ import {
   customType,
   date,
   index,
+  integer,
   pgTable,
   primaryKey,
   smallint,
@@ -164,5 +165,31 @@ export const clientCredentials = pgTable('client_credentials', {
   retiredAt: timestamp('retired_at', { withTimezone: true }),
   retiredBy: text('retired_by'),
   createdBy: text('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Conversations with a client (FR-06). */
+export const clientContactLog = pgTable('client_contact_log', {
+  id: text('id').primaryKey(),
+  clientId: text('client_id').notNull(),
+  contactId: text('contact_id'),
+  userId: text('user_id'),
+  channel: text('channel').notNull(),
+  direction: text('direction').notNull(),
+  happenedAt: timestamp('happened_at', { withTimezone: true }).notNull(),
+  summary: text('summary').notNull(),
+  taskId: text('task_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Screenshots of those conversations. The file lives in storage; this is the key. */
+export const contactLogAttachments = pgTable('contact_log_attachments', {
+  id: text('id').primaryKey(),
+  entryId: text('entry_id').notNull(),
+  storageKey: text('storage_key').notNull(),
+  originalName: text('original_name').notNull(),
+  contentType: text('content_type').notNull(),
+  checksum: text('checksum').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

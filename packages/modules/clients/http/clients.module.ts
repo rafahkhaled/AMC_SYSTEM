@@ -7,11 +7,20 @@ import {
   type Type,
 } from '@nestjs/common';
 import { ClientVault } from '../application/client-vault.js';
+import { ContactLog } from '../application/contact-log.js';
 import { ReadClients } from '../application/read-clients.js';
 import { ReceiveDocument } from '../application/receive-document.js';
 import { ClientsController } from './clients.controller.js';
+import { ContactLogController } from './contact-log.controller.js';
 import { DocumentsController } from './documents.controller.js';
 import { VaultController } from './vault.controller.js';
+
+interface Parts {
+  read: ReadClients;
+  documents: ReceiveDocument;
+  vault: ClientVault;
+  contactLog: ContactLog;
+}
 
 @Module({})
 // biome-ignore lint/complexity/noStaticOnlyClass: Nest identifies a dynamic module by its class
@@ -27,17 +36,13 @@ export class ClientsModule {
      */
     imports?: (DynamicModule | ForwardReference | Type<unknown>)[];
     inject?: (InjectionToken | OptionalFactoryDependency)[];
-    useFactory: (
-      ...dependencies: never[]
-    ) =>
-      | { read: ReadClients; documents: ReceiveDocument; vault: ClientVault }
-      | Promise<{ read: ReadClients; documents: ReceiveDocument; vault: ClientVault }>;
+    useFactory: (...dependencies: never[]) => Parts | Promise<Parts>;
   }): DynamicModule {
     const PARTS = Symbol('CLIENT_PARTS');
     return {
       module: ClientsModule,
       imports: options.imports ?? [],
-      controllers: [ClientsController, DocumentsController, VaultController],
+      controllers: [ClientsController, ContactLogController, DocumentsController, VaultController],
       providers: [
         {
           provide: PARTS,
@@ -53,10 +58,15 @@ export class ClientsModule {
         {
           provide: ClientVault,
           inject: [PARTS],
-          useFactory: (p: { vault: ClientVault }) => p.vault,
+          useFactory: (p: Parts) => p.vault,
+        },
+        {
+          provide: ContactLog,
+          inject: [PARTS],
+          useFactory: (p: Parts) => p.contactLog,
         },
       ],
-      exports: [ReadClients, ReceiveDocument, ClientVault],
+      exports: [ReadClients, ReceiveDocument, ClientVault, ContactLog],
     };
   }
 }

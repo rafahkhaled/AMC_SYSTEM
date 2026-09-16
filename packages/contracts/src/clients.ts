@@ -112,3 +112,37 @@ export const revealedCredentialSchema = z.object({
   secret: z.string(),
 });
 export type RevealedCredential = z.infer<typeof revealedCredentialSchema>;
+
+export const contactChannels = ['call', 'whatsapp', 'email', 'meeting', 'portal', 'other'] as const;
+
+export const contactLogEntrySchema = z.object({
+  id: z.string(),
+  channel: z.enum(contactChannels),
+  direction: z.enum(['inbound', 'outbound']),
+  happenedAt: z.string(),
+  summary: z.string(),
+  taskId: z.string().nullable(),
+  attachments: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      contentType: z.string(),
+      sizeBytes: z.number().int().nonnegative(),
+    }),
+  ),
+});
+export type ContactLogEntryView = z.infer<typeof contactLogEntrySchema>;
+
+export const recordContactSchema = z.object({
+  channel: z.enum(contactChannels),
+  direction: z.enum(['inbound', 'outbound']),
+  /**
+   * When the conversation happened, which is not when it was typed up. A call
+   * on Tuesday written up on Thursday is a call on Tuesday, and the chase
+   * counts days from the former.
+   */
+  happenedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use a date and a time'),
+  summary: z.string().trim().min(3, 'Say what the conversation was about'),
+  taskId: z.string().optional(),
+  contactId: z.string().optional(),
+});

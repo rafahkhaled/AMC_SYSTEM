@@ -4,6 +4,7 @@ import type {
   ClientDocument,
   ClientId,
   ClientScope,
+  ContactLogEntry,
   DocumentId,
   DocumentTypeCode,
   Lead,
@@ -71,6 +72,11 @@ export interface CallerLike {
   readonly roles: readonly string[];
   readonly displayName: string;
   readonly sessionId?: string | undefined;
+}
+
+export interface ContactLogRepository {
+  forClient(clientId: string, scope: ClientScope): Promise<ContactLogEntry[]>;
+  save(entry: ContactLogEntry): Promise<void>;
 }
 
 export interface CredentialRepository {
