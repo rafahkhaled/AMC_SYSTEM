@@ -24,9 +24,37 @@ packages/
     audit/          the append-only log, the outbox, the unit of work
     clients/        clients, leads, contacts, documents, access scoping
     services/       service templates, subscriptions, tasks, recurrence
-    time-tracking/  time entries and the running timer
-    deadlines/      the UAE calendar and statutory filing dates
+    time-tracking/  time entries, the running timer, timesheets
+    deadlines/      the UAE calendar, statutory filing dates, the month view
 ```
+
+## The HTTP surface
+
+Every route is under `/api`. Reads are scoped rather than permission-guarded
+wherever two view permissions are alternatives — `clients.view.all` and
+`clients.view.assigned` are held by different roles, so naming either would
+lock the other out. Writes are guarded, because for those there is one
+permission and no alternative.
+
+```
+identity      /auth/sign-in, /auth/me, /auth/sign-out[-everywhere]
+              /auth/two-factor/{verify,enrol,confirm}
+clients       GET  /clients, /clients/:id
+              POST /clients/:clientId/documents      (multipart, clients.edit)
+              GET  /documents/:id/link               (short-lived, expires)
+              GET  /files/*key                       (local driver only, signed)
+services      GET  /tasks, /tasks/:id
+              POST /tasks/:id/move, /tasks/:id/steps/:order, /tasks/:id/documents
+              DELETE /tasks/:id/documents/:type
+time-tracking GET  /timer, /timer/timesheet
+              POST /timer/{start,stop,hold,resume,beat,entries}
+deadlines     GET  /calendar?month=YYYY-MM
+audit         GET  /audit
+health        GET  /health/{live,ready}
+```
+
+The browser screens map onto these one for one: clients, work, calendar,
+timer, home.
 
 ## Layers
 
