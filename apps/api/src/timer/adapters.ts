@@ -1,0 +1,117 @@
+import type { TimeEntryView, TimerState } from '@amc/contracts';
+import type { Database } from '@amc/database';
+import type { AssignmentResolver, TimerViewReader } from '@amc/time-tracking';
+import { sql } from 'drizzle-orm';
+
+/**
+ * Finds the assignment a person books time against, creating one if they are
+ * not on the task yet.
+ *
+ * Joins time-tracking to services, so it lives here rather than in either.
+ * Adding the person as a collaborator rather than refusing is the deliberate
+ * choice: people help with each other's work, and the alternatives are losing
+ * the time or recording it against nobody.
+ */
+export function assignmentResolver(db: Database, ids: { next(): string }): AssignmentResolver {
+  return {
+    async forUserOnTask({ userId, taskId, assignedBy }) {
+      const [existing] = await db.execute<{ id: string }>(sql`
+        SELECT id FROM task_assignments
+        WHERE task_id = ${taskId} AND user_id = ${userId} AND unassigned_at IS NULL
+        LIMIT 1
+      `);
+      if (existing) return { assignmentId: existing.id };
+
+      const [task] = await db.execute<{ id: string }>(sql`
+        SELECT id FROM tasks WHERE id = ${taskId}
+      `);
+      if (!task) return null;
+
+      const id = ids.next();
+      await db.execute(sql`
+        INSERT INTO task_assignments (id, task_id, user_id, role, assigned_by)
+        VALUES (${id}, ${taskId}, ${userId}, 'collaborator', ${assignedBy})
+      `);
+      return { assignmentId: id };
+    },
+  };
+}
+
+/** What the timer screen shows: the running timer and today's entries. */
+export function timerViewReader(db: Database): TimerViewReader {
+  return {
+    async running(userId): Promise<TimerState['running']> {
+      const [row] = await db.execute<{
+        task_id: string;
+        assignment_id: string;
+        client_id: string;
+        client_name: string;
+        service: string;
+        started_at: string;
+      }>(sql`
+        SELECT t.id AS task_id, r.assignment_id, t.client_id, c.legal_name AS client_name,
+               t.service, r.started_at
+        FROM running_timers r
+        JOIN task_assignments a ON a.id = r.assignment_id
+        JOIN tasks t ON t.id = a.task_id
+        JOIN clients c ON c.id = t.client_id
+        WHERE r.user_id = ${userId}
+      `);
+      if (!row) return null;
+
+      const startedAt = new Date(row.started_at);
+      return {
+        taskId: row.task_id,
+        assignmentId: row.assignment_id,
+        clientId: row.client_id,
+        clientName: row.client_name,
+        service: row.service,
+        startedAt: startedAt.toISOString(),
+        // Counted on the server. A tab left open overnight would otherwise
+        // show whatever its own clock had drifted to.
+        elapsedSeconds: Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000)),
+      };
+    },
+
+    async entriesOn(userId, day): Promise<TimeEntryView[]> {
+      const rows = await db.execute<{
+        id: string;
+        task_id: string;
+        client_name: string;
+        service: string;
+        started_at: string;
+        ended_at: string | null;
+        duration_seconds: number;
+        billable: boolean;
+        source: string;
+        statement_line_id: string | null;
+      }>(sql`
+        SELECT e.id, t.id AS task_id, c.legal_name AS client_name, t.service,
+               e.started_at, e.ended_at, e.duration_seconds, e.billable, e.source,
+               e.statement_line_id
+        FROM time_entries e
+        JOIN task_assignments a ON a.id = e.assignment_id
+        JOIN tasks t ON t.id = a.task_id
+        JOIN clients c ON c.id = t.client_id
+        WHERE a.user_id = ${userId}
+          -- The person's own day in Dubai, not the server's day in UTC.
+          AND (e.started_at AT TIME ZONE 'Asia/Dubai')::date
+              = (${day.toISOString()}::timestamptz AT TIME ZONE 'Asia/Dubai')::date
+        ORDER BY e.started_at DESC
+      `);
+
+      return rows.map((row) => ({
+        id: row.id,
+        taskId: row.task_id,
+        clientName: row.client_name,
+        service: row.service,
+        startedAt: new Date(row.started_at).toISOString(),
+        endedAt: row.ended_at ? new Date(row.ended_at).toISOString() : null,
+        seconds: row.duration_seconds,
+        billable: row.billable,
+        source: row.source as 'timer' | 'manual',
+        locked: row.statement_line_id !== null,
+      }));
+    },
+  };
+}

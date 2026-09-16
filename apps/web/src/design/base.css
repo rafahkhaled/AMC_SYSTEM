@@ -154,6 +154,14 @@ a {
   margin-inline: auto;
   padding: clamp(var(--space-4), 4vw, var(--space-6));
   display: grid;
+  /*
+   * minmax(0, 1fr), not 1fr. A grid item's automatic minimum size is its
+   * content, so a wide table would push the card past the screen and take
+   * the whole page sideways with it. The card would stay wider than the
+   * viewport, its own overflow-x would never have anything to scroll, and
+   * the page would scroll instead. This is what keeps that from happening.
+   */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
 }
 
@@ -551,4 +559,40 @@ a {
 .u-danger {
   color: var(--danger);
   font-weight: 560;
+}
+
+/*
+ * The running timer. The clock is the largest thing on the screen because on
+ * a phone, held at arm's length, it is the only thing anyone needs to read.
+ */
+.running {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.running__clock {
+  font-size: var(--text-2xl);
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.totals {
+  border-block-end: none;
+  border-block-start: 1px solid var(--line);
+  padding-block-start: var(--space-3);
+  margin-block-start: var(--space-2);
+  font-size: var(--text-base);
+}
+
+/*
+ * Below the fold of a phone the clock and its stop button should still sit on
+ * one line, so the clock gives up size before the button gives up its label.
+ */
+@media (max-width: 30rem) {
+  .running__clock {
+    font-size: var(--text-xl);
+  }
 }

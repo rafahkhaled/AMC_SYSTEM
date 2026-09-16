@@ -32,6 +32,23 @@ pnpm verify               # lint, typecheck, tests, dependency rules
 
 Integration tests need `TEST_DATABASE_URL=postgres://amc@127.0.0.1:5433/amc_test`.
 
+Stop a stray API or web server by port, never by path:
+
+```bash
+lsof -ti tcp:3000 | xargs kill     # API
+lsof -ti tcp:5173 | xargs kill     # web
+```
+
+The services are started from inside their own directories, so their command
+lines read `node dist/main.js`. A `pkill -f "api/dist/main.js"` matches nothing
+and says nothing, and the old build keeps answering. See `bugs.md`.
+
+The demo account is `wael@activemanagement.ae`, and `scripts/demo.sh` holds the
+password it seeds. It is a local fixture and exists in no other environment.
+
+Vite listens on `localhost` only. `http://127.0.0.1:5173` is refused; use the
+name.
+
 ## Hosting
 
 **GitLab is the primary remote**, private. GitHub refuses to create

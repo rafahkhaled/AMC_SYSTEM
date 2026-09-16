@@ -32,6 +32,16 @@ export async function request(path: string): Promise<unknown> {
   return response.json();
 }
 
+/** A POST that returns parsed JSON, or throws an ApiError. */
+export async function send(path: string, body?: unknown): Promise<unknown> {
+  const response = await call(path, {
+    method: 'POST',
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  if (!response.ok) throw await failure(response);
+  return response.status === 204 ? null : response.json();
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,

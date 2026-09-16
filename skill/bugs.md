@@ -137,6 +137,26 @@ fixture that had drifted from its aggregate compiled happily.
 found real errors on its first run. The browser half is checked separately, so
 only it can see the DOM.
 
+### An old server kept answering
+
+**Symptom:** a route that had just been written returned 404, and the worker
+logged "No handler registered for schedule.daily" for a handler that plainly
+existed.
+
+**Cause:** the cleanup between runs was `pkill -f "api/dist/main.js"`, and it
+never matched anything. The process is started from inside its own directory,
+so its command line is `node dist/main.js` — a relative path that contains no
+`api/`. Every restart left the previous build listening, and every check was
+answered by code written some time ago.
+
+**Fix:** kill by port, not by path: `lsof -ti tcp:3000 | xargs kill`. A port is
+what is actually contended, and it cannot be spelled two ways.
+
+**Lesson:** a `pkill` that matches nothing exits quietly. Before trusting a
+cleanup step, run it and confirm the port is free — the two questions to ask of
+any negative result are whether the thing is absent or whether the search was
+wrong.
+
 ## The ones the schema caused
 
 ### A renewal that could not be written in either order
@@ -160,6 +180,45 @@ expires in *fewer* than ninety days now, not more).
 
 **Lesson:** when a constraint refuses something, assume the constraint is right
 until shown otherwise. It usually is.
+
+## The ones only the browser showed
+
+### The stylesheet edit that never landed
+
+**Symptom:** client names rendered as default grey browser buttons, and the
+badge tones, fact lists and rows all lost their styling at once.
+
+**Cause:** a block of CSS was being replaced by matching on its existing text,
+and the formatter had reflowed that text since it was written. The match found
+nothing, so the replacement wrote nothing. No tool reported a failure, because
+replacing nothing is not an error.
+
+**Fix:** append the block rather than replace it, then ask the browser whether
+the rule exists — the document's stylesheets can be read back, and they are the
+only authority on what actually arrived.
+
+**Lesson:** a text replacement that silently matches nothing is the same class
+of failure as a `pkill` that matches nothing. Confirm the result, never the
+attempt.
+
+### The page scrolled sideways instead of the table
+
+**Symptom:** on a phone the clients table was cut off at the edge and the whole
+page slid horizontally, even though the table sat in a wrapper with
+`overflow-x: auto`.
+
+**Cause:** a grid item's automatic minimum size is its content. The card holding
+the table was a grid item of `.page`, so it grew to the table's intrinsic width
+and carried the page past the viewport with it. The wrapper then had more room
+than the table needed, so it had nothing to scroll and never did.
+
+**Fix:** `grid-template-columns: minmax(0, 1fr)` on `.page`. The same trap has a
+flexbox form, where the cure is `min-width: 0` on the child.
+
+**Lesson:** `overflow-x: auto` only scrolls when its container is genuinely
+narrower than its content. When a scroll container refuses to scroll, measure
+its `clientWidth` against the viewport before touching the overflow property.
+The numbers name the guilty ancestor in one call; guessing does not.
 
 ## Smaller ones worth remembering
 

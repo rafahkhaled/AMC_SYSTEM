@@ -1,0 +1,134 @@
+import type { TimerState } from '@amc/contracts';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setUpI18n } from '../../i18n/index.js';
+import { TimerPage } from './timer-page.js';
+
+const timerState = vi.hoisted(() => vi.fn());
+const stopTimer = vi.hoisted(() => vi.fn());
+const beat = vi.hoisted(() => vi.fn());
+vi.mock('./api.js', () => ({ timerState, stopTimer, beat, startTimer: vi.fn() }));
+
+const empty: TimerState = { running: null, today: [], todaySeconds: 0, todayBillableSeconds: 0 };
+
+function entry(over: Partial<TimerState['today'][number]> = {}): TimerState['today'][number] {
+  return {
+    id: 'e1',
+    taskId: 't1',
+    clientName: 'Gulf Trading LLC',
+    service: 'vat_return',
+    startedAt: '2026-09-16T06:00:00.000Z',
+    endedAt: '2026-09-16T06:40:00.000Z',
+    seconds: 2400,
+    billable: true,
+    source: 'timer',
+    locked: false,
+    ...over,
+  };
+}
+
+function show(state: TimerState) {
+  timerState.mockResolvedValue(state);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return render(<TimerPage />, { wrapper: Wrapper });
+}
+
+describe('the timer screen', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    localStorage.setItem('amc.language', 'en');
+    await setUpI18n();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('says plainly that nothing is running, and where to start one', async () => {
+    show(empty);
+    expect(await screen.findByText('No timer running')).toBeInTheDocument();
+    expect(screen.getByText('Start the timer from a task in a client file.')).toBeInTheDocument();
+  });
+
+  it('reads the running timer as a clock, starting from the server count', async () => {
+    show({
+      ...empty,
+      running: {
+        taskId: 't1',
+        assignmentId: 'a1',
+        clientId: 'c1',
+        clientName: 'Gulf Trading LLC',
+        service: 'vat_return',
+        startedAt: '2026-09-16T06:00:00.000Z',
+        elapsedSeconds: 3725,
+      },
+    });
+
+    // Not 0:00:00. A tab opened onto a timer already running has to show the
+    // hour the server has counted, not the second the component mounted.
+    expect(await screen.findByText('1:02:05')).toBeInTheDocument();
+    expect(screen.getByText('Gulf Trading LLC')).toBeInTheDocument();
+  });
+
+  it('never shows a recorded span as 0:00', async () => {
+    // Rows reading 0:00 above a non-zero total look like broken arithmetic to
+    // the one profession least willing to overlook it.
+    show({ ...empty, today: [entry({ seconds: 45 })], todaySeconds: 45, todayBillableSeconds: 45 });
+
+    // The row and the total both say it. A total of 0:00 above a row that
+    // recorded something is the same lie told one line lower down.
+    expect(await screen.findAllByText('under a minute')).toHaveLength(2);
+    expect(screen.queryByText('0:00')).not.toBeInTheDocument();
+  });
+
+  it('shows a longer span in hours and minutes', async () => {
+    show({ ...empty, today: [entry()], todaySeconds: 2400, todayBillableSeconds: 2400 });
+    expect(await screen.findAllByText('0:40')).not.toHaveLength(0);
+  });
+
+  it('marks what will not be billed, so it is obvious before the invoice', async () => {
+    show({
+      ...empty,
+      today: [entry({ billable: false, source: 'manual' }), entry({ id: 'e2', locked: true })],
+      todaySeconds: 4800,
+      todayBillableSeconds: 2400,
+    });
+
+    expect(await screen.findByText('Non-billable')).toBeInTheDocument();
+    expect(screen.getByText('Manual')).toBeInTheDocument();
+    expect(screen.getByText('Billed')).toBeInTheDocument();
+  });
+
+  it('stops through the server and shows what the server returns', async () => {
+    const user = userEvent.setup();
+    show({
+      ...empty,
+      running: {
+        taskId: 't1',
+        assignmentId: 'a1',
+        clientId: 'c1',
+        clientName: 'Gulf Trading LLC',
+        service: 'vat_return',
+        startedAt: '2026-09-16T06:00:00.000Z',
+        elapsedSeconds: 60,
+      },
+    });
+    stopTimer.mockResolvedValue({
+      ...empty,
+      today: [entry({ seconds: 60 })],
+      todaySeconds: 60,
+      todayBillableSeconds: 60,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Stop' }));
+
+    expect(stopTimer).toHaveBeenCalledOnce();
+    expect(await screen.findByText('No timer running')).toBeInTheDocument();
+  });
+});

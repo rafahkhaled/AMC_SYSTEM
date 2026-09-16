@@ -5,6 +5,7 @@ import { SignInPage } from '../features/auth/sign-in-page.js';
 import { TwoFactorPage } from '../features/auth/two-factor-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
+import { TimerPage } from '../features/timer/timer-page.js';
 import { AppShell } from './app-shell.js';
 import { HomePage } from './home-page.js';
 
@@ -17,7 +18,11 @@ import { HomePage } from './home-page.js';
  * routing arrives when a screen is worth linking to directly, which none of
  * these are yet.
  */
-type View = { name: 'home' } | { name: 'clients' } | { name: 'client'; id: string };
+type View =
+  | { name: 'home' }
+  | { name: 'clients' }
+  | { name: 'timer' }
+  | { name: 'client'; id: string };
 
 export function App() {
   const { state } = useSession();
@@ -44,6 +49,7 @@ export function App() {
           {view.name === 'clients' ? (
             <ClientsPage onOpen={(id) => setView({ name: 'client', id })} />
           ) : null}
+          {view.name === 'timer' ? <TimerPage /> : null}
           {view.name === 'client' ? (
             <ClientPage id={view.id} onBack={() => setView({ name: 'clients' })} />
           ) : null}

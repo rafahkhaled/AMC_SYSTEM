@@ -2,6 +2,7 @@ import type { DocumentSummary, TaskSummary } from '@amc/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { StartTimerButton } from '../timer/timer-page.js';
 import { getClient } from './api.js';
 
 const MONTHS_AR = [
@@ -183,6 +184,20 @@ function TaskRow({ task }: { task: TaskSummary }) {
         </span>
       ) : null}
       <Badge>{t(`taskStates.${task.state}`)}</Badge>
+      {OPEN_STATES.has(task.state) ? <StartTimerButton taskId={task.id} /> : null}
     </div>
   );
 }
+
+/*
+ * Time is recordable against any task that has not been closed. A task waiting
+ * on the client or on the authority still costs the person chasing it, and
+ * that hour is as billable as any other.
+ */
+const OPEN_STATES: ReadonlySet<TaskSummary['state']> = new Set([
+  'awaiting_documents',
+  'ready',
+  'in_progress',
+  'waiting_for_client',
+  'waiting_for_authority',
+]);

@@ -13,6 +13,12 @@ import {
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { type EventCollector, SystemClock } from '@amc/kernel';
+import { ReadTimer, TimerService } from '@amc/time-tracking';
+import { TimerModule } from '@amc/time-tracking/http';
+import {
+  DrizzleRunningTimerRepository,
+  DrizzleTimeEntryRepository,
+} from '@amc/time-tracking/infrastructure';
 import { EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
@@ -25,6 +31,7 @@ import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
+import { assignmentResolver, timerViewReader } from './timer/adapters.js';
 
 /**
  * The composition root. This is the only file allowed to know which adapter
@@ -45,6 +52,23 @@ import { DATABASE, DatabaseModule } from './persistence/database.module.js';
           taskSummaries(db),
           new SystemClock(),
         ),
+    }),
+    TimerModule.forRootAsync({
+      inject: [DATABASE],
+      useFactory: (db: Database) => {
+        const ids = { next: () => ulid() };
+        const clock = new SystemClock();
+        return {
+          timer: new TimerService(
+            new DrizzleRunningTimerRepository(db),
+            new DrizzleTimeEntryRepository(db),
+            assignmentResolver(db, ids),
+            clock,
+            ids,
+          ),
+          read: new ReadTimer(timerViewReader(db), clock),
+        };
+      },
     }),
     AuditModule.forRootAsync({
       inject: [DATABASE],

@@ -5,6 +5,8 @@ import { LanguageSwitch } from '../components/language-switch.js';
 import { Button } from '../design/index.js';
 import { useSession } from '../features/auth/session.js';
 
+type NavView = 'clients' | 'timer' | 'home';
+
 /** The frame every signed-in screen sits in. */
 export function AppShell({
   caller,
@@ -13,8 +15,8 @@ export function AppShell({
   children,
 }: {
   caller: Caller;
-  active: 'home' | 'clients';
-  onNavigate: (view: 'home' | 'clients') => void;
+  active: NavView;
+  onNavigate: (view: NavView) => void;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -27,7 +29,7 @@ export function AppShell({
           <div className="u-row">
             <strong>{t('appName')}</strong>
             <nav className="u-row nav">
-              {(['clients', 'home'] as const).map((view) => (
+              {(['clients', 'timer', 'home'] as const).map((view) => (
                 <button
                   key={view}
                   type="button"
