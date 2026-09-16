@@ -169,15 +169,24 @@ importers:
       '@amc/audit':
         specifier: workspace:*
         version: link:../../packages/modules/audit
+      '@amc/clients':
+        specifier: workspace:*
+        version: link:../../packages/modules/clients
       '@amc/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@amc/deadlines':
+        specifier: workspace:*
+        version: link:../../packages/modules/deadlines
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
       '@amc/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
       pino:
         specifier: ^9.5.0
         version: 9.14.0

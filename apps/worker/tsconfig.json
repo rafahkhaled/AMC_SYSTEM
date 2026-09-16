@@ -11,6 +11,8 @@
     { "path": "../../packages/kernel" },
     { "path": "../../packages/database" },
     { "path": "../../packages/queue" },
-    { "path": "../../packages/modules/audit" }
+    { "path": "../../packages/modules/audit" },
+    { "path": "../../packages/modules/clients" },
+    { "path": "../../packages/modules/deadlines" }
   ]
 }

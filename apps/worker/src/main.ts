@@ -5,7 +5,11 @@ import { JobRunner, PostgresJobQueue } from '@amc/queue';
 import pino from 'pino';
 import { ulid } from 'ulid';
 import { readWorkerEnvironment } from './config.js';
-import { registerEventSubscribers, registerJobHandlers } from './handlers.js';
+import {
+  registerEventSubscribers,
+  registerJobHandlers,
+  scheduleNextDailySweep,
+} from './handlers.js';
 import { OutboxPublisher } from './outbox-publisher.js';
 
 /**
@@ -75,6 +79,13 @@ async function bootstrap(): Promise<void> {
         }
       },
     }),
+    {
+      db,
+      queue,
+      clock,
+      ids: { next: () => ulid() },
+      log: (message, detail) => logger.info(detail, message),
+    },
   );
 
   const publisher = registerEventSubscribers(
@@ -98,6 +109,10 @@ async function bootstrap(): Promise<void> {
       }
     }
   };
+
+  // Make sure tomorrow's sweep is on the queue. Doing this at boot means a
+  // fresh install starts its schedule without anyone remembering to.
+  await scheduleNextDailySweep(queue, clock.now());
 
   logger.info(
     { jobs: runner.registered.length, batchSize: environment.WORKER_BATCH_SIZE },

@@ -1,22 +1,34 @@
-import type { JobRunner } from '@amc/queue';
+import type { Database } from '@amc/database';
+import type { Clock } from '@amc/kernel';
+import type { JobRunner, PostgresJobQueue } from '@amc/queue';
+import { DAILY_SWEEP, runDailySweep, scheduleNextDailySweep } from './handlers/daily.js';
 import type { OutboxPublisher } from './outbox-publisher.js';
 
 /**
  * Where each phase plugs its background work in.
  *
- * Nothing is registered yet, and that is honest rather than empty: the first
- * handlers arrive with the deadline engine in P1, which computes VAT and
- * corporation tax dates and fires the escalations at seven, fourteen and five
- * days. The invoice extraction pipeline follows in P3.
- *
  * The one rule for anything registered here: a handler must tolerate seeing
  * the same work twice. Delivery is at-least-once, and a job that is not safe
  * to repeat will eventually be repeated.
  */
-export function registerJobHandlers(runner: JobRunner): JobRunner {
-  return runner;
+export function registerJobHandlers(
+  runner: JobRunner,
+  context: {
+    db: Database;
+    queue: PostgresJobQueue;
+    clock: Clock;
+    ids: { next(): string };
+    log: (message: string, detail: Record<string, unknown>) => void;
+  },
+): JobRunner {
+  return runner.register(DAILY_SWEEP, async () => {
+    const result = await runDailySweep(context);
+    context.log('daily sweep finished', { expiryWarnings: result.expiryWarnings });
+  });
 }
 
 export function registerEventSubscribers(publisher: OutboxPublisher): OutboxPublisher {
   return publisher;
 }
+
+export { scheduleNextDailySweep };
