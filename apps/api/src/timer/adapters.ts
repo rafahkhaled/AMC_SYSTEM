@@ -58,10 +58,14 @@ async function readEntries(db: Database, userId: string, where: SQL): Promise<Ti
     billable: boolean;
     source: string;
     statement_line_id: string | null;
+    review_reason: string | null;
   }>(sql`
     SELECT e.id, t.id AS task_id, c.legal_name AS client_name, t.service,
            e.started_at, e.ended_at, e.duration_seconds, e.billable, e.source,
-           e.statement_line_id
+           e.statement_line_id,
+           -- Null once somebody has confirmed it, so the screen shows only
+           -- what is still waiting on them.
+           CASE WHEN e.reviewed_at IS NULL THEN e.review_reason END AS review_reason
     FROM time_entries e
     JOIN task_assignments a ON a.id = e.assignment_id
     JOIN tasks t ON t.id = a.task_id
@@ -81,6 +85,7 @@ async function readEntries(db: Database, userId: string, where: SQL): Promise<Ti
     billable: row.billable,
     source: row.source as 'timer' | 'manual',
     locked: row.statement_line_id !== null,
+    reviewReason: row.review_reason as TimeEntryView['reviewReason'],
   }));
 }
 

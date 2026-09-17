@@ -1,6 +1,10 @@
 import { type Clock, Conflict, type IdGenerator, type Result, err, ok } from '@amc/kernel';
 import { RunningTimer, TimeEntry } from '../domain/index.js';
-import type { RunningTimerRepository, TimeEntryRepository } from './ports.js';
+import type {
+  RunningTimerRepository,
+  TimeEntryRepository,
+  WorkingHoursRepository,
+} from './ports.js';
 
 /**
  * Finds or creates the assignment a person should book time against.
@@ -29,6 +33,7 @@ export class TimerService {
     private readonly timers: RunningTimerRepository,
     private readonly entries: TimeEntryRepository,
     private readonly assignments: AssignmentResolver,
+    private readonly hours: WorkingHoursRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
   ) {}
@@ -91,7 +96,8 @@ export class TimerService {
     const now = running.clamp(params.at, this.clock.now());
     // An abandoned timer is trimmed to its last heartbeat rather than billing
     // the intervening night (FR-25).
-    const span = running.isAbandonedAt(now)
+    const abandoned = running.isAbandonedAt(now);
+    const span = abandoned
       ? running.stopAsAbandoned()
       : (() => {
           const stopped = running.stop(now);
@@ -99,7 +105,7 @@ export class TimerService {
         })();
 
     await this.timers.clear(params.userId);
-    return this.record(span);
+    return this.record(span, { userId: params.userId, abandoned });
   }
 
   /**
@@ -110,19 +116,35 @@ export class TimerService {
    * the firm does not want to answer. The same is true of a timer stopped
    * while already held, whose span was recorded when the hold began.
    */
-  private async record(span: {
-    assignmentId: string;
-    startedAt: Date;
-    endedAt: Date;
-  }): Promise<Result<StoppedEntry | null, Conflict>> {
+  private async record(
+    span: { assignmentId: string; startedAt: Date; endedAt: Date },
+    context: { userId: string; abandoned?: boolean } | null = null,
+  ): Promise<Result<StoppedEntry | null, Conflict>> {
     const seconds = Math.floor((span.endedAt.getTime() - span.startedAt.getTime()) / 1000);
     if (seconds <= 0) return ok(null);
+
+    /*
+     * Why this might be worth a second look (FR-25).
+     *
+     * A trimmed timer is flagged as abandoned whatever the hour, because the
+     * span already had its end guessed for it. Otherwise the question is
+     * whether the work fell outside the person's working day — which does not
+     * mean it is wrong, only that nobody outside can tell.
+     */
+    let reviewReason: 'after_hours' | 'abandoned' | null = null;
+    if (context?.abandoned) {
+      reviewReason = 'abandoned';
+    } else if (context) {
+      const hours = await this.hours.forUser(context.userId);
+      if (hours.questions(span)) reviewReason = 'after_hours';
+    }
 
     const entry = TimeEntry.fromTimer({
       id: this.ids.next(),
       assignmentId: span.assignmentId,
       startedAt: span.startedAt,
       endedAt: span.endedAt,
+      reviewReason,
     });
     if (!entry.ok) return err(entry.error);
 
@@ -150,7 +172,7 @@ export class TimerService {
     if (!span.ok) return err(span.error);
 
     await this.timers.save(running);
-    return this.record(span.value);
+    return this.record(span.value, { userId: params.userId });
   }
 
   /** Lift a hold. The next span starts now, so the pause bills nothing. */
@@ -212,6 +234,24 @@ export class TimerService {
       entryId: entry.value.id,
       seconds: entry.value.length.seconds,
     });
+  }
+
+  /**
+   * The person who was there says a flagged entry is right (FR-25).
+   *
+   * Their own entries only. Somebody else cannot vouch for whether you were
+   * really working at nine in the evening.
+   */
+  async confirm(params: { userId: string; entryId: string }): Promise<Result<true, Conflict>> {
+    const waiting = await this.entries.awaitingReview(params.userId);
+    const entry = waiting.find((candidate) => candidate.id === params.entryId);
+    if (!entry) return err(new Conflict('No such entry is waiting on you'));
+
+    const confirmed = entry.confirm(params.userId, this.clock.now());
+    if (!confirmed.ok) return confirmed;
+
+    await this.entries.save(entry);
+    return ok(true);
   }
 
   /** Tell the server the timer is still on screen (FR-25). */

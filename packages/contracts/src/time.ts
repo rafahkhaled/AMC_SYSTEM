@@ -30,6 +30,12 @@ export const timeEntrySchema = z.object({
   billable: z.boolean(),
   source: z.enum(['timer', 'manual']),
   locked: z.boolean(),
+  /**
+   * Why this entry is waiting to be confirmed, or null if nothing is in doubt
+   * (FR-25). A flagged entry is real time — it counts on a timesheet — but it
+   * cannot reach a client statement until the person who was there says so.
+   */
+  reviewReason: z.enum(['after_hours', 'abandoned', 'implausible']).nullable(),
 });
 export type TimeEntryView = z.infer<typeof timeEntrySchema>;
 
@@ -93,3 +99,5 @@ export const timesheetSchema = z.object({
   entries: z.array(timeEntrySchema),
 });
 export type Timesheet = z.infer<typeof timesheetSchema>;
+
+export const awaitingReviewSchema = z.object({ entries: z.array(timeEntrySchema) });

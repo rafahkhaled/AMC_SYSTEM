@@ -159,6 +159,13 @@ export const translations = {
       billableShare: '{{percent}}٪ قابل للفوترة',
       waitingToSync_one: 'إجراء واحد محفوظ على هذا الجهاز، سيُرسَل عند عودة الاتصال.',
       waitingToSync_other: '{{count}} إجراءات محفوظة على هذا الجهاز، ستُرسَل عند عودة الاتصال.',
+      idle: 'لا حركة منذ {{minutes}} دقائق. توقّف احتساب الوقت حتى تعود.',
+      review: {
+        after_hours: 'خارج ساعات العمل',
+        abandoned: 'مؤقّت مهجور',
+        implausible: 'مدّة طويلة بشكل غير معتاد',
+        confirm: 'تأكيد',
+      },
       underAMinute: 'أقل من دقيقة',
       failed: 'تعذّر تحميل المؤقّت.',
     },
@@ -510,6 +517,13 @@ export const translations = {
         'One action is kept on this device and will be sent when the connection returns.',
       waitingToSync_other:
         '{{count}} actions are kept on this device and will be sent when the connection returns.',
+      idle: 'Nothing has moved for {{minutes}} minutes, so the clock has stopped counting until you are back.',
+      review: {
+        after_hours: 'Outside working hours',
+        abandoned: 'Timer left running',
+        implausible: 'Unusually long',
+        confirm: 'Confirm',
+      },
       underAMinute: 'under a minute',
       failed: 'The timer could not be loaded.',
     },

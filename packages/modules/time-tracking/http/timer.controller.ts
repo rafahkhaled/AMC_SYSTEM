@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Param,
   Post,
   Query,
 } from '@nestjs/common';
@@ -185,6 +186,24 @@ export class TimerController {
   ): Promise<Timesheet> {
     const { start, end } = weekFrom(from, to);
     return this.read.timesheet(caller.userId, start, end);
+  }
+
+  /**
+   * The person who was there says a flagged entry is right (FR-25).
+   *
+   * Their own entries only. Nobody else can vouch for whether you were really
+   * working at nine in the evening, so the check is not a permission but the
+   * assignment the entry hangs from.
+   */
+  @Post('entries/:entryId/confirm')
+  @RequirePermissions('time.record')
+  async confirm(
+    @CurrentCaller() caller: Caller,
+    @Param('entryId') entryId: string,
+  ): Promise<TimerState> {
+    const outcome = await this.timer.confirm({ userId: caller.userId, entryId });
+    if (!outcome.ok) throw new BadRequestException(outcome.error.message);
+    return this.read.forUser(caller.userId);
   }
 
   /**

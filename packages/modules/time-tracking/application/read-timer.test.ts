@@ -17,6 +17,7 @@ function entry(over: Partial<TimeEntryView> = {}): TimeEntryView {
     billable: true,
     source: 'timer',
     locked: false,
+    reviewReason: null,
     ...over,
   };
 }

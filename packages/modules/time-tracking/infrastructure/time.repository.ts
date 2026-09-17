@@ -1,5 +1,5 @@
 import type { EventCollector } from '@amc/kernel';
-import { and, asc, eq, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type {
   RunningTimerRepository,
@@ -7,7 +7,13 @@ import type {
   TimesheetRow,
   UnbilledTime,
 } from '../application/ports.js';
-import { RunningTimer, TimeEntry, type TimeEntryId, type TimeSource } from '../domain/index.js';
+import {
+  type ReviewReason,
+  RunningTimer,
+  TimeEntry,
+  type TimeEntryId,
+  type TimeSource,
+} from '../domain/index.js';
 import { runningTimers, timeEntries } from './schema.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
@@ -121,6 +127,43 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
     }));
   }
 
+  /**
+   * What this person still has to confirm (FR-25).
+   *
+   * Theirs alone, reached through the assignment. Somebody else cannot vouch
+   * for whether you were really working at nine in the evening.
+   */
+  async awaitingReview(userId: string): Promise<TimeEntry[]> {
+    /*
+     * Raw SQL, because the join reaches `task_assignments`, which belongs to
+     * the services module. Importing its schema here would tie two modules
+     * together at compile time for one query; naming the table does not.
+     */
+    const rows = await this.db.execute<{ id: string }>(sql`
+      SELECT e.id
+      FROM time_entries e
+      JOIN task_assignments a ON a.id = e.assignment_id
+      WHERE a.user_id = ${userId}
+        AND e.review_reason IS NOT NULL
+        AND e.reviewed_at IS NULL
+      ORDER BY e.started_at
+    `);
+    if (rows.length === 0) return [];
+
+    const found = await this.db
+      .select()
+      .from(timeEntries)
+      .where(
+        inArray(
+          timeEntries.id,
+          rows.map((row) => row.id),
+        ),
+      )
+      .orderBy(asc(timeEntries.startedAt));
+
+    return found.map((row) => toAggregate(row));
+  }
+
   async save(entry: TimeEntry): Promise<void> {
     this.collector?.collect(entry.pullEvents());
     const state = entry.snapshot();
@@ -134,6 +177,9 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
       reason: state.reason,
       billable: state.billable,
       note: state.note,
+      reviewReason: state.reviewReason,
+      reviewedAt: state.reviewedAt,
+      reviewedBy: state.reviewedBy,
       approvedAt: state.approvedAt,
       approvedBy: state.approvedBy,
       statementLineId: state.statementLineId,
@@ -243,6 +289,9 @@ function toAggregate(row: typeof timeEntries.$inferSelect): TimeEntry {
     reason: row.reason,
     billable: row.billable,
     note: row.note,
+    reviewReason: row.reviewReason as ReviewReason | null,
+    reviewedAt: row.reviewedAt,
+    reviewedBy: row.reviewedBy,
     approvedAt: row.approvedAt,
     approvedBy: row.approvedBy,
     statementLineId: row.statementLineId,

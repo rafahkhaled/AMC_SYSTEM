@@ -1,4 +1,13 @@
-import { boolean, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  smallint,
+  text,
+  time,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 
 export const timeEntries = pgTable(
   'time_entries',
@@ -13,6 +22,9 @@ export const timeEntries = pgTable(
     reason: text('reason'),
     billable: boolean('billable').notNull().default(true),
     note: text('note'),
+    reviewReason: text('review_reason'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: text('reviewed_by'),
     approvedAt: timestamp('approved_at', { withTimezone: true }),
     approvedBy: text('approved_by'),
     statementLineId: text('statement_line_id'),
@@ -30,4 +42,12 @@ export const runningTimers = pgTable('running_timers', {
   deviceId: text('device_id'),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
   heldAt: timestamp('held_at', { withTimezone: true }),
+});
+
+/** When each person is expected to be working (FR-25). */
+export const userWorkingHours = pgTable('user_working_hours', {
+  userId: text('user_id').primaryKey(),
+  startsAt: time('starts_at').notNull(),
+  endsAt: time('ends_at').notNull(),
+  workingDays: smallint('working_days').array().notNull(),
 });

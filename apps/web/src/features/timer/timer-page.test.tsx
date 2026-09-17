@@ -15,6 +15,7 @@ const beat = vi.hoisted(() => vi.fn());
 const replayPending = vi.hoisted(() => vi.fn());
 const pendingCount = vi.hoisted(() => vi.fn());
 const timesheet = vi.hoisted(() => vi.fn());
+const confirmEntry = vi.hoisted(() => vi.fn());
 vi.mock('./api.js', async () => {
   // The real module is kept for PendingSync, which the screen compares
   // against with instanceof: a mocked class is a different class, and the
@@ -28,6 +29,7 @@ vi.mock('./api.js', async () => {
     resumeTimer,
     beat,
     startTimer: vi.fn(),
+    confirmEntry,
     replayPending,
     pendingCount,
     recordManual: vi.fn(),
@@ -49,6 +51,7 @@ function entry(over: Partial<TimerState['today'][number]> = {}): TimerState['tod
     billable: true,
     source: 'timer',
     locked: false,
+    reviewReason: null,
     ...over,
   };
 }
@@ -180,6 +183,54 @@ describe('the timer screen', () => {
     show({ ...empty, running: running() });
     await screen.findByRole('button', { name: 'Stop' });
     expect(screen.queryByText(/kept on this device/)).not.toBeInTheDocument();
+  });
+
+  it('asks about an entry that fell outside working hours', async () => {
+    /*
+     * Not discarded and not billed quietly. Working late in filing season is
+     * ordinary, and a timer left running overnight looks identical from the
+     * outside — so the question goes to the person who was there.
+     */
+    show({
+      ...empty,
+      today: [entry({ seconds: 5400, reviewReason: 'after_hours' })],
+      todaySeconds: 5400,
+      todayBillableSeconds: 5400,
+    });
+
+    expect(await screen.findByText('Outside working hours')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+  });
+
+  it('still counts a flagged entry on the day', async () => {
+    // It is real time. What it cannot do is reach a statement unconfirmed.
+    show({
+      ...empty,
+      today: [entry({ seconds: 5400, reviewReason: 'abandoned' })],
+      todaySeconds: 5400,
+      todayBillableSeconds: 5400,
+    });
+
+    expect(await screen.findByText('Timer left running')).toBeInTheDocument();
+    expect(screen.getAllByText('1:30').length).toBeGreaterThan(0);
+  });
+
+  it('asks nothing about an ordinary entry', async () => {
+    show({ ...empty, today: [entry()], todaySeconds: 7200, todayBillableSeconds: 7200 });
+    await screen.findByText('Gulf Trading LLC');
+    expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+  });
+
+  it('sends the confirmation for the entry that was asked about', async () => {
+    const user = userEvent.setup();
+    show({ ...empty, today: [entry({ id: 'e-9', reviewReason: 'after_hours' })] });
+    confirmEntry.mockResolvedValue(empty);
+
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+
+    // React Query hands the mutation function its own context as a second
+    // argument, which this one ignores. The entry id is what matters.
+    expect(confirmEntry.mock.calls[0]?.[0]).toBe('e-9');
   });
 
   it('offers a hold while running, and a resume once held', async () => {

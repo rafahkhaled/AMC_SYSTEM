@@ -139,3 +139,10 @@ export async function timesheet(from: string, to: string): Promise<Timesheet> {
     await request(`/timer/timesheet?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   );
 }
+
+/** The person who was there says a flagged entry is right (FR-25). */
+export async function confirmEntry(entryId: string): Promise<TimerState> {
+  return timerStateSchema.parse(
+    await send(`/timer/entries/${encodeURIComponent(entryId)}/confirm`),
+  );
+}

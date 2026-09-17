@@ -37,6 +37,7 @@ import { TimerModule } from '@amc/time-tracking/http';
 import {
   DrizzleRunningTimerRepository,
   DrizzleTimeEntryRepository,
+  DrizzleWorkingHoursRepository,
 } from '@amc/time-tracking/infrastructure';
 import { AuditedVault, EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
@@ -148,6 +149,7 @@ import { secretAccessRecorder } from './vault/adapters.js';
             new DrizzleRunningTimerRepository(db),
             new DrizzleTimeEntryRepository(db),
             assignmentResolver(db, ids),
+            new DrizzleWorkingHoursRepository(db),
             clock,
             ids,
           ),

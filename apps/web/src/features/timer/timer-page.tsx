@@ -8,6 +8,7 @@ import { taskBoard } from '../tasks/api.js';
 import {
   PendingSync,
   beat,
+  confirmEntry,
   holdTimer,
   pendingCount,
   replayPending,
@@ -36,6 +37,7 @@ export function TimerPage() {
   const resume = useMutation({ mutationFn: resumeTimer, onSuccess: settle });
 
   const waiting = useSync(queries);
+  const confirm = useMutation({ mutationFn: confirmEntry, onSuccess: settle });
 
   if (state.isLoading) return <Loading label={t('loading')} />;
   if (state.isError) return <p className="alert alert--error">{t('timer.failed')}</p>;
@@ -70,7 +72,12 @@ export function TimerPage() {
           <>
             <div className="u-stack-tight">
               {data.today.map((entry) => (
-                <EntryRow key={entry.id} entry={entry} />
+                <EntryRow
+                  key={entry.id}
+                  entry={entry}
+                  onConfirm={() => confirm.mutate(entry.id)}
+                  confirming={confirm.isPending}
+                />
               ))}
             </div>
             <div className="line totals">
@@ -166,6 +173,7 @@ function RunningPanel({
    * forgot to close.
    */
   const held = state.running?.held ?? false;
+  const idle = useIdle(Boolean(state.running) && !held);
 
   useEffect(() => {
     if (!state.running) return;
@@ -175,12 +183,22 @@ function RunningPanel({
     if (held) return;
 
     const tick = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
-    const pulse = setInterval(() => void beat(), 60_000);
+    /*
+     * The heartbeat stops when nobody has touched anything for a while. That
+     * is the whole mechanism: the server already trims a timer with no
+     * heartbeat back to the last one it saw, so going quiet is how an
+     * unattended clock stops billing. Telling the server "still here" while
+     * the room is empty would be the lie.
+     */
+    const pulse = setInterval(() => {
+      if (!idle) void beat();
+    }, 60_000);
+
     return () => {
       clearInterval(tick);
       clearInterval(pulse);
     };
-  }, [state.running, held]);
+  }, [state.running, held, idle]);
 
   if (!state.running) {
     return (
@@ -192,6 +210,7 @@ function RunningPanel({
 
   return (
     <Card title={t('timer.title')}>
+      {idle ? <Alert tone="warning">{t('timer.idle', { minutes: IDLE_MINUTES })}</Alert> : null}
       <div className="running">
         <div className="u-stack-tight">
           <strong>{state.running.clientName}</strong>
@@ -224,7 +243,15 @@ function RunningPanel({
   );
 }
 
-function EntryRow({ entry }: { entry: TimeEntryView }) {
+function EntryRow({
+  entry,
+  onConfirm,
+  confirming,
+}: {
+  entry: TimeEntryView;
+  onConfirm: () => void;
+  confirming: boolean;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -235,6 +262,20 @@ function EntryRow({ entry }: { entry: TimeEntryView }) {
       {entry.source === 'manual' ? <Badge>{t('timer.manual')}</Badge> : null}
       {!entry.billable ? <Badge>{t('timer.nonBillable')}</Badge> : null}
       {entry.locked ? <Badge tone="accent">{t('timer.billed')}</Badge> : null}
+      {/*
+        A flagged entry is real time — it is on the timesheet and counted —
+        but it cannot be billed until the person who was there says it is
+        right. The question is put next to the entry rather than in a list
+        somewhere else, because it is answerable in one glance.
+      */}
+      {entry.reviewReason ? (
+        <>
+          <Badge tone="warning">{t(`timer.review.${entry.reviewReason}`)}</Badge>
+          <Button small tone="secondary" busy={confirming} onClick={onConfirm}>
+            {t('timer.review.confirm')}
+          </Button>
+        </>
+      ) : null}
       <span className="u-ltr u-numeric">{duration(entry.seconds, t)}</span>
     </div>
   );
@@ -255,4 +296,58 @@ export function StartTimerButton({ taskId }: { taskId: string }) {
       {t('timer.start')}
     </Button>
   );
+}
+
+/**
+ * How long without a sign of life before a timer is treated as unattended.
+ *
+ * Long enough that reading a long document does not trip it, short enough that
+ * a forgotten clock does not run all afternoon. It is not a hard rule: the
+ * time is still recorded, trimmed back to the last heartbeat, and the person
+ * is asked to confirm it.
+ */
+const IDLE_MINUTES = 10;
+
+/**
+ * Whether the person appears to have walked away.
+ *
+ * Watches for the things somebody actually does: moving a pointer, pressing a
+ * key, touching the screen, or bringing the tab back to the front. Scrolling
+ * counts, because reading is working.
+ *
+ * Going idle does not stop the timer. It stops the heartbeat, and the server
+ * already trims a timer it has not heard from back to the last beat it saw.
+ * Saying "still here" while the room is empty would be the lie.
+ */
+function useIdle(watching: boolean): boolean {
+  const [idle, setIdle] = useState(false);
+
+  useEffect(() => {
+    if (!watching) {
+      setIdle(false);
+      return;
+    }
+
+    let last = Date.now();
+    const awake = () => {
+      last = Date.now();
+      setIdle(false);
+    };
+
+    const events = ['pointerdown', 'pointermove', 'keydown', 'scroll', 'touchstart'] as const;
+    for (const event of events) window.addEventListener(event, awake, { passive: true });
+    document.addEventListener('visibilitychange', awake);
+
+    const check = setInterval(() => {
+      setIdle(Date.now() - last > IDLE_MINUTES * 60_000);
+    }, 30_000);
+
+    return () => {
+      for (const event of events) window.removeEventListener(event, awake);
+      document.removeEventListener('visibilitychange', awake);
+      clearInterval(check);
+    };
+  }, [watching]);
+
+  return idle;
 }
