@@ -6,6 +6,7 @@ export * from './duration.js';
 export * from './errors.js';
 export * from './id.js';
 export * from './money.js';
+export * from './phone-number.js';
 export * from './rate.js';
 export * from './result.js';
 export * from './unit-of-work.js';
