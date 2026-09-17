@@ -1199,3 +1199,60 @@ a {
   color: var(--text-soft);
   white-space: pre-wrap;
 }
+
+/* ---- generated letters ------------------------------------------------ */
+
+.letter {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.letter__title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-base);
+}
+
+/*
+ * The letter's own line breaks, in a serif face because it is a document
+ * rather than an interface. `pre-wrap` keeps the blank lines somebody put
+ * between paragraphs without turning the whole thing into one block.
+ */
+.letter__body {
+  margin: 0;
+  font-family: var(--font-serif, Georgia, "Times New Roman", serif);
+  font-size: 1rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/*
+ * Printing gives the letter the page.
+ *
+ * Arabic shaping is the reason this is printed from the browser rather than
+ * rendered to a PDF on the server: browsers shape it correctly and PDF
+ * libraries mostly do not. "Print to PDF" is one keystroke away in all of them.
+ */
+@media print {
+  .shell__menu,
+  .shell__bar,
+  .shell__scrim,
+  .card:not(:has(.letter)),
+  .letter ~ *,
+  .alert,
+  .button {
+    display: none !important;
+  }
+
+  .letter {
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .shell {
+    display: block;
+  }
+}

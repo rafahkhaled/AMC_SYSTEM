@@ -3,6 +3,7 @@ import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure
 import {
   ClientVault,
   ContactLog,
+  GenerateLetter,
   LeadWorkflow,
   ReadClients,
   ReadLeads,
@@ -15,6 +16,7 @@ import {
   DrizzleCredentialRepository,
   DrizzleDocumentRepository,
   DrizzleLeadRepository,
+  DrizzleLetterRepository,
 } from '@amc/clients/infrastructure';
 import type { Database } from '@amc/database';
 import { ReadCalendar } from '@amc/deadlines';
@@ -114,6 +116,13 @@ import { secretAccessRecorder } from './vault/adapters.js';
           next: () => ulid(),
         }),
         leads: new ReadLeads(new DrizzleLeadRepository(db), new SystemClock()),
+        letters: new GenerateLetter(
+          new DrizzleLetterRepository(db),
+          new DrizzleClientRepository(db),
+          // Who the firm signs as. Configuration, not a client fact.
+          { name: environment.FIRM_NAME, signatory: environment.FIRM_SIGNATORY },
+          { next: () => ulid() },
+        ),
         leadWorkflow: new LeadWorkflow(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
           {

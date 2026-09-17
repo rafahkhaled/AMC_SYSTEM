@@ -204,3 +204,33 @@ export const moveLeadSchema = z.object({
 export const convertLeadSchema = z.object({
   legalName: z.string().trim().min(1, 'The client needs a legal name'),
 });
+
+export const letterTemplateSchema = z.object({
+  code: z.string(),
+  nameEn: z.string(),
+  nameAr: z.string(),
+  /** Which facts this letter needs, so a preview can say what is missing. */
+  needs: z.array(z.string()),
+});
+export type LetterTemplate = z.infer<typeof letterTemplateSchema>;
+
+export const letterSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  language: z.enum(['en', 'ar']),
+  createdAt: z.string(),
+  /**
+   * Facts the letter wanted and the client record could not supply. Returned
+   * rather than refused: a letter with a gap is often exactly what somebody
+   * wants, and refusing would send them back to a Word file.
+   */
+  missing: z.array(z.string()),
+});
+export type Letter = z.infer<typeof letterSchema>;
+
+export const generateLetterSchema = z.object({
+  templateCode: z.string().min(1),
+  language: z.enum(['en', 'ar']),
+  taskId: z.string().optional(),
+});

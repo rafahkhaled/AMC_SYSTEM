@@ -47,6 +47,16 @@ export const environmentSchema = z.object({
   STORAGE_BUCKET: z.string().optional(),
   STORAGE_REGION: z.string().default('me-central-1'),
 
+  /**
+   * How the firm signs its own letters.
+   *
+   * Configuration rather than a client fact, and defaulted so a fresh install
+   * produces readable letters rather than blanks that somebody signs without
+   * noticing.
+   */
+  FIRM_NAME: z.string().default('Active Management Consultancy'),
+  FIRM_SIGNATORY: z.string().default('Wael Ajam'),
+
   // Business rules. Stored times are UTC; rules are expressed in Dubai time.
   BUSINESS_TIME_ZONE: z.string().default('Asia/Dubai'),
   DEFAULT_CURRENCY: z.enum(['AED', 'USD', 'EUR', 'GBP', 'SAR']).default('AED'),

@@ -6,6 +6,7 @@ import type {
   ClientScope,
   ContactLogEntry,
   DocumentId,
+  DocumentTemplate,
   DocumentTypeCode,
   Lead,
   LeadId,
@@ -73,6 +74,26 @@ export interface CallerLike {
   readonly roles: readonly string[];
   readonly displayName: string;
   readonly sessionId?: string | undefined;
+}
+
+/** A letter as it went out. */
+export interface GeneratedLetter {
+  readonly id: string;
+  readonly clientId: string;
+  readonly templateId: string;
+  readonly taskId: string | null;
+  readonly language: 'en' | 'ar';
+  readonly title: string;
+  readonly body: string;
+  readonly generatedBy: string | null;
+  readonly createdAt: Date;
+}
+
+export interface LetterRepository {
+  templates(): Promise<DocumentTemplate[]>;
+  templateByCode(code: string): Promise<DocumentTemplate | null>;
+  record(letter: GeneratedLetter): Promise<void>;
+  forClient(clientId: string): Promise<GeneratedLetter[]>;
 }
 
 export interface ContactLogRepository {

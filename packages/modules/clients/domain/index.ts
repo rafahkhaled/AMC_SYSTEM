@@ -5,5 +5,6 @@ export * from './contact-log.js';
 export * from './credential.js';
 export * from './document.js';
 export * from './lead.js';
+export * from './letter.js';
 export * from './tax-period.js';
 export * from './trn.js';

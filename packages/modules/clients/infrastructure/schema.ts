@@ -193,3 +193,27 @@ export const contactLogAttachments = pgTable('contact_log_attachments', {
   sizeBytes: integer('size_bytes').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** The firm's letters, in both languages, with {{placeholders}} (FR-15). */
+export const documentTemplates = pgTable('document_templates', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  nameEn: text('name_en').notNull(),
+  nameAr: text('name_ar').notNull(),
+  bodyEn: text('body_en').notNull(),
+  bodyAr: text('body_ar').notNull(),
+  retiredAt: timestamp('retired_at', { withTimezone: true }),
+});
+
+/** A letter as it went out, kept rather than regenerated. */
+export const generatedDocuments = pgTable('generated_documents', {
+  id: text('id').primaryKey(),
+  clientId: text('client_id').notNull(),
+  templateId: text('template_id').notNull(),
+  taskId: text('task_id'),
+  language: text('language').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  generatedBy: text('generated_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -6,6 +6,7 @@ import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
 import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
 import { documentLink } from '../documents/api.js';
 import { DocumentUpload } from '../documents/document-upload.js';
+import { LettersPanel } from '../letters/letters-panel.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import { VaultPanel } from '../vault/vault-panel.js';
 import { getClient } from './api.js';
@@ -129,6 +130,8 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
           }
         />
       </Card>
+
+      <LettersPanel clientId={id} />
 
       <ContactLogPanel clientId={id} />
 
