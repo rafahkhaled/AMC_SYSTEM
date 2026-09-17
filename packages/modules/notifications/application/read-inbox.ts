@@ -1,31 +1,16 @@
-import type { Clock } from '@amc/kernel';
+import type { Inbox, NotificationPreference } from '@amc/contracts';
+import { type Clock } from '@amc/kernel';
 import { NOTIFICATION_KINDS, type NotificationKind, defaultDelivery } from '../domain/index.js';
 import type { CallerLike, NotificationRepository, PreferenceRepository } from './ports.js';
 
-export interface InboxEntry {
-  readonly id: string;
-  readonly kind: string;
-  readonly subjectType: string;
-  readonly subjectId: string;
-  readonly clientId: string | null;
-  readonly titleEn: string;
-  readonly titleAr: string;
-  readonly bodyEn: string;
-  readonly bodyAr: string;
-  readonly readAt: string | null;
-  readonly createdAt: string;
-}
-
-export interface Inbox {
-  readonly entries: InboxEntry[];
-  readonly unread: number;
-}
-
-export interface PreferenceView {
-  readonly kind: string;
-  readonly inApp: boolean;
-  readonly email: boolean;
-}
+/**
+ * Whose inbox. Nothing more.
+ *
+ * There is no permission involved here: everybody has an inbox and nobody has
+ * anybody else's, so the caller's own id is the whole of the authorisation.
+ * Asking for permissions or a display name would suggest otherwise.
+ */
+type Owner = Pick<CallerLike, 'userId'>;
 
 /** Somebody's own inbox. There is no reading anybody else's. */
 export class ReadInbox {
@@ -35,7 +20,7 @@ export class ReadInbox {
     private readonly clock: Clock,
   ) {}
 
-  async forCaller(caller: CallerLike, options: { unreadOnly?: boolean } = {}): Promise<Inbox> {
+  async forCaller(caller: Owner, options: { unreadOnly?: boolean } = {}): Promise<Inbox> {
     const [found, unread] = await Promise.all([
       this.notifications.forUser(caller.userId, {
         limit: 50,
@@ -71,7 +56,7 @@ export class ReadInbox {
    * All of them, always. A settings screen that only lists what somebody has
    * already changed is a screen where the untouched settings are invisible.
    */
-  async preferencesFor(caller: CallerLike): Promise<PreferenceView[]> {
+  async preferencesFor(caller: Owner): Promise<NotificationPreference[]> {
     const chosen = await this.preferences.forUser(caller.userId);
     return NOTIFICATION_KINDS.map((kind) => {
       const delivery = chosen.get(kind) ?? defaultDelivery(kind);
@@ -79,7 +64,7 @@ export class ReadInbox {
     });
   }
 
-  async markRead(caller: CallerLike, notificationId: string): Promise<boolean> {
+  async markRead(caller: Owner, notificationId: string): Promise<boolean> {
     const notification = await this.notifications.findById(notificationId, caller.userId);
     if (!notification) return false;
 
@@ -88,15 +73,15 @@ export class ReadInbox {
     return true;
   }
 
-  async markAllRead(caller: CallerLike): Promise<number> {
+  async markAllRead(caller: Owner): Promise<number> {
     return this.notifications.markAllRead(caller.userId, this.clock.now());
   }
 
   async choose(
-    caller: CallerLike,
+    caller: Owner,
     kind: NotificationKind,
     delivery: { inApp: boolean; email: boolean },
-  ): Promise<PreferenceView[]> {
+  ): Promise<NotificationPreference[]> {
     await this.preferences.set(caller.userId, kind, delivery);
     return this.preferencesFor(caller);
   }

@@ -17,7 +17,7 @@ export class LettersController {
 
   @Get('letter-templates')
   async templates(): Promise<{ templates: LetterTemplate[] }> {
-    return { templates: (await this.letters.templates()) as LetterTemplate[] };
+    return { templates: await this.letters.templates() };
   }
 
   @Get('clients/:clientId/letters')
@@ -25,7 +25,7 @@ export class LettersController {
     @CurrentCaller() caller: Caller,
     @Param('clientId') clientId: string,
   ): Promise<{ letters: Letter[] }> {
-    return { letters: (await this.letters.history(caller, clientId)) as Letter[] };
+    return { letters: await this.letters.history(caller, clientId) };
   }
 
   @Post('clients/:clientId/letters')
@@ -40,6 +40,6 @@ export class LettersController {
 
     const outcome = await this.letters.generate(caller, { clientId, ...parsed.data });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
-    return outcome.value as Letter;
+    return outcome.value;
   }
 }

@@ -1,5 +1,14 @@
-import type { Actor, Conflict, EventCollector, Result, UnitOfWork } from '@amc/kernel';
-import { Conflict as ConflictError, type IdGenerator, err, ok } from '@amc/kernel';
+import {
+  Conflict,
+  Conflict as ConflictError,
+  type EventCollector,
+  type IdGenerator,
+  type Result,
+  type UnitOfWork,
+  actorFrom,
+  err,
+  ok,
+} from '@amc/kernel';
 import {
   ClientDocument,
   type DocumentTypeCode,
@@ -91,22 +100,14 @@ export class ReceiveDocument {
     });
     if (!stored.ok) return err(stored.error);
 
-    const actor: Actor = {
-      userId: caller.userId,
-      roles: caller.roles,
-      label: caller.displayName,
-      ...(caller.sessionId ? { sessionId: caller.sessionId } : {}),
-    };
+    const actor = actorFrom(caller);
 
     return this.unitOfWork.run(actor, async (context) => {
       const documents = this.repositories.forTransaction(
         (context as unknown as { db: unknown }).db,
         context,
       );
-      const scope = scopeFor(
-        caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions),
-        caller.userId,
-      );
+      const scope = scopeFor(caller);
 
       const label = command.label?.trim() || null;
       const replacing = await this.whatThisReplaces(documents, scope, command, type, label);
@@ -193,10 +194,7 @@ export class ReceiveDocument {
 
   /** A link the browser can follow, for as long as it is meant to work. */
   async linkTo(caller: CallerLike, documentId: string): Promise<string | null> {
-    const scope = scopeFor(
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions),
-      caller.userId,
-    );
+    const scope = scopeFor(caller);
     const document = await this.documents.findById(documentId, scope);
     // A document out of scope and a document that was never uploaded give the
     // same answer, so a link cannot be used to learn which clients exist.

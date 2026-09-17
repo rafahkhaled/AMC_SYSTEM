@@ -126,9 +126,9 @@ describe('an accountant only sees their own clients', () => {
     await database.inRollbackTransaction(async (tx) => {
       const { clients } = await scenario(tx);
 
-      const accountant = scopeFor(['clients.view.assigned'], 'user-a');
-      const clerk = scopeFor(['invoices.upload'], 'user-c');
-      const manager = scopeFor(['clients.view.all'], 'user-m');
+      const accountant = scopeFor({ userId: 'user-a', permissions: ['clients.view.assigned'] });
+      const clerk = scopeFor({ userId: 'user-c', permissions: ['invoices.upload'] });
+      const manager = scopeFor({ userId: 'user-m', permissions: ['clients.view.all'] });
 
       const mine = (id: string) => id.startsWith('c-');
 

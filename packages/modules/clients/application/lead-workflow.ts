@@ -1,5 +1,14 @@
-import type { Actor, Conflict, EventCollector, IdGenerator, Result, UnitOfWork } from '@amc/kernel';
-import { Conflict as ConflictError, err, ok } from '@amc/kernel';
+import {
+  Conflict,
+  Conflict as ConflictError,
+  type EventCollector,
+  type IdGenerator,
+  type Result,
+  type UnitOfWork,
+  actorFrom,
+  err,
+  ok,
+} from '@amc/kernel';
 import { Client, Lead, type LeadSource, type LeadStatus } from '../domain/index.js';
 import type { CallerLike, ClientRepository, LeadRepository } from './ports.js';
 
@@ -18,15 +27,6 @@ export class LeadWorkflow {
     private readonly ids: IdGenerator,
   ) {}
 
-  private actor(caller: CallerLike): Actor {
-    return {
-      userId: caller.userId,
-      roles: caller.roles,
-      label: caller.displayName,
-      ...(caller.sessionId ? { sessionId: caller.sessionId } : {}),
-    };
-  }
-
   capture(
     caller: CallerLike,
     params: {
@@ -38,7 +38,7 @@ export class LeadWorkflow {
       requestedService?: string | undefined;
     },
   ): Promise<Result<{ leadId: string }, Conflict>> {
-    return this.unitOfWork.run(this.actor(caller), async (context) => {
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const { leads } = this.repositories.forTransaction(
         (context as unknown as { db: unknown }).db,
         context,
@@ -70,7 +70,7 @@ export class LeadWorkflow {
     to: LeadStatus,
     note?: string,
   ): Promise<Result<true, Conflict>> {
-    return this.unitOfWork.run(this.actor(caller), async (context) => {
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const { leads } = this.repositories.forTransaction(
         (context as unknown as { db: unknown }).db,
         context,
@@ -100,7 +100,7 @@ export class LeadWorkflow {
     id: string,
     legalName: string,
   ): Promise<Result<{ clientId: string }, Conflict>> {
-    return this.unitOfWork.run(this.actor(caller), async (context) => {
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const { leads, clients } = this.repositories.forTransaction(
         (context as unknown as { db: unknown }).db,
         context,

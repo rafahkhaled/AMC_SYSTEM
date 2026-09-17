@@ -64,18 +64,6 @@ export interface ExpiringDocument {
   readonly daysRemaining: number;
 }
 
-/**
- * The caller: enough to decide what they may see, and enough to name them in
- * the audit log. The display name is not optional for that second reason.
- */
-export interface CallerLike {
-  readonly userId: string;
-  readonly permissions: ReadonlySet<string> | readonly string[];
-  readonly roles: readonly string[];
-  readonly displayName: string;
-  readonly sessionId?: string | undefined;
-}
-
 /** A letter as it went out. */
 export interface GeneratedLetter {
   readonly id: string;
@@ -120,3 +108,6 @@ export interface DocumentRepository {
   expiringOn(days: number, today: Date): Promise<ExpiringDocument[]>;
   save(document: ClientDocument): Promise<void>;
 }
+
+/** The caller. Re-exported so modules import their ports, not the kernel. */
+export type { CallerLike } from '@amc/kernel';

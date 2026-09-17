@@ -79,3 +79,43 @@ that cannot be abused.
 
 Anything else arriving from a browser about time is a suggestion, and the
 server's clock decides.
+
+## The caller, and where the shared pieces live
+
+Four modules each declared their own `CallerLike`, and they drifted: two wanted
+only a user id and a permission set, and the two that wrote audit rows needed
+the display name. An `Actor` could therefore be built without one, and for a
+while every task change was logged against nobody.
+
+One declaration now, in the kernel, with three helpers beside it:
+
+```ts
+import { type CallerLike, actorFrom, heldBy } from '@amc/kernel';
+
+heldBy(caller)      // the permissions, as a set, however they arrived
+actorFrom(caller)   // the person, in the shape the audit log records
+```
+
+A use case takes only as much of a caller as it uses, and says so:
+
+- A read that derives a scope takes `Pick<CallerLike, 'userId' | 'permissions'>`.
+- Somebody's own inbox takes `Pick<CallerLike, 'userId'>`, because there is no
+  permission involved at all.
+- Anything that writes an audit row takes the whole `CallerLike`, because the
+  display name is what makes the log readable a year later.
+
+Two more things are defined once and must not be rewritten:
+
+- **Client visibility** is `scopePredicate` in `@amc/database`. Four packages
+  apply the same rule and they must agree; when a scoping rule drifts, the
+  failure is somebody reading a client file that is not theirs.
+- **Dates in raw SQL** use `at()` and `on()` from the kernel, with the cast at
+  the other end.
+
+## View types belong to the contracts
+
+A use case returns the shape in `@amc/contracts`, not a private interface that
+happens to match it. Seven of those accumulated, and each one forced a cast in
+the controller that returned it. A cast between two structurally identical
+types is not a widening; it is a note saying two people described the same
+thing separately.

@@ -29,6 +29,9 @@ importers:
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
       turbo:
         specifier: ^2.3.3
         version: 2.10.12

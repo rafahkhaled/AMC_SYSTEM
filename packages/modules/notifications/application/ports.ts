@@ -43,6 +43,5 @@ export interface RecipientReader {
   find(userId: string): Promise<{ email: string; language: 'en' | 'ar' } | null>;
 }
 
-export interface CallerLike {
-  readonly userId: string;
-}
+/** The caller. Re-exported so modules import their ports, not the kernel. */
+export type { CallerLike } from '@amc/kernel';

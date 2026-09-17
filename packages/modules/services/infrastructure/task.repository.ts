@@ -1,3 +1,4 @@
+import { scopePredicate } from '@amc/database';
 import type { EventCollector } from '@amc/kernel';
 import { and, asc, eq, notInArray, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -155,12 +156,11 @@ export class DrizzleTaskRepository implements TaskRepository {
    * the work for their own clients and no others.
    */
   private visibleTo(scope: TaskScope) {
+    // `undefined` rather than `true`, so an unscoped query carries no clause
+    // at all. The predicate itself is shared, because four packages apply the
+    // same rule and a scoping rule that drifts lets somebody read a client
+    // file that is not theirs.
     if (scope.kind === 'all') return undefined;
-    if (scope.kind === 'none') return sql`false`;
-    return sql`EXISTS (
-      SELECT 1 FROM client_staff_access
-      WHERE client_staff_access.client_id = ${tasks.clientId}
-        AND client_staff_access.user_id = ${scope.userId}
-    )`;
+    return scopePredicate(scope, sql`${tasks.clientId}`);
   }
 }

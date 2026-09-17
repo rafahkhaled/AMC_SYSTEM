@@ -6,11 +6,6 @@ export type CalendarScope =
   | { readonly kind: 'assigned'; readonly userId: string }
   | { readonly kind: 'none' };
 
-export interface CallerLike {
-  readonly userId: string;
-  readonly permissions: ReadonlySet<string> | readonly string[];
-}
-
 /** A dated obligation, before the business calendar has been applied to it. */
 export interface DueThing {
   readonly id: string;
@@ -41,3 +36,6 @@ export interface DeadlineSource {
 export interface HolidaySource {
   between(from: Date, to: Date): Promise<Holiday[]>;
 }
+
+/** The caller. Re-exported so modules import their ports, not the kernel. */
+export type { CallerLike } from '@amc/kernel';

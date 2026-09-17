@@ -1,4 +1,4 @@
-import { AggregateRoot, Conflict, type Rate, type Result, domainEvent, err, ok } from '@amc/kernel';
+import { AggregateRoot, Conflict, Rate, type Result, domainEvent, err, ok } from '@amc/kernel';
 import { type RateChange, RateHistory } from './client-rate.js';
 import type { FinancialYear, VatPeriods } from './tax-period.js';
 import type { Trn } from './trn.js';

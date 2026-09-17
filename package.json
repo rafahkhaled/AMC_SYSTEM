@@ -31,6 +31,7 @@
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^5.0.1",
     "fake-indexeddb": "^6.2.5",
+    "postgres": "^3.4.9",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.0",

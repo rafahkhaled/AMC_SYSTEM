@@ -1,4 +1,4 @@
-import type { Duration } from '@amc/kernel';
+import { Duration } from '@amc/kernel';
 import type { RunningTimer, TimeEntry, TimeEntryId, WorkingHours } from '../domain/index.js';
 
 /** A day's worth of somebody's time, for the timesheet (FR-24). */

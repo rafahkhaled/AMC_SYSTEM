@@ -1,4 +1,4 @@
-import { InvariantViolation, type Money, type Rate, type Result, err, ok } from '@amc/kernel';
+import { InvariantViolation, Money, Rate, type Result, err, ok } from '@amc/kernel';
 
 export interface RateChange {
   readonly rate: Rate;

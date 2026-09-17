@@ -1,4 +1,4 @@
-import type { DomainEvent } from '@amc/kernel';
+import { type DomainEvent } from '@amc/kernel';
 import type { AuditEntry } from '../domain/index.js';
 
 export interface AuditQuery {

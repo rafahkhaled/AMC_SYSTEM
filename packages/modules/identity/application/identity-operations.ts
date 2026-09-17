@@ -1,10 +1,10 @@
-import type {
-  Actor,
+import {
+  type Actor,
   Conflict,
-  EventCollector,
-  Result,
-  UnitOfWork,
-  UnitOfWorkContext,
+  type EventCollector,
+  type Result,
+  type UnitOfWork,
+  type UnitOfWorkContext,
   ValidationFailed,
 } from '@amc/kernel';
 import type { SessionLimits } from '../domain/index.js';

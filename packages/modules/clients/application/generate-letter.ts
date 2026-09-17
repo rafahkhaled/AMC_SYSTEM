@@ -1,25 +1,14 @@
-import type { Conflict, IdGenerator, Result } from '@amc/kernel';
-import { Conflict as ConflictError, err, ok } from '@amc/kernel';
+import type { Letter, LetterTemplate } from '@amc/contracts';
+import {
+  Conflict,
+  Conflict as ConflictError,
+  type IdGenerator,
+  type Result,
+  err,
+  ok,
+} from '@amc/kernel';
 import { type LetterFacts, placeholdersIn, scopeFor } from '../domain/index.js';
 import type { CallerLike, ClientRepository, LetterRepository } from './ports.js';
-
-export interface TemplateView {
-  readonly code: string;
-  readonly nameEn: string;
-  readonly nameAr: string;
-  /** Which facts this letter needs, so a preview can say what is missing. */
-  readonly needs: string[];
-}
-
-export interface LetterView {
-  readonly id: string;
-  readonly title: string;
-  readonly body: string;
-  readonly language: 'en' | 'ar';
-  readonly createdAt: string;
-  /** Facts the letter wanted and the client record could not supply. */
-  readonly missing: string[];
-}
 
 /**
  * What the firm signs its own name as. Configuration rather than a client
@@ -51,13 +40,7 @@ export class GenerateLetter {
     private readonly ids: IdGenerator,
   ) {}
 
-  private scope(caller: CallerLike) {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
-    return scopeFor(held, caller.userId);
-  }
-
-  async templates(): Promise<TemplateView[]> {
+  async templates(): Promise<LetterTemplate[]> {
     const found = await this.letters.templates();
     return found.map((template) => {
       const state = template.snapshot();
@@ -72,8 +55,8 @@ export class GenerateLetter {
     });
   }
 
-  async history(caller: CallerLike, clientId: string): Promise<LetterView[]> {
-    const client = await this.clients.findById(clientId, this.scope(caller));
+  async history(caller: CallerLike, clientId: string): Promise<Letter[]> {
+    const client = await this.clients.findById(clientId, scopeFor(caller));
     if (!client) return [];
 
     const letters = await this.letters.forClient(clientId);
@@ -95,8 +78,8 @@ export class GenerateLetter {
       language: 'en' | 'ar';
       taskId?: string | undefined;
     },
-  ): Promise<Result<LetterView, Conflict>> {
-    const client = await this.clients.findById(params.clientId, this.scope(caller));
+  ): Promise<Result<Letter, Conflict>> {
+    const client = await this.clients.findById(params.clientId, scopeFor(caller));
     // Out of scope and non-existent give the same answer.
     if (!client) return err(new ConflictError('No such client'));
 

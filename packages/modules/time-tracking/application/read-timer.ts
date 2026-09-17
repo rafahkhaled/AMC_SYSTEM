@@ -1,5 +1,5 @@
 import type { TimeEntryView, TimerState, Timesheet } from '@amc/contracts';
-import type { Clock } from '@amc/kernel';
+import { type Clock } from '@amc/kernel';
 
 /**
  * Reads what the timer screen shows.

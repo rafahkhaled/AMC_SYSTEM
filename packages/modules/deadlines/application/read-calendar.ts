@@ -1,5 +1,5 @@
 import type { CalendarEntry, CalendarMonth } from '@amc/contracts';
-import type { Clock } from '@amc/kernel';
+import { type Clock, heldBy } from '@amc/kernel';
 import { BusinessCalendar, applyCalendar } from '../domain/index.js';
 import type {
   CalendarScope,
@@ -9,6 +9,14 @@ import type {
   HolidaySource,
 } from './ports.js';
 
+/**
+ * As much of a caller as a read needs.
+ *
+ * Reads decide what somebody may see and write nothing, so they have no audit
+ * row to name and no business demanding a display name. The use cases that do
+ * write take the whole `CallerLike`.
+ */
+type Viewer = Pick<CallerLike, 'userId' | 'permissions'>;
 /** A day as 2026-10-28, in UTC, which is how every stored date is keyed. */
 function isoDay(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -29,16 +37,15 @@ export class ReadCalendar {
     private readonly clock: Clock,
   ) {}
 
-  private scope(caller: CallerLike): CalendarScope {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
+  private scope(caller: Viewer): CalendarScope {
+    const held = heldBy(caller);
     if (held.has('clients.view.all') || held.has('tasks.view.all')) return { kind: 'all' };
     if (held.has('clients.view.assigned')) return { kind: 'assigned', userId: caller.userId };
     return { kind: 'none' };
   }
 
   /** `month` is 2026-10. Anything else is treated as the current month. */
-  async month(caller: CallerLike, month: string): Promise<CalendarMonth> {
+  async month(caller: Viewer, month: string): Promise<CalendarMonth> {
     const scope = this.scope(caller);
     const now = this.clock.now();
     const { start, end } = monthBounds(month, now);

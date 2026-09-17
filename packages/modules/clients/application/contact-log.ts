@@ -1,5 +1,5 @@
-import type { Conflict, IdGenerator, Result } from '@amc/kernel';
-import { err, ok } from '@amc/kernel';
+import type { ContactLogEntryView } from '@amc/contracts';
+import { Conflict, type IdGenerator, type Result, err, ok } from '@amc/kernel';
 import { ContactLogEntry, scopeFor } from '../domain/index.js';
 import type { CallerLike, ContactLogRepository } from './ports.js';
 
@@ -14,16 +14,6 @@ export interface ContactFileStore {
     body: Buffer;
   }): Promise<Result<{ storageKey: string; checksum: string; sizeBytes: number }, Conflict>>;
   linkTo(storageKey: string, downloadName: string | null): Promise<string>;
-}
-
-export interface ContactLogView {
-  readonly id: string;
-  readonly channel: string;
-  readonly direction: string;
-  readonly happenedAt: string;
-  readonly summary: string;
-  readonly taskId: string | null;
-  readonly attachments: { id: string; name: string; contentType: string; sizeBytes: number }[];
 }
 
 export interface RecordContactCommand {
@@ -53,14 +43,8 @@ export class ContactLog {
     private readonly ids: IdGenerator,
   ) {}
 
-  private scope(caller: CallerLike) {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
-    return scopeFor(held, caller.userId);
-  }
-
-  async forClient(caller: CallerLike, clientId: string): Promise<ContactLogView[]> {
-    const entries = await this.entries.forClient(clientId, this.scope(caller));
+  async forClient(caller: CallerLike, clientId: string): Promise<ContactLogEntryView[]> {
+    const entries = await this.entries.forClient(clientId, scopeFor(caller));
     return entries.map((entry) => {
       const state = entry.snapshot();
       return {
@@ -134,7 +118,7 @@ export class ContactLog {
 
   /** A link to one screenshot, good for a few minutes. */
   async linkTo(caller: CallerLike, clientId: string, attachmentId: string): Promise<string | null> {
-    const entries = await this.entries.forClient(clientId, this.scope(caller));
+    const entries = await this.entries.forClient(clientId, scopeFor(caller));
     for (const entry of entries) {
       const found = entry.snapshot().attachments.find((file) => file.id === attachmentId);
       if (found) return this.files.linkTo(found.storageKey, found.originalName);

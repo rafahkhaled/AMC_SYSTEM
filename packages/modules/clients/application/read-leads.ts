@@ -1,5 +1,5 @@
 import type { LeadBoard, LeadView } from '@amc/contracts';
-import type { Clock } from '@amc/kernel';
+import { type Clock } from '@amc/kernel';
 import type { Lead, LeadStatus } from '../domain/index.js';
 import type { LeadRepository } from './ports.js';
 

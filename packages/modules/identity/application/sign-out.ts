@@ -1,4 +1,4 @@
-import type { Clock } from '@amc/kernel';
+import { type Clock } from '@amc/kernel';
 import type { SessionRepository } from './ports.js';
 
 /** Ends one session, or every session a person has, after a password change. */

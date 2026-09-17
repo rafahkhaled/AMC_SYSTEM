@@ -1,4 +1,6 @@
+import type { RoleName } from '@amc/contracts';
 import { type SignInRequest, type SignInResponse, signInRequestSchema } from '@amc/contracts';
+import { actorFrom } from '@amc/kernel';
 import {
   Body,
   Controller,
@@ -15,7 +17,7 @@ import {
 import type { Request, Response } from 'express';
 import type { AuthenticatedCaller } from '../application/authenticate-session.js';
 import { IdentityOperations } from '../application/identity-operations.js';
-import { permissionsFor } from '../domain/index.js';
+import { type Role, permissionsFor } from '../domain/index.js';
 import { CurrentCaller } from './caller.js';
 import { AllowPendingTwoFactor, Public } from './permissions.decorator.js';
 import {
@@ -26,15 +28,21 @@ import {
 } from './session-cookie.js';
 import { SignInThrottle } from './sign-in-throttle.js';
 
-/** The caller, in the shape the audit trail records. */
-export function actorOf(caller: AuthenticatedCaller) {
-  return {
-    userId: caller.userId,
-    roles: [...caller.roles],
-    label: caller.displayName,
-    sessionId: caller.sessionId,
-  };
-}
+/*
+ * The domain's roles and the wire's must be the same four.
+ *
+ * They are declared twice on purpose: the domain owns what a role means and
+ * the contract owns what crosses the wire, and neither imports the other's
+ * rules — the boundary linter enforces that, and caught this assertion the
+ * first time it was written inside the domain. This controller is where the
+ * two meet, so this is where they are checked.
+ *
+ * A type-level assertion, costing nothing at runtime. Add a fifth role to one
+ * list and not the other and the build stops here.
+ */
+type Exactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+const _rolesMatchTheWire: Exactly<Role, RoleName> = true;
+void _rolesMatchTheWire;
 
 @Controller('auth')
 export class AuthController {
@@ -96,8 +104,8 @@ export class AuthController {
       caller: {
         userId: outcome.value.actor.userId,
         displayName: outcome.value.displayName,
-        roles: outcome.value.actor.roles as SignInResponse['caller']['roles'],
-        permissions: [...permissionsFor(outcome.value.actor.roles as never)],
+        roles: [...outcome.value.roles],
+        permissions: [...permissionsFor(outcome.value.roles)],
       },
       expiresAt: outcome.value.expiresAt.toISOString(),
       twoFactorRequired: outcome.value.twoFactorRequired,
@@ -109,7 +117,7 @@ export class AuthController {
     return {
       userId: caller.userId,
       displayName: caller.displayName,
-      roles: caller.roles as SignInResponse['caller']['roles'],
+      roles: [...caller.roles],
       permissions: [...caller.permissions],
     };
   }
@@ -123,7 +131,7 @@ export class AuthController {
     @CurrentCaller() caller: AuthenticatedCaller,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    await this.identity.signOutOne(actorOf(caller), caller.sessionId);
+    await this.identity.signOutOne(actorFrom(caller), caller.sessionId);
     clearSessionCookie(response, this.cookieSettings);
   }
 
@@ -133,7 +141,7 @@ export class AuthController {
     @CurrentCaller() caller: AuthenticatedCaller,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
-    await this.identity.signOutEverywhere(actorOf(caller), caller.userId);
+    await this.identity.signOutEverywhere(actorFrom(caller), caller.userId);
     clearSessionCookie(response, this.cookieSettings);
   }
 }

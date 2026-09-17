@@ -1,8 +1,16 @@
 import type { BoardTask, TaskBoard, TaskDetail } from '@amc/contracts';
-import type { Clock } from '@amc/kernel';
+import { type Clock, heldBy } from '@amc/kernel';
 import { type ServiceCode, type TaskState, templateFor } from '../domain/index.js';
 import type { CallerLike, TaskRepository, TaskScope } from './ports.js';
 
+/**
+ * As much of a caller as a read needs.
+ *
+ * Reads decide what somebody may see and write nothing, so they have no audit
+ * row to name and no business demanding a display name. The use cases that do
+ * write take the whole `CallerLike`.
+ */
+type Viewer = Pick<CallerLike, 'userId' | 'permissions'>;
 /**
  * Names and hours that live outside this module.
  *
@@ -52,9 +60,8 @@ export class ReadTasks {
    * assigned to, and someone with neither sees an empty board rather than an
    * error, for the same reason an out-of-scope client reads as not found.
    */
-  private scope(caller: CallerLike): TaskScope {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
+  private scope(caller: Viewer): TaskScope {
+    const held = heldBy(caller);
     if (held.has('tasks.view.all')) return { kind: 'all' };
     if (held.has('time.record') || held.has('tasks.edit')) {
       return { kind: 'assigned', userId: caller.userId };
@@ -62,7 +69,7 @@ export class ReadTasks {
     return { kind: 'none' };
   }
 
-  async board(caller: CallerLike): Promise<TaskBoard> {
+  async board(caller: Viewer): Promise<TaskBoard> {
     const open = await this.tasks.open(this.scope(caller));
     const summaries = await this.decorate(open);
 
@@ -74,7 +81,7 @@ export class ReadTasks {
     };
   }
 
-  async detail(caller: CallerLike, id: string): Promise<TaskDetail | null> {
+  async detail(caller: Viewer, id: string): Promise<TaskDetail | null> {
     const task = await this.tasks.findById(id, this.scope(caller));
     if (!task) return null;
 

@@ -1,7 +1,7 @@
 import type { TaskSummaryReader } from '@amc/clients';
 import type { ClientScope } from '@amc/clients/domain';
 import type { TaskSummary } from '@amc/contracts';
-import type { Database } from '@amc/database';
+import { type Database, scopePredicate } from '@amc/database';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -12,14 +12,8 @@ import { sql } from 'drizzle-orm';
  * needs; the composition root supplies it.
  */
 export function taskSummaries(db: Database): TaskSummaryReader {
-  const visible = (scope: ClientScope) => {
-    if (scope.kind === 'all') return sql`true`;
-    if (scope.kind === 'none') return sql`false`;
-    return sql`EXISTS (
-      SELECT 1 FROM client_staff_access a
-      WHERE a.client_id = t.client_id AND a.user_id = ${scope.userId}
-    )`;
-  };
+  // The shared predicate, so this adapter cannot drift from the repositories.
+  const visible = (scope: ClientScope) => scopePredicate(scope, sql`t.client_id`);
 
   return {
     async forClient(clientId, scope) {

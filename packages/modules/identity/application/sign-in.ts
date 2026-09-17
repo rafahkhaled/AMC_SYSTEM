@@ -7,7 +7,7 @@ import {
   err,
   ok,
 } from '@amc/kernel';
-import { EmailAddress, Session, type SessionLimits } from '../domain/index.js';
+import { EmailAddress, type Role, Session, type SessionLimits } from '../domain/index.js';
 import type {
   PasswordHasher,
   SessionRepository,
@@ -26,6 +26,16 @@ export interface SignInResult {
   readonly sessionId: string;
   readonly token: string;
   readonly actor: Actor;
+  /**
+   * The roles, typed.
+   *
+   * `Actor.roles` is `readonly string[]`, because the kernel does not know
+   * what a role is in this system. Carrying them here as well meant the HTTP
+   * layer stopped casting a string array to the role union and, in one place,
+   * to `never` — which is not a widening, it is a way of silencing the
+   * compiler about a shape nobody had checked.
+   */
+  readonly roles: readonly Role[];
   readonly displayName: string;
   readonly expiresAt: Date;
   readonly twoFactorRequired: boolean;
@@ -111,6 +121,7 @@ export class SignIn {
         roles: [...user.roles],
         ipAddress: command.ipAddress ?? undefined,
       },
+      roles: [...user.roles],
       displayName: user.displayName,
       expiresAt: session.idleExpiresAt,
       twoFactorRequired,

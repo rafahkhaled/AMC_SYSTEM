@@ -42,7 +42,7 @@ export class ContactLogController {
     @CurrentCaller() caller: Caller,
     @Param('clientId') clientId: string,
   ): Promise<{ entries: ContactLogEntryView[] }> {
-    return { entries: (await this.log.forClient(caller, clientId)) as ContactLogEntryView[] };
+    return { entries: await this.log.forClient(caller, clientId) };
   }
 
   @Post()
@@ -74,7 +74,7 @@ export class ContactLogController {
     });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
 
-    return { entries: (await this.log.forClient(caller, clientId)) as ContactLogEntryView[] };
+    return { entries: await this.log.forClient(caller, clientId) };
   }
 
   @Get('attachments/:attachmentId/link')

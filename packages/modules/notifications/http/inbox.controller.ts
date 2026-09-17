@@ -50,7 +50,7 @@ export class InboxController {
   async preferences(
     @CurrentCaller() caller: Caller,
   ): Promise<{ preferences: NotificationPreference[] }> {
-    return { preferences: (await this.inbox.preferencesFor(caller)) as NotificationPreference[] };
+    return { preferences: await this.inbox.preferencesFor(caller) };
   }
 
   @Put('preferences')
@@ -65,6 +65,6 @@ export class InboxController {
       inApp: parsed.data.inApp,
       email: parsed.data.email,
     });
-    return { preferences: preferences as NotificationPreference[] };
+    return { preferences };
   }
 }

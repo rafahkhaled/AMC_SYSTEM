@@ -1,4 +1,4 @@
-import type { Clock, IdGenerator } from '@amc/kernel';
+import { type Clock, type IdGenerator } from '@amc/kernel';
 import type { EmailAddress, Session, SessionId, User, UserId } from '../domain/index.js';
 import type {
   PasswordHasher,

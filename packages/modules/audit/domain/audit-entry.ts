@@ -1,4 +1,4 @@
-import type { Actor } from '@amc/kernel';
+import { type Actor } from '@amc/kernel';
 
 /**
  * One recorded fact: who did what to which thing, and what it looked like

@@ -1,3 +1,5 @@
+import { type CallerLike, heldBy } from '@amc/kernel';
+
 /**
  * Who may see which clients (SRS 2.2).
  *
@@ -26,9 +28,9 @@ export function assignedTo(userId: string): ClientScope {
  * anyone else nothing. Data entry uploads invoices into batches they are
  * given; they have no business reading a client file.
  */
-export function scopeFor(permissions: Iterable<string>, userId: string): ClientScope {
-  const held = permissions instanceof Set ? permissions : new Set(permissions);
+export function scopeFor(caller: Pick<CallerLike, 'userId' | 'permissions'>): ClientScope {
+  const held = heldBy(caller);
   if (held.has('clients.view.all')) return ALL_CLIENTS;
-  if (held.has('clients.view.assigned')) return assignedTo(userId);
+  if (held.has('clients.view.assigned')) return assignedTo(caller.userId);
   return NO_CLIENTS;
 }

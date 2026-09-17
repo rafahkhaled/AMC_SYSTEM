@@ -1,3 +1,4 @@
+export * from './client-access.js';
 export * from './client.js';
 export * from './migrator.js';
 export * from './paths.js';

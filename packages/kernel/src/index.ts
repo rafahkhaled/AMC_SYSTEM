@@ -1,4 +1,5 @@
 export * from './aggregate-root.js';
+export * from './caller.js';
 export * from './clock.js';
 export * from './domain-event.js';
 export * from './duration.js';

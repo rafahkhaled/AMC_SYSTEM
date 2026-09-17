@@ -1,4 +1,4 @@
-import type { Database } from '@amc/database';
+import { type Database, scopePredicate } from '@amc/database';
 import type { CalendarScope, DeadlineSource, DueThing, HolidaySource } from '@amc/deadlines';
 import type { Holiday } from '@amc/deadlines/domain';
 import { at, on } from '@amc/kernel';
@@ -12,14 +12,8 @@ import { type SQL, sql } from 'drizzle-orm';
  * permitted to know about both.
  */
 export function deadlineSource(db: Database): DeadlineSource {
-  const visible = (scope: CalendarScope, column: SQL): SQL => {
-    if (scope.kind === 'all') return sql`true`;
-    if (scope.kind === 'none') return sql`false`;
-    return sql`EXISTS (
-      SELECT 1 FROM client_staff_access a
-      WHERE a.client_id = ${column} AND a.user_id = ${scope.userId}
-    )`;
-  };
+  // The shared predicate, so this adapter cannot drift from the repositories.
+  const visible = (scope: CalendarScope, column: SQL): SQL => scopePredicate(scope, column);
 
   interface Row extends Record<string, unknown> {
     id: string;

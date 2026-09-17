@@ -1,9 +1,10 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { CredentialRepository } from '../application/ports.js';
 import type { ClientScope } from '../domain/access.js';
 import { ClientCredential, type CredentialKind } from '../domain/credential.js';
 import { clientCredentials } from './schema.js';
+import { clientIsReachable } from './scoping.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
@@ -11,7 +12,7 @@ export class DrizzleCredentialRepository implements CredentialRepository {
   constructor(private readonly db: Db) {}
 
   async currentFor(clientId: string, scope: ClientScope): Promise<ClientCredential[]> {
-    if (!(await this.reachable(clientId, scope))) return [];
+    if (!(await clientIsReachable(this.db, clientId, scope))) return [];
 
     const rows = await this.db
       .select()
@@ -31,7 +32,7 @@ export class DrizzleCredentialRepository implements CredentialRepository {
     if (!row) return null;
     // Out of scope and non-existent give the same answer, so a credential id
     // cannot be used to learn which clients a firm has.
-    return (await this.reachable(row.clientId, scope)) ? this.toAggregate(row) : null;
+    return (await clientIsReachable(this.db, row.clientId, scope)) ? this.toAggregate(row) : null;
   }
 
   async save(credential: ClientCredential): Promise<void> {
@@ -51,25 +52,6 @@ export class DrizzleCredentialRepository implements CredentialRepository {
       .insert(clientCredentials)
       .values(row)
       .onConflictDoUpdate({ target: clientCredentials.id, set: row });
-  }
-
-  /**
-   * Whether this caller may reach this client at all.
-   *
-   * Decided here rather than above, so a caller cannot skip it. Parameterised
-   * rather than interpolated: a client id is a value, and building SQL by
-   * concatenation is how a value becomes a statement.
-   */
-  private async reachable(clientId: string, scope: ClientScope): Promise<boolean> {
-    if (scope.kind === 'all') return true;
-    if (scope.kind === 'none') return false;
-
-    const rows = await this.db.execute<{ ok: boolean }>(sql`
-      SELECT true AS ok FROM client_staff_access
-      WHERE client_id = ${clientId} AND user_id = ${scope.userId}
-      LIMIT 1
-    `);
-    return rows.length > 0;
   }
 
   private toAggregate(row: typeof clientCredentials.$inferSelect): ClientCredential {

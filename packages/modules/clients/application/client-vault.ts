@@ -1,5 +1,15 @@
-import type { Actor, Conflict, IdGenerator, Result } from '@amc/kernel';
-import { Conflict as ConflictError, err, ok } from '@amc/kernel';
+import type { CredentialSummary } from '@amc/contracts';
+import {
+  type Actor,
+  Conflict,
+  Conflict as ConflictError,
+  type IdGenerator,
+  type Result,
+  actorFrom,
+  err,
+  heldBy,
+  ok,
+} from '@amc/kernel';
 import { ClientCredential, scopeFor } from '../domain/index.js';
 import type { CallerLike, CredentialRepository } from './ports.js';
 
@@ -25,15 +35,6 @@ export interface SecretVault {
   ): Promise<string>;
 }
 
-/** What a credential looks like with the password still sealed. */
-export interface CredentialSummary {
-  readonly id: string;
-  readonly kind: string;
-  readonly username: string;
-  readonly note: string | null;
-  readonly createdAt: string;
-}
-
 /**
  * A client's logins to the government portals they file through (FR-05).
  *
@@ -53,28 +54,11 @@ export class ClientVault {
     private readonly ids: IdGenerator,
   ) {}
 
-  private scope(caller: CallerLike) {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
-    return scopeFor(held, caller.userId);
-  }
-
-  private actor(caller: CallerLike): Actor {
-    return {
-      userId: caller.userId,
-      roles: caller.roles,
-      label: caller.displayName,
-      ...(caller.sessionId ? { sessionId: caller.sessionId } : {}),
-    };
-  }
-
   /** Usernames and notes. Never a password, so this is not a logged read. */
   async list(caller: CallerLike, clientId: string): Promise<CredentialSummary[]> {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
-    if (!held.has('clients.vault.read')) return [];
+    if (!heldBy(caller).has('clients.vault.read')) return [];
 
-    const stored = await this.credentials.currentFor(clientId, this.scope(caller));
+    const stored = await this.credentials.currentFor(clientId, scopeFor(caller));
     return stored.map((credential) => {
       const state = credential.snapshot();
       return {
@@ -102,13 +86,13 @@ export class ClientVault {
       return err(new ConflictError('Say why the password is needed'));
     }
 
-    const credential = await this.credentials.findById(credentialId, this.scope(caller));
+    const credential = await this.credentials.findById(credentialId, scopeFor(caller));
     if (!credential || credential.isRetired) {
       return err(new ConflictError('No such credential'));
     }
 
     const secret = await this.vault.open(credential.secretSealed, {
-      actor: this.actor(caller),
+      actor: actorFrom(caller),
       entityType: 'client_credential',
       entityId: credential.id,
       label: `${credential.kind} for ${credential.clientId}`,
@@ -139,7 +123,7 @@ export class ClientVault {
       return err(new ConflictError('A credential needs a password'));
     }
 
-    const scope = this.scope(caller);
+    const scope = scopeFor(caller);
     const existing = (await this.credentials.currentFor(params.clientId, scope)).find(
       (candidate) => candidate.kind === params.kind,
     );
@@ -174,7 +158,7 @@ export class ClientVault {
 
   /** Take a login out of use, keeping the record that it existed. */
   async retire(caller: CallerLike, credentialId: string): Promise<Result<true, Conflict>> {
-    const credential = await this.credentials.findById(credentialId, this.scope(caller));
+    const credential = await this.credentials.findById(credentialId, scopeFor(caller));
     if (!credential) return err(new ConflictError('No such credential'));
 
     const retired = credential.retire(caller.userId, new Date());

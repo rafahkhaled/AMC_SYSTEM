@@ -64,9 +64,16 @@ function heading(text) {
   console.log(`\n${text}`);
 }
 
-async function run() {
-  console.log(`Phase 1 acceptance run against ${BASE}`);
+/**
+ * The run, as a list of sections.
+ *
+ * One function per part of the journey rather than one long one. The
+ * sections share `state` because each depends on what the last found: there
+ * is no client to write a letter for until the clients section has found one.
+ */
+const state = {};
 
+async function signingIn() {
   heading('Signing in');
   const signIn = await call('/auth/sign-in', {
     method: 'POST',
@@ -77,8 +84,10 @@ async function run() {
     ok(signIn.status),
     `${signIn.status} as ${signIn.body?.caller?.displayName ?? 'nobody'}`,
   );
-  if (!ok(signIn.status)) return finish();
+  return ok(signIn.status);
+}
 
+async function clientsAndDocuments() {
   heading('Clients and their documents');
   const clients = (await call('/clients')).body?.clients ?? [];
   check('Clients are listed', clients.length > 0, `${clients.length} on the books`);
@@ -90,6 +99,7 @@ async function run() {
    */
   const registered = clients.find((candidate) => candidate.vatState === 'registered');
   const client = registered ?? clients[0];
+  state.client = client;
   const detail = (await call(`/clients/${client.id}`)).body;
   check(
     'A registered client shows its own VAT period months',
@@ -103,10 +113,13 @@ async function run() {
     (detail?.documents ?? []).every((document) => typeof document.expiryState === 'string'),
     (detail?.documents ?? []).map((d) => `${d.type}=${d.expiryState}`).join('  '),
   );
+}
 
+async function workFromTemplates() {
   heading('Work created from the service templates');
   const board = (await call('/tasks')).body;
   const tasks = (board?.columns ?? []).flatMap((column) => column.tasks);
+  state.tasks = tasks;
   check(
     'Tasks exist on the board',
     tasks.length > 0,
@@ -132,9 +145,11 @@ async function run() {
   } else {
     check('Work cannot start without the documents it needs', false, 'no blocked task to try');
   }
+}
 
+async function theTimer() {
   heading('The timer');
-  const startable = tasks[0];
+  const startable = state.tasks[0];
   await call('/timer/stop', { method: 'POST' });
 
   const started = await call('/timer/start', { method: 'POST', body: { taskId: startable.id } });
@@ -173,8 +188,11 @@ async function run() {
     (clamped.body?.today?.[0]?.seconds ?? 999) < 60,
     `claimed five hours ahead, recorded ${clamped.body?.today?.[0]?.seconds} seconds`,
   );
+}
 
+async function timeByHand() {
   heading('Time recorded by hand');
+  const startable = state.tasks[0];
   const noReason = await call('/timer/entries', {
     method: 'POST',
     body: {
@@ -200,7 +218,9 @@ async function run() {
     notYet.status >= 400,
     notYet.body?.error?.message,
   );
+}
 
+async function deadlines() {
   heading('Deadlines');
   const month = new Date().toISOString().slice(0, 7);
   const calendar = (await call(`/calendar?month=${month}`)).body;
@@ -226,8 +246,11 @@ async function run() {
     !expiry || expiry.movedBecause === null,
     expiry ? `${expiry.subject} on ${expiry.dueOn}` : 'none this month',
   );
+}
 
+async function theVault() {
   heading('The credential vault');
+  const client = state.client;
   const stored = await call(`/clients/${client.id}/credentials`, {
     method: 'POST',
     body: { kind: 'emaratax', username: 'acceptance@portal.ae', secret: 'Acceptance-Pass-1' },
@@ -260,8 +283,11 @@ async function run() {
     audit.some((row) => row.action === 'clients.credential.read') &&
       !JSON.stringify(audit).includes('Acceptance-Pass'),
   );
+}
 
+async function letters() {
   heading('Letters');
+  const client = state.client;
   const templates = (await call('/letter-templates')).body?.templates ?? [];
   check(
     'The firm has letters to send',
@@ -280,7 +306,9 @@ async function run() {
     typeof letter?.body === 'string' && letter.body.includes(client.legalName),
     `${letter?.title}, ${letter?.body?.length} characters`,
   );
+}
 
+async function enquiries() {
   heading('Enquiries');
   const unreachable = await call('/leads', {
     method: 'POST',
@@ -298,7 +326,9 @@ async function run() {
     (leads?.columns ?? []).length === 4,
     (leads?.columns ?? []).map((column) => column.status).join(' then '),
   );
+}
 
+async function notifications() {
   heading('Notifications');
   const inbox = (await call('/notifications')).body;
   check(
@@ -312,7 +342,9 @@ async function run() {
     preferences.length === 5,
     preferences.map((preference) => preference.kind).join(', '),
   );
+}
 
+async function whoSeesWhat() {
   heading('Who sees what');
   const workload = (await call('/tasks/workload')).body;
   check(
@@ -320,6 +352,28 @@ async function run() {
     (workload?.people ?? []).length > 0,
     `${workload?.people?.length} people, ${workload?.unassignedTasks} tasks on nobody`,
   );
+}
+
+async function run() {
+  console.log(`Phase 1 acceptance run against ${BASE}`);
+
+  // Nothing else can run without a session, so that one stops the run.
+  if (!(await signingIn())) return finish();
+
+  for (const section of [
+    clientsAndDocuments,
+    workFromTemplates,
+    theTimer,
+    timeByHand,
+    deadlines,
+    theVault,
+    letters,
+    enquiries,
+    notifications,
+    whoSeesWhat,
+  ]) {
+    await section();
+  }
 
   finish();
 }

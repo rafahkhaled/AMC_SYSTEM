@@ -56,6 +56,22 @@ health        GET  /health/{live,ready}
 The browser screens map onto these one for one: clients, work, calendar,
 timer, home.
 
+## What is shared, and where
+
+Three things are used by every module and defined exactly once. Copying any of
+them is how they drift, and two of the three have drifted already.
+
+| What | Where | Why it is not per-module |
+|---|---|---|
+| The caller, `heldBy`, `actorFrom` | `@amc/kernel` | An `Actor` built without a label logs changes against nobody |
+| `scopePredicate` for client visibility | `@amc/database` | Four packages apply it and a drifted scope leaks a client file |
+| `at()` and `on()` for dates in raw SQL | `@amc/kernel` | The driver refuses a `Date` and the error names neither column nor value |
+
+Module-owned things stay module-owned. Each module declares its own scope type
+(`ClientScope`, `TaskScope`, `CalendarScope`) rather than importing another's,
+because a scope means something different in each and the shapes only look
+alike.
+
 ## Layers
 
 Every module has the same four, and dependencies only point inward:

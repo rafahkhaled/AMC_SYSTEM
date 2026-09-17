@@ -1,5 +1,4 @@
-import { InvariantViolation } from '@amc/kernel';
-import { type Result, err, ok } from '@amc/kernel';
+import { InvariantViolation, type Result, err, ok } from '@amc/kernel';
 
 /**
  * An email address, normalised once so that two spellings of the same inbox can

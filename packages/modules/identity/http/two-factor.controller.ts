@@ -3,6 +3,7 @@ import {
   type TwoFactorEnrolment,
   twoFactorCodeSchema,
 } from '@amc/contracts';
+import { actorFrom } from '@amc/kernel';
 import {
   BadRequestException,
   Body,
@@ -15,7 +16,6 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedCaller } from '../application/authenticate-session.js';
 import { IdentityOperations } from '../application/identity-operations.js';
-import { actorOf } from './auth.controller.js';
 import { CurrentCaller } from './caller.js';
 import { AllowPendingTwoFactor } from './permissions.decorator.js';
 
@@ -37,7 +37,7 @@ export class TwoFactorController {
     const parsed = twoFactorCodeSchema.safeParse(body);
     if (!parsed.success) throw new UnauthorizedException('That code is not right');
 
-    const outcome = await this.identity.verifyTwoFactor(actorOf(caller), {
+    const outcome = await this.identity.verifyTwoFactor(actorFrom(caller), {
       sessionId: caller.sessionId,
       code: parsed.data.code,
     });
@@ -51,7 +51,7 @@ export class TwoFactorController {
    */
   @Post('enrol')
   async enrolHandler(@CurrentCaller() caller: AuthenticatedCaller): Promise<TwoFactorEnrolment> {
-    const outcome = await this.identity.startTwoFactor(actorOf(caller), caller.userId);
+    const outcome = await this.identity.startTwoFactor(actorFrom(caller), caller.userId);
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
     return outcome.value;
   }
@@ -66,7 +66,7 @@ export class TwoFactorController {
     const parsed = twoFactorCodeSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('That code is not right');
 
-    const outcome = await this.identity.confirmTwoFactor(actorOf(caller), {
+    const outcome = await this.identity.confirmTwoFactor(actorFrom(caller), {
       userId: caller.userId,
       sessionId: caller.sessionId,
       code: parsed.data.code,

@@ -1,5 +1,14 @@
-import type { Actor, Conflict, EventCollector, Result, UnitOfWork } from '@amc/kernel';
-import { Conflict as ConflictError, err, ok } from '@amc/kernel';
+import {
+  Conflict,
+  Conflict as ConflictError,
+  type EventCollector,
+  type Result,
+  type UnitOfWork,
+  actorFrom,
+  err,
+  heldBy,
+  ok,
+} from '@amc/kernel';
 import type { Task, TaskState } from '../domain/index.js';
 import type { CallerLike, TaskRepository, TaskScope } from './ports.js';
 
@@ -65,7 +74,7 @@ export class TaskWorkflow {
     id: string,
     apply: (task: Task, now: Date) => Result<true, Conflict>,
   ): Promise<Result<true, Conflict>> {
-    return this.unitOfWork.run(actorFor(caller), async (context) => {
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const repository = this.repositories.forTransaction(
         (context as unknown as { db: unknown }).db,
         context,
@@ -90,24 +99,9 @@ export class TaskWorkflow {
  * manager's `tasks.view.all` is what widens it. Anyone else may only move the
  * work they are on, which is the same boundary the board reads through.
  */
-/**
- * The person, as the audit log needs to name them.
- *
- * Built here rather than by each controller, because the one field that
- * matters is the one easiest to leave out: an `Actor` with no `label` is
- * perfectly valid and produces a log of changes attributed to nobody.
- */
-function actorFor(caller: CallerLike): Actor {
-  return {
-    userId: caller.userId,
-    roles: caller.roles,
-    label: caller.displayName,
-    ...(caller.sessionId ? { sessionId: caller.sessionId } : {}),
-  };
-}
 
 export function scopeFor(caller: CallerLike): TaskScope {
-  const held = caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
+  const held = heldBy(caller);
   if (!held.has('tasks.edit')) return { kind: 'none' };
   return held.has('tasks.view.all') ? { kind: 'all' } : { kind: 'assigned', userId: caller.userId };
 }

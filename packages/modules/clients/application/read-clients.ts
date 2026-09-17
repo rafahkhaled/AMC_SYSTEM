@@ -1,8 +1,16 @@
 import type { ClientDetail, ClientSummary, DocumentSummary, TaskSummary } from '@amc/contracts';
-import type { Clock } from '@amc/kernel';
+import { type Clock } from '@amc/kernel';
 import { scopeFor } from '../domain/index.js';
 import type { CallerLike, ClientRepository, DocumentRepository } from './ports.js';
 
+/**
+ * As much of a caller as a read needs.
+ *
+ * Reads decide what somebody may see and write nothing, so they have no audit
+ * row to name and no business demanding a display name. The use cases that do
+ * write take the whole `CallerLike`.
+ */
+type Viewer = Pick<CallerLike, 'userId' | 'permissions'>;
 /** Supplied by the composition root, because tasks belong to another module. */
 export interface TaskSummaryReader {
   forClient(clientId: string, scope: ReturnType<typeof scopeFor>): Promise<TaskSummary[]>;
@@ -24,14 +32,8 @@ export class ReadClients {
     private readonly clock: Clock,
   ) {}
 
-  private scope(caller: CallerLike) {
-    const held =
-      caller.permissions instanceof Set ? caller.permissions : new Set(caller.permissions);
-    return scopeFor(held, caller.userId);
-  }
-
-  async list(caller: CallerLike, limit?: number): Promise<ClientSummary[]> {
-    const scope = this.scope(caller);
+  async list(caller: Viewer, limit?: number): Promise<ClientSummary[]> {
+    const scope = scopeFor(caller);
     const summaries = await this.clients.list(scope, limit ? { limit } : {});
     const openTasks = await this.tasks.openCountsByClient(scope);
     const today = this.clock.now();
@@ -59,7 +61,7 @@ export class ReadClients {
   }
 
   async detail(caller: CallerLike, clientId: string): Promise<ClientDetail | null> {
-    const scope = this.scope(caller);
+    const scope = scopeFor(caller);
     const client = await this.clients.findById(clientId, scope);
     if (!client) return null;
 

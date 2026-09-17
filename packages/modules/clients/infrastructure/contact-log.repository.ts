@@ -1,4 +1,4 @@
-import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ContactLogRepository } from '../application/ports.js';
 import type { ClientScope } from '../domain/access.js';
@@ -9,6 +9,7 @@ import {
   ContactLogEntry,
 } from '../domain/contact-log.js';
 import { clientContactLog, contactLogAttachments } from './schema.js';
+import { clientIsReachable } from './scoping.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
@@ -16,7 +17,7 @@ export class DrizzleContactLogRepository implements ContactLogRepository {
   constructor(private readonly db: Db) {}
 
   async forClient(clientId: string, scope: ClientScope): Promise<ContactLogEntry[]> {
-    if (!(await this.reachable(clientId, scope))) return [];
+    if (!(await clientIsReachable(this.db, clientId, scope))) return [];
 
     const rows = await this.db
       .select()
@@ -104,18 +105,5 @@ export class DrizzleContactLogRepository implements ContactLogRepository {
         })
         .onConflictDoNothing({ target: contactLogAttachments.id });
     }
-  }
-
-  /** Decided here rather than above, so a caller cannot skip it. */
-  private async reachable(clientId: string, scope: ClientScope): Promise<boolean> {
-    if (scope.kind === 'all') return true;
-    if (scope.kind === 'none') return false;
-
-    const rows = await this.db.execute<{ ok: boolean }>(sql`
-      SELECT true AS ok FROM client_staff_access
-      WHERE client_id = ${clientId} AND user_id = ${scope.userId}
-      LIMIT 1
-    `);
-    return rows.length > 0;
   }
 }

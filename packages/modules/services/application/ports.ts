@@ -21,18 +21,6 @@ export type TaskScope =
   | { readonly kind: 'assigned'; readonly userId: string }
   | { readonly kind: 'none' };
 
-/**
- * The caller: enough to decide what they may see, and enough to name them in
- * the audit log. The display name is not optional for that second reason.
- */
-export interface CallerLike {
-  readonly userId: string;
-  readonly permissions: ReadonlySet<string> | readonly string[];
-  readonly roles: readonly string[];
-  readonly displayName: string;
-  readonly sessionId?: string | undefined;
-}
-
 export interface TaskRepository {
   findById(id: TaskId, scope: TaskScope): Promise<Task | null>;
   forClient(clientId: string, scope: TaskScope): Promise<Task[]>;
@@ -58,3 +46,6 @@ export interface ClientServiceRepository {
   }): Promise<ClientService>;
   end(id: string, on: Date): Promise<void>;
 }
+
+/** The caller. Re-exported so modules import their ports, not the kernel. */
+export type { CallerLike } from '@amc/kernel';

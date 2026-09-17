@@ -1,4 +1,4 @@
-import type { Clock, IdGenerator } from '@amc/kernel';
+import { type Clock, type IdGenerator } from '@amc/kernel';
 import {
   Notification,
   type NotificationKind,
