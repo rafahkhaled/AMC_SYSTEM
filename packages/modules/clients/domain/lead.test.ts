@@ -117,3 +117,39 @@ describe('becoming a client', () => {
     expect(subject.convertTo('client-1', at('2026-03-05T06:00:00Z')).ok).toBe(false);
   });
 });
+
+describe('what the pipeline offers next', () => {
+  /*
+   * The board reads this to decide which buttons to draw, and it is the same
+   * table the move itself checks. Two accounts of the pipeline — one for the
+   * rules and one for the buttons — is how a screen ends up offering a step
+   * the domain refuses.
+   */
+  const NOW = at('2026-03-02T06:00:00Z');
+
+  it('offers only what a new enquiry may become', () => {
+    expect([...lead().allowedNext()]).toEqual(['contacted', 'declined']);
+  });
+
+  it('lets a conversation be reopened, because people do come back', () => {
+    const subject = lead();
+    subject.moveTo('contacted', NOW);
+    expect([...subject.allowedNext()]).toContain('contacted');
+  });
+
+  it('offers nothing once an enquiry has ended', () => {
+    // A new enquiry from the same person is a new lead, so the history of the
+    // first one stays true.
+    const subject = lead();
+    subject.moveTo('declined', NOW);
+    expect([...subject.allowedNext()]).toEqual([]);
+  });
+
+  it('never offers a jump to confirmed, which only conversion does', () => {
+    // Otherwise a client appears that nobody has quoted.
+    const subject = lead();
+    expect([...subject.allowedNext()]).not.toContain('confirmed');
+    subject.moveTo('contacted', NOW);
+    expect([...subject.allowedNext()]).not.toContain('confirmed');
+  });
+});

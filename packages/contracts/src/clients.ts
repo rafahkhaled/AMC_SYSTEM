@@ -146,3 +146,61 @@ export const recordContactSchema = z.object({
   taskId: z.string().optional(),
   contactId: z.string().optional(),
 });
+
+export const leadStatuses = ['new', 'contacted', 'quoted', 'confirmed', 'declined'] as const;
+export const leadSources = [
+  'whatsapp',
+  'phone',
+  'referral',
+  'advertisement',
+  'walk_in',
+  'other',
+] as const;
+
+export const leadSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  source: z.enum(leadSources),
+  sourceDetail: z.string().nullable(),
+  requestedService: z.string().nullable(),
+  status: z.enum(leadStatuses),
+  convertedClientId: z.string().nullable(),
+  receivedAt: z.string(),
+  notes: z.string().nullable(),
+  /** What this enquiry may move to next, from the domain's own table. */
+  allowedNext: z.array(z.enum(leadStatuses)),
+  /** How long it has been sitting, which is the number that matters. */
+  waitingDays: z.number().int().nonnegative(),
+});
+export type LeadView = z.infer<typeof leadSchema>;
+
+/** The pipeline, as columns. Order and membership decided by the server. */
+export const leadBoardSchema = z.object({
+  columns: z.array(z.object({ status: z.enum(leadStatuses), leads: z.array(leadSchema) })),
+});
+export type LeadBoard = z.infer<typeof leadBoardSchema>;
+
+export const captureLeadSchema = z
+  .object({
+    name: z.string().trim().min(1, 'An enquiry needs a name'),
+    phone: z.string().trim().optional(),
+    email: z.string().trim().optional(),
+    source: z.enum(leadSources),
+    sourceDetail: z.string().trim().max(200).optional(),
+    requestedService: z.string().trim().max(200).optional(),
+  })
+  .refine((lead) => Boolean(lead.phone || lead.email), {
+    message: 'An enquiry needs a phone number or an email address',
+    path: ['phone'],
+  });
+
+export const moveLeadSchema = z.object({
+  to: z.enum(leadStatuses),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const convertLeadSchema = z.object({
+  legalName: z.string().trim().min(1, 'The client needs a legal name'),
+});

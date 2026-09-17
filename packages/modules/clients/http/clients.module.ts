@@ -8,11 +8,14 @@ import {
 } from '@nestjs/common';
 import { ClientVault } from '../application/client-vault.js';
 import { ContactLog } from '../application/contact-log.js';
+import { LeadWorkflow } from '../application/lead-workflow.js';
 import { ReadClients } from '../application/read-clients.js';
+import { ReadLeads } from '../application/read-leads.js';
 import { ReceiveDocument } from '../application/receive-document.js';
 import { ClientsController } from './clients.controller.js';
 import { ContactLogController } from './contact-log.controller.js';
 import { DocumentsController } from './documents.controller.js';
+import { LeadsController } from './leads.controller.js';
 import { VaultController } from './vault.controller.js';
 
 interface Parts {
@@ -20,6 +23,8 @@ interface Parts {
   documents: ReceiveDocument;
   vault: ClientVault;
   contactLog: ContactLog;
+  leads: ReadLeads;
+  leadWorkflow: LeadWorkflow;
 }
 
 @Module({})
@@ -42,7 +47,13 @@ export class ClientsModule {
     return {
       module: ClientsModule,
       imports: options.imports ?? [],
-      controllers: [ClientsController, ContactLogController, DocumentsController, VaultController],
+      controllers: [
+        ClientsController,
+        ContactLogController,
+        DocumentsController,
+        LeadsController,
+        VaultController,
+      ],
       providers: [
         {
           provide: PARTS,
@@ -65,8 +76,10 @@ export class ClientsModule {
           inject: [PARTS],
           useFactory: (p: Parts) => p.contactLog,
         },
+        { provide: ReadLeads, inject: [PARTS], useFactory: (p: Parts) => p.leads },
+        { provide: LeadWorkflow, inject: [PARTS], useFactory: (p: Parts) => p.leadWorkflow },
       ],
-      exports: [ReadClients, ReceiveDocument, ClientVault, ContactLog],
+      exports: [ReadClients, ReceiveDocument, ClientVault, ContactLog, ReadLeads, LeadWorkflow],
     };
   }
 }

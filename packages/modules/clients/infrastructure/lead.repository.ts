@@ -1,5 +1,5 @@
 import type { EventCollector } from '@amc/kernel';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { LeadRepository } from '../application/ports.js';
 import { Lead, type LeadId, type LeadSource, type LeadStatus } from '../domain/index.js';
@@ -19,8 +19,11 @@ export class DrizzleLeadRepository implements LeadRepository {
 
   async findById(id: LeadId): Promise<Lead | null> {
     const [row] = await this.db.select().from(leads).where(eq(leads.id, id)).limit(1);
-    if (!row) return null;
+    return row ? this.toAggregate(row) : null;
+  }
 
+  /** One mapping for both reads, so a column added to one is added to both. */
+  private toAggregate(row: typeof leads.$inferSelect): Lead {
     return Lead.rehydrate({
       id: row.id,
       name: row.name,
@@ -34,6 +37,23 @@ export class DrizzleLeadRepository implements LeadRepository {
       receivedAt: row.receivedAt,
       notes: row.notes,
     });
+  }
+
+  /**
+   * Every enquiry, newest first.
+   *
+   * Unscoped, deliberately. A lead is not yet anybody's client, so there is
+   * no assignment to scope by — and hiding new enquiries from the people who
+   * would follow them up is how a lead goes cold.
+   */
+  async all(options: { limit?: number } = {}): Promise<Lead[]> {
+    const rows = await this.db
+      .select()
+      .from(leads)
+      .orderBy(desc(leads.receivedAt))
+      .limit(options.limit ?? 200);
+
+    return rows.map((row) => this.toAggregate(row));
   }
 
   async save(lead: Lead): Promise<void> {

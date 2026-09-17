@@ -109,6 +109,17 @@ export class Lead extends AggregateRoot<LeadId> {
     return this.state.convertedClientId;
   }
 
+  /**
+   * What this enquiry may move to next.
+   *
+   * Read from the same table the move itself checks, so a screen can never
+   * offer a step the domain would refuse. One account of the pipeline, not
+   * one for the rules and another for the buttons.
+   */
+  allowedNext(): readonly LeadStatus[] {
+    return ALLOWED[this.state.status];
+  }
+
   moveTo(status: LeadStatus, now: Date, note?: string): Result<true, Conflict> {
     if (!ALLOWED[this.state.status].includes(status)) {
       return err(

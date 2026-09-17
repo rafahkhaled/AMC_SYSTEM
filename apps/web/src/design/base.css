@@ -1112,3 +1112,46 @@ a {
   background: var(--surface-sunken);
   border-radius: var(--radius-sm);
 }
+
+/* ---- tabs ------------------------------------------------------------- */
+
+.tabs {
+  gap: var(--space-1);
+  border-block-end: 1px solid var(--line);
+  padding-block-end: 0;
+}
+
+.tab {
+  font: inherit;
+  font-weight: 560;
+  background: none;
+  border: 0;
+  /* The underline sits on the block end, so it follows the writing direction
+     without a rule of its own. */
+  border-block-end: 2px solid transparent;
+  color: var(--text-soft);
+  padding: var(--space-2) var(--space-3);
+  margin-block-end: -1px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab--active {
+  color: var(--accent);
+  border-block-end-color: var(--accent);
+}
+
+.lead-card__convert {
+  inline-size: 100%;
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--line);
+}
+
+/* A second line under a table cell's main value: a role, a code, a date. */
+.u-block {
+  display: block;
+  font-size: var(--text-xs);
+}

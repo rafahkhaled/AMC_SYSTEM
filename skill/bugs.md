@@ -93,6 +93,33 @@ would have passed or failed for the wrong reason.
 
 **Fix:** one refusal per transaction, one per test.
 
+### Two test suites, one database, the same fixture names
+
+**Symptom:** an integration test that had passed for weeks failed with
+`duplicate key value violates unique constraint "client_documents_pkey"` on
+`doc-1` — in a suite that had not been touched.
+
+**Cause:** vitest keeps files sequential inside a package, but the build runs
+packages in parallel, and fixtures across packages use the same names: `doc-1`,
+`c-1`, `user-a`. Two suites inserting the same primary key at the same instant
+is a race, and it stayed hidden only because the suites had never overlapped
+for long enough. Adding tests to one package was all it took.
+
+A second, quieter version of the same thing: a suite that writes committed rows
+cleaned up in `beforeEach` and not `afterAll`, so the last test's rows sat in
+the shared database until something collided with them.
+
+**Fix:** `createTestDatabase` takes a session advisory lock on a reserved
+connection and holds it for the life of the handle, so one suite runs at a
+time. Reserved rather than pooled, because a session lock belongs to its
+connection; Postgres releases it on its own if a test process dies. The
+committing suite now clears up on the way out as well as on the way in.
+
+**Lesson:** a shared database makes every suite's fixture names part of one
+namespace. Either the names are unique or the suites are serialised, and
+serialising is one change in one file rather than a convention everybody has to
+remember. Three consecutive green runs is the check that it took.
+
 ## The ones the toolchain caused
 
 ### The formatter broke dependency injection

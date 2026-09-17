@@ -1,12 +1,20 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
-import { ClientVault, ContactLog, ReadClients, ReceiveDocument } from '@amc/clients';
+import {
+  ClientVault,
+  ContactLog,
+  LeadWorkflow,
+  ReadClients,
+  ReadLeads,
+  ReceiveDocument,
+} from '@amc/clients';
 import { ClientsModule } from '@amc/clients/http';
 import {
   DrizzleClientRepository,
   DrizzleContactLogRepository,
   DrizzleCredentialRepository,
   DrizzleDocumentRepository,
+  DrizzleLeadRepository,
 } from '@amc/clients/infrastructure';
 import type { Database } from '@amc/database';
 import { ReadCalendar } from '@amc/deadlines';
@@ -20,7 +28,7 @@ import {
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { type EventCollector, SystemClock } from '@amc/kernel';
-import { ReadTasks, TaskWorkflow } from '@amc/services';
+import { ReadTasks, ReadWorkload, TaskWorkflow } from '@amc/services';
 import { TasksModule } from '@amc/services/http';
 import { DrizzleTaskRepository } from '@amc/services/infrastructure';
 import type { FileStorage } from '@amc/storage';
@@ -46,6 +54,7 @@ import { RequestContextMiddleware } from './observability/request-context.middle
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
 import { FILE_STORAGE, StorageModule } from './storage/storage.module.js';
 import { taskContext } from './tasks/adapters.js';
+import { workloadReader } from './tasks/workload.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
 import { secretAccessRecorder } from './vault/adapters.js';
 
@@ -97,6 +106,17 @@ import { secretAccessRecorder } from './vault/adapters.js';
         contactLog: new ContactLog(new DrizzleContactLogRepository(db), contactFileStore(storage), {
           next: () => ulid(),
         }),
+        leads: new ReadLeads(new DrizzleLeadRepository(db), new SystemClock()),
+        leadWorkflow: new LeadWorkflow(
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) => ({
+              leads: new DrizzleLeadRepository(transaction as Database, collector),
+              clients: new DrizzleClientRepository(transaction as Database, collector),
+            }),
+          },
+          { next: () => ulid() },
+        ),
       }),
     }),
     CalendarModule.forRootAsync({
@@ -108,6 +128,7 @@ import { secretAccessRecorder } from './vault/adapters.js';
       inject: [DATABASE],
       useFactory: (db: Database) => ({
         read: new ReadTasks(new DrizzleTaskRepository(db), taskContext(db), new SystemClock()),
+        workload: new ReadWorkload(workloadReader(db)),
         workflow: new TaskWorkflow(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
           {

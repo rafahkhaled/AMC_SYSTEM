@@ -87,3 +87,24 @@ export const attachDocumentSchema = z.object({
   type: z.string().min(1),
   documentId: z.string().min(1),
 });
+
+/** What is on one person's desk. */
+export const workloadRowSchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  role: z.string(),
+  openTasks: z.number().int().nonnegative(),
+  overdueTasks: z.number().int().nonnegative(),
+  /** Due in the next seven days, which is the week somebody is planning. */
+  dueThisWeek: z.number().int().nonnegative(),
+  /** Recorded in the last seven days, so the two numbers can be compared. */
+  recordedSeconds: z.number().int().nonnegative(),
+});
+export type WorkloadRow = z.infer<typeof workloadRowSchema>;
+
+export const workloadSchema = z.object({
+  people: z.array(workloadRowSchema),
+  /** Open work nobody is on. The number a manager acts on first. */
+  unassignedTasks: z.number().int().nonnegative(),
+});
+export type Workload = z.infer<typeof workloadSchema>;

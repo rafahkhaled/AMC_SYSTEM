@@ -1,4 +1,4 @@
-import type { TaskBoard, TaskDetail } from '@amc/contracts';
+import type { TaskBoard, TaskDetail, Workload } from '@amc/contracts';
 import { attachDocumentSchema, completeStepSchema, moveTaskSchema } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import {
@@ -13,6 +13,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ReadTasks } from '../application/read-tasks.js';
+import { ReadWorkload } from '../application/read-workload.js';
 import { TaskWorkflow } from '../application/task-workflow.js';
 
 /**
@@ -31,11 +32,25 @@ export class TasksController {
   constructor(
     @Inject(ReadTasks) private readonly tasks: ReadTasks,
     @Inject(TaskWorkflow) private readonly workflow: TaskWorkflow,
+    @Inject(ReadWorkload) private readonly workload: ReadWorkload,
   ) {}
 
   @Get()
   async board(@CurrentCaller() caller: Caller): Promise<TaskBoard> {
     return this.tasks.board(caller);
+  }
+
+  /**
+   * What is on each person's desk (FR-13).
+   *
+   * Declared before `:id`, or Nest would read "workload" as a task id. Only
+   * somebody who can assign work sees anything: the point of the screen is to
+   * move work between people, and a list of how loaded your colleagues are is
+   * no use to somebody who cannot act on it.
+   */
+  @Get('workload')
+  async people(@CurrentCaller() caller: Caller): Promise<Workload> {
+    return this.workload.forCaller(caller);
   }
 
   @Get(':id')

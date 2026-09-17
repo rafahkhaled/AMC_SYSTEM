@@ -58,7 +58,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-07 | Document upload UI, drag and drop, renewal, expiry badges, short-lived download links | FR-04 | P1-06 | 1 |
 | P1-08 | EmaraTax credential vault: sealed at rest, permission-gated, every read logged with its reason | FR-05 | P0-14 | 0.5 |
 | P1-09 | Contact log: what was said, when it happened, with screenshot attachments | FR-06 | P1-06 | 0.5 |
-| P1-10 | Clients UI: list with filters, client file page with tabs, lead pipeline board | FR-01, FR-02 | P1-03, P1-07 | 2 |
+| P1-10 | Clients UI: list with search and filters, client file, lead pipeline board with conversion | FR-01, FR-02 | P1-03, P1-07 | 2 |
 
 ### Services and tasks
 
@@ -68,7 +68,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-12 | Client service subscription, and automatic task creation from the template with its checklist | FR-11 | P1-11 | 1 |
 | P1-13 | Task state machine as an explicit transition table, plus the mandatory-documents gate before "in progress" | FR-12 | P1-12 | 1 |
 | P1-14 | `task_documents` join and the checklist UI that resolves requirements against the client's own documents | FR-12, ERD 1 | P1-13, P1-06 | 1 |
-| P1-15 | Append-only `task_assignments`, reassignment, and the per-person workload view | FR-13 | P1-13 | 1 |
+| P1-15 | Append-only `task_assignments`, reassignment, and the per-person workload view, manager only | FR-13 | P1-13 | 1 |
 | P1-16 | Recurrence engine: monthly, quarterly and annual renewal keyed by period, idempotent on replay | FR-14 | P1-13, P0-12 | 1.5 |
 | P1-17 | Document generation from company templates, pre-filled and ready for signature | FR-15 | P1-14 | 1.5 |
 | P1-18 | Tasks UI: board by state, task detail with steps, documents and assignment | FR-12, FR-13 | P1-15 | 2 |

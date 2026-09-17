@@ -29,17 +29,28 @@ describe('the escalation ladder against a real database', () => {
   });
 
   afterAll(async () => {
+    // Also after the last test, not only before each one. Cleaning up on the
+    // way in leaves the final run's rows committed in a database other suites
+    // share, which is how a fixture id becomes somebody else's collision.
+    await clear();
     await pool?.close();
     await sql?.end({ timeout: 5 });
   });
 
-  beforeEach(async () => {
+  beforeEach(clear);
+
+  /**
+   * This suite writes committed rows rather than rolling back, because it is
+   * testing a worker that opens its own transactions. The `esc-` prefix is
+   * what keeps those rows out of everybody else's way.
+   */
+  async function clear() {
     await sql`DELETE FROM jobs WHERE name = ${ESCALATION_JOB}`;
     await sql`DELETE FROM raised_alerts`;
     await sql`DELETE FROM tasks WHERE id LIKE 'esc-%'`;
     await sql`DELETE FROM client_services WHERE id LIKE 'esc-%'`;
     await sql`DELETE FROM clients WHERE id LIKE 'esc-%'`;
-  });
+  }
 
   /** A task waiting on paperwork, asked for ten days ago, due in six weeks. */
   async function waitingTask(state = 'awaiting_documents', createdDaysAgo = 10) {

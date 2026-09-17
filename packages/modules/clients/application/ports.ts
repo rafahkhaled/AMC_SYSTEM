@@ -48,6 +48,7 @@ export interface StaffAccessRepository {
 }
 
 export interface LeadRepository {
+  all(options?: { limit?: number }): Promise<Lead[]>;
   findById(id: LeadId): Promise<Lead | null>;
   save(lead: Lead): Promise<void>;
 }

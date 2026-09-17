@@ -1,9 +1,11 @@
 import type { BoardTask, TaskStateName } from '@amc/contracts';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Card, Empty, Loading } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
 import { taskBoard } from './api.js';
+import { WorkloadPanel } from './workload-panel.js';
 
 /**
  * The board.
@@ -14,6 +16,31 @@ import { taskBoard } from './api.js';
  * the domain does not have.
  */
 export function TasksPage({ onOpen }: { onOpen: (id: string) => void }) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<'board' | 'people'>('board');
+
+  return (
+    <div className="u-stack">
+      <div className="u-row tabs">
+        {(['board', 'people'] as const).map((which) => (
+          <button
+            key={which}
+            type="button"
+            className={`tab${tab === which ? ' tab--active' : ''}`}
+            aria-current={tab === which ? 'page' : undefined}
+            onClick={() => setTab(which)}
+          >
+            {t(`tasks.tabs.${which}`)}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'board' ? <Board onOpen={onOpen} /> : <WorkloadPanel />}
+    </div>
+  );
+}
+
+function Board({ onOpen }: { onOpen: (id: string) => void }) {
   const { t } = useTranslation();
   const board = useQuery({ queryKey: ['tasks'], queryFn: taskBoard });
 

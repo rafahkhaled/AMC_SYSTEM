@@ -2,8 +2,10 @@ import {
   type TaskBoard,
   type TaskDetail,
   type TaskStateName,
+  type Workload,
   taskBoardSchema,
   taskDetailSchema,
+  workloadSchema,
 } from '@amc/contracts';
 import { request, send } from '../auth/api.js';
 
@@ -31,4 +33,9 @@ export async function attachDocument(
   return taskDetailSchema.parse(
     await send(`/tasks/${encodeURIComponent(id)}/documents`, { type, documentId }),
   );
+}
+
+/** What is on each person's desk. Empty for anyone who cannot assign work. */
+export async function workload(): Promise<Workload> {
+  return workloadSchema.parse(await request('/tasks/workload'));
 }
