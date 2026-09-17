@@ -220,12 +220,53 @@ These are not a phase. Each card is built in the phase that produces its data, o
 
 ---
 
+## Asked for, not yet scheduled
+
+Two things the practice asked for after P1 was accepted. Written down here so
+they are not lost, deliberately not started, and not given a phase until the
+work in front of them is done.
+
+| ID | Task | Note |
+|---|---|---|
+| X-01 | An employees tab: the staff list with each person's own data — role, working hours, assigned clients, tasks in hand, hours booked this month and last, leave, and when their own documents expire | The data mostly exists already. `users`, `user_working_hours`, `task_assignments` and `time_entries` between them answer all of it; what is missing is a screen and one read model that joins them. A manager currently has to open four screens to ask "what is this person doing this week". Scoped by role: everyone sees the directory, only the Manager sees hours and value |
+| X-02 | Analytics on the home screen | Overlaps C-01 and C-02, which already specify a role-aware dashboard shell and a card registry. Build it there rather than as a second thing. The request adds what the cards should show first: work in hand, deadlines inside thirty days, hours booked against hours expected, and which clients have gone quiet |
+
+Neither is blocked on anything. Both are behind the phase in flight.
+
+---
+
+## WhatsApp — client contact (P-W, 9 tasks, ~11 days)
+
+Brought forward from P5-07 on the practice's own request: the chasing that
+costs the most time happens on WhatsApp, and doing it by hand is the reason
+documents arrive late. P5-07 stays in the list as the receivables use of the
+same channel.
+
+| ID | Task | FR | Dep | d |
+|---|---|---|---|---|
+| PW-01 | Phone numbers as a value object: E.164, UAE local forms, and the directory that turns an inbound number into a client and a person | FR-65 | P1-05 | 1 |
+| PW-02 | Conversations and messages: schema, the twenty-four hour service window, delivery state | FR-65 | PW-01 | 1.5 |
+| PW-03 | Inbound webhook: Meta's verification handshake, signature checking, replay and duplicate handling | FR-65 | PW-02 | 1.5 |
+| PW-04 | Every message in and out lands in the contact log against the right client | FR-06, FR-65 | PW-03 | 1 |
+| PW-05 | The bot: a greeting, deadlines, document handover, and a human when it is out of its depth | FR-65 | PW-04 | 2 |
+| PW-06 | Documents sent on WhatsApp become client documents, awaiting review | FR-04, FR-65 | PW-05 | 1.5 |
+| PW-07 | Outbound: approved templates outside the window, free text inside it, queued through the outbox | FR-65 | PW-02 | 1 |
+| PW-08 | The staff screen: conversations, threads, take over from the bot and hand back | FR-65 | PW-05 | 1.5 |
+| PW-09 | **Acceptance run** against a real WhatsApp Business number | — | all PW | 0.5 |
+
+**PW-09 is blocked until Meta approves the business account.** Everything
+before it is built and tested against a fake transport, the same way email was
+built against a logging sender in P1 before SES existed.
+
+---
+
 ## Totals
 
 | Phase | Tasks | Days | Calendar at 4 productive days a week |
 |---|---|---|---|
 | P0 Foundation | 20 | 11 | 3 weeks |
 | P1 Clients, tasks, timer, deadlines | 33 | 30 | 7–8 weeks |
+| P-W WhatsApp client contact | 9 | 11 | 2–3 weeks |
 | P2 Billing | 13 | 14 | 3–4 weeks |
 | P3 AI pipeline | 16 | 19 | 5 weeks |
 | P4 Audit hardening | 5 | 5 | 1–2 weeks |
@@ -233,9 +274,9 @@ These are not a phase. Each card is built in the phase that produces its data, o
 | P6 Bank reconciliation | 5 | 9 | 2 weeks |
 | P7 QuickBooks | 5 | 8 | 2 weeks |
 | Continuous | 7 | 11 | folded into the phases above |
-| **Total** | **112** | **117** | **~6 months** |
+| **Total** | **121** | **128** | **~6–7 months** |
 
-The earlier estimate of four to five months assumed full-time work. At four productive days a week, six months is the honest number. P1 and P2 together take three months, and that is the point where the system starts paying for itself, because hours stop leaking.
+The earlier estimate of four to five months assumed full-time work. At four productive days a week, six to seven months is the honest number — WhatsApp moved forward from P5 added three weeks to it. P1 and P2 together take three months, and that is the point where the system starts paying for itself, because hours stop leaking.
 
 ---
 
