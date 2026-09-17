@@ -82,12 +82,23 @@ a {
 
 /* ---- layout ---------------------------------------------------------- */
 
+/*
+ * A column of things.
+ *
+ * `minmax(0, 1fr)`, not the implicit `auto`. A grid item's automatic minimum
+ * size is its content, so one wide table inside a stack pushes the stack past
+ * the screen and takes the page sideways with it — the same trap already fixed
+ * on `.page`, which recurred here the moment a screen nested a stack inside
+ * one. Fixing it on the utility fixes it everywhere it is used.
+ */
 .u-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 .u-stack-tight {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
 }
 .u-row {

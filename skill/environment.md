@@ -59,6 +59,17 @@ because the owner asked for it after being told what it exposes.
 `./scripts/mirror-push.sh` pushes to every remote and exits non-zero if any
 failed.
 
+## The acceptance run
+
+```bash
+node scripts/acceptance-p1.mjs        # against a running API on :3000
+```
+
+It walks the whole Phase 1 journey and prints what happened, check by check,
+ending with what it could not check. It is not a test suite — the suites prove
+the pieces — it proves they join up, and it is the thing to run before saying a
+phase is done.
+
 ## What cannot be verified here
 
 - **Docker**, so the production image and compose file have never been built.

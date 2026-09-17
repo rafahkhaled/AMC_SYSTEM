@@ -322,6 +322,24 @@ only authority on what actually arrived.
 of failure as a `pkill` that matches nothing. Confirm the result, never the
 attempt.
 
+### The same grid trap, one level down
+
+**Symptom:** the acceptance run found two screens scrolling sideways on a
+phone, months after the identical bug was fixed on `.page`.
+
+**Cause:** `.u-stack` is a grid, and a grid item's automatic minimum size is
+its content. Screens that nest a stack inside the page — which most now do,
+since a page is a column of cards — hit the same trap one level down. The fix
+on `.page` was correct and too specific.
+
+**Fix:** `grid-template-columns: minmax(0, 1fr)` on the utility itself, which
+fixes it everywhere the utility is used rather than everywhere somebody
+remembers.
+
+**Lesson:** when a layout bug is fixed on one container, ask whether the same
+container shape exists as a utility. Fixing the instance leaves the trap armed
+for the next person; fixing the utility disarms it.
+
 ### The page scrolled sideways instead of the table
 
 **Symptom:** on a phone the clients table was cut off at the edge and the whole

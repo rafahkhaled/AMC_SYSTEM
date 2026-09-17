@@ -96,7 +96,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-30 | Escalation chain with configurable durations: client at 7 days, accountant at 14, manager 5 days before the deadline | FR-43 | P1-28 | 1 |
 | P1-31 | Notifications: in-app inbox, email through SES, per-user preferences, wired to the escalation ladder | FR-43 | P0-12 | 1 |
 | P1-32 | Monthly deadline calendar: returns, expiries, overdue work, weekend and holiday shifts shown with their reason | FR-44 | P1-28 | 1.5 |
-| P1-33 | **P1 acceptance run** with a real client, on a phone and a desktop, against SRS §8 | — | all P1 | 1 |
+| P1-33 | **P1 acceptance run**: `scripts/acceptance-p1.mjs`, plus a mobile pass in both languages. A real client and a real phone remain outstanding | — | all P1 | 1 |
 
 **Phase exit:** SRS P1 accepted. A real client is live, their tasks were created from templates, the timer survives a closed browser, and every registered client shows the correct next VAT deadline.
 
