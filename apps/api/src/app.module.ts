@@ -28,6 +28,12 @@ import {
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { type EventCollector, SystemClock } from '@amc/kernel';
+import { ReadInbox } from '@amc/notifications';
+import { NotificationsModule } from '@amc/notifications/http';
+import {
+  DrizzleNotificationRepository,
+  DrizzlePreferenceRepository,
+} from '@amc/notifications/infrastructure';
 import { ReadTasks, ReadWorkload, TaskWorkflow } from '@amc/services';
 import { TasksModule } from '@amc/services/http';
 import { DrizzleTaskRepository } from '@amc/services/infrastructure';
@@ -119,6 +125,15 @@ import { secretAccessRecorder } from './vault/adapters.js';
           { next: () => ulid() },
         ),
       }),
+    }),
+    NotificationsModule.forRootAsync({
+      inject: [DATABASE],
+      useFactory: (db: Database) =>
+        new ReadInbox(
+          new DrizzleNotificationRepository(db),
+          new DrizzlePreferenceRepository(db),
+          new SystemClock(),
+        ),
     }),
     CalendarModule.forRootAsync({
       inject: [DATABASE],

@@ -2,6 +2,17 @@ import { z } from 'zod';
 
 export const workerEnvironmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /**
+   * Where notification emails come from, and where SES lives.
+   *
+   * No address means no mail transport, and the worker writes emails to the
+   * log instead. That is the right default: a practice without a verified
+   * sender should get a working system and a note in the log, not a crash on
+   * the first escalation.
+   */
+  NOTIFICATION_FROM: z.string().email().optional(),
+  SES_REGION: z.string().default('me-central-1'),
+
   DATABASE_URL: z.string().url().default('postgres://amc@127.0.0.1:5433/amc'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 

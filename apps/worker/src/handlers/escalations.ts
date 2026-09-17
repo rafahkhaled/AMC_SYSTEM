@@ -7,6 +7,7 @@ import {
 import type { PostgresJobQueue } from '@amc/queue';
 import { sql } from 'drizzle-orm';
 import type { AlertLog } from './alerts.js';
+import type { EscalationNotifier } from './notify-escalation.js';
 
 export const ESCALATION_JOB = 'deadlines.escalate';
 
@@ -85,6 +86,7 @@ export async function scheduleEscalations(params: {
 export async function fireEscalation(params: {
   db: Database;
   alerts: AlertLog;
+  notifier?: EscalationNotifier | undefined;
   payload: EscalationPayload;
 }): Promise<'raised' | 'no_longer_needed' | 'already_raised'> {
   const [task] = await params.db.execute<{ state: string }>(sql`
@@ -102,6 +104,20 @@ export async function fireEscalation(params: {
     clientId: params.payload.clientId,
     detail: { state: task.state },
   });
+
+  /*
+   * Raising the alert records that a rung was reached; telling somebody is a
+   * separate thing, and only happens the first time. The alert log is what
+   * stops a person being chased twice for the same rung, so the notification
+   * hangs off its answer rather than repeating the check.
+   */
+  if (raised && params.notifier) {
+    await params.notifier.tell({
+      taskId: params.payload.taskId,
+      clientId: params.payload.clientId,
+      stage: params.payload.stage,
+    });
+  }
 
   return raised ? 'raised' : 'already_raised';
 }

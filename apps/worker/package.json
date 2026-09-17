@@ -13,16 +13,18 @@
   },
   "dependencies": {
     "@amc/audit": "workspace:*",
+    "@amc/clients": "workspace:*",
     "@amc/database": "workspace:*",
+    "@amc/deadlines": "workspace:*",
     "@amc/kernel": "workspace:*",
+    "@amc/notifications": "workspace:*",
     "@amc/queue": "workspace:*",
+    "@amc/services": "workspace:*",
+    "@aws-sdk/client-sesv2": "^3.1134.0",
+    "drizzle-orm": "^0.45.2",
     "pino": "^9.5.0",
     "ulid": "^2.3.0",
-    "zod": "^3.24.1",
-    "@amc/clients": "workspace:*",
-    "@amc/deadlines": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "@amc/services": "workspace:*"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

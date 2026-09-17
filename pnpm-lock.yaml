@@ -68,6 +68,9 @@ importers:
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@amc/notifications':
+        specifier: workspace:*
+        version: link:../../packages/modules/notifications
       '@amc/services':
         specifier: workspace:*
         version: link:../../packages/modules/services
@@ -214,12 +217,18 @@ importers:
       '@amc/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@amc/notifications':
+        specifier: workspace:*
+        version: link:../../packages/modules/notifications
       '@amc/queue':
         specifier: workspace:*
         version: link:../../packages/queue
       '@amc/services':
         specifier: workspace:*
         version: link:../../packages/modules/services
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.1134.0
+        version: 3.1134.0
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
@@ -475,6 +484,36 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.2)(jsdom@25.0.1)(tsx@4.23.13)
 
+  packages/modules/notifications:
+    dependencies:
+      '@amc/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@amc/database':
+        specifier: workspace:*
+        version: link:../../database
+      '@amc/http-kit':
+        specifier: workspace:*
+        version: link:../../http-kit
+      '@amc/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      '@nestjs/common':
+        specifier: ^12.0.1
+        version: 12.0.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+
   packages/modules/services:
     dependencies:
       '@amc/contracts':
@@ -618,6 +657,10 @@ packages:
 
   '@aws-sdk/client-s3@3.1132.0':
     resolution: {integrity: sha512-ccS2utR3YpKE1KEkAlo1Oq9kUhzy/IOIbpwHAcENn/JzpzCj9l79I2o6stTzXGOKbL8+XEdH2P7c2Znp8PbBlQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-sesv2@3.1134.0':
+    resolution: {integrity: sha512-nf9/szNMojnhevNbdpYVTJwCJuIlWupjk/2RshxUhbmsdXKptXJh1x+/sx3AuZrQCLdbwuo0PIIrF/ZnYUxHzg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.978.0':
@@ -3778,6 +3821,18 @@ snapshots:
       '@aws-sdk/core': 3.978.0
       '@aws-sdk/credential-provider-node': 3.972.83
       '@aws-sdk/middleware-sdk-s3': 3.972.76
+      '@aws-sdk/signature-v4-multi-region': 3.996.46
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.34.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.18.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-sesv2@3.1134.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
       '@aws-sdk/signature-v4-multi-region': 3.996.46
       '@aws-sdk/types': 3.974.5
       '@smithy/core': 3.34.1

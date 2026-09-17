@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { LanguageSwitch } from '../components/language-switch.js';
 import { Button } from '../design/index.js';
 import { useSession } from '../features/auth/session.js';
+import { useUnreadCount } from '../features/inbox/inbox-page.js';
 
-type NavView = 'clients' | 'tasks' | 'calendar' | 'timer' | 'home';
+type NavView = 'clients' | 'tasks' | 'calendar' | 'timer' | 'inbox' | 'home';
 
-const VIEWS = ['clients', 'tasks', 'calendar', 'timer', 'home'] as const;
+const VIEWS = ['clients', 'tasks', 'calendar', 'timer', 'inbox', 'home'] as const;
 
 /**
  * The frame every signed-in screen sits in.
@@ -32,6 +33,7 @@ export function AppShell({
 }) {
   const { t } = useTranslation();
   const { signOut } = useSession();
+  const unread = useUnreadCount();
   const [open, setOpen] = useState(false);
   const menuId = useId();
 
@@ -94,6 +96,11 @@ export function AppShell({
                 }}
               >
                 {t(`nav.${view}`)}
+                {/* The count belongs beside the word, not on a bell somewhere
+                    else: a menu item that says "3" is read on the way past. */}
+                {view === 'inbox' && unread > 0 ? (
+                  <span className="nav__count">{unread}</span>
+                ) : null}
               </button>
             </li>
           ))}

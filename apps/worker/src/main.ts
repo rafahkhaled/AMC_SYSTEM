@@ -1,6 +1,11 @@
 import { DrizzleOutboxReader } from '@amc/audit/infrastructure';
 import { createDatabase } from '@amc/database';
 import { SystemClock } from '@amc/kernel';
+import { Notify } from '@amc/notifications';
+import {
+  DrizzleNotificationRepository,
+  DrizzlePreferenceRepository,
+} from '@amc/notifications/infrastructure';
 import { JobRunner, PostgresJobQueue } from '@amc/queue';
 import pino from 'pino';
 import { ulid } from 'ulid';
@@ -10,6 +15,8 @@ import {
   registerJobHandlers,
   scheduleNextDailySweep,
 } from './handlers.js';
+import { escalationNotifier } from './handlers/notify-escalation.js';
+import { loggingEmailSender, recipientReader, sesEmailSender } from './notifications/adapters.js';
 import { OutboxPublisher } from './outbox-publisher.js';
 
 /**
@@ -84,6 +91,34 @@ async function bootstrap(): Promise<void> {
       queue,
       clock,
       ids: { next: () => ulid() },
+      /*
+       * Telling people is composed here, where the escalation ladder and the
+       * notifications module can be joined without either knowing the other.
+       * Email goes to the log until a mail transport is configured, so the
+       * whole path runs for real and only the last step differs.
+       */
+      notifier: escalationNotifier(
+        db,
+        new Notify(
+          new DrizzleNotificationRepository(db),
+          new DrizzlePreferenceRepository(db),
+          recipientReader(db),
+          /*
+           * SES when a verified sender is configured, the log otherwise. The
+           * default is the log rather than a crash: a practice without a
+           * sender should get a working system and a note, not a worker that
+           * dies on the first escalation.
+           */
+          environment.NOTIFICATION_FROM
+            ? sesEmailSender({
+                region: environment.SES_REGION,
+                from: environment.NOTIFICATION_FROM,
+              })
+            : loggingEmailSender(logger),
+          clock,
+          { next: () => ulid() },
+        ),
+      ),
       log: (message, detail) => logger.info(detail, message),
     },
   );

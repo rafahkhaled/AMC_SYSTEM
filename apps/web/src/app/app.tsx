@@ -1,3 +1,4 @@
+import type { Caller } from '@amc/contracts';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '../features/auth/session.js';
@@ -6,6 +7,7 @@ import { TwoFactorPage } from '../features/auth/two-factor-page.js';
 import { CalendarPage } from '../features/calendar/calendar-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
+import { InboxPage } from '../features/inbox/inbox-page.js';
 import { TaskPage } from '../features/tasks/task-page.js';
 import { TasksPage } from '../features/tasks/tasks-page.js';
 import { TimerPage } from '../features/timer/timer-page.js';
@@ -28,6 +30,7 @@ type View =
   | { name: 'task'; id: string }
   | { name: 'calendar' }
   | { name: 'timer' }
+  | { name: 'inbox' }
   | { name: 'client'; id: string };
 
 /**
@@ -36,7 +39,7 @@ type View =
  * A detail screen belongs to the section it was opened from, so the nav does
  * not go blank the moment somebody looks at one thing in detail.
  */
-function activeNav(view: View): 'clients' | 'tasks' | 'calendar' | 'timer' | 'home' {
+function activeNav(view: View): 'clients' | 'tasks' | 'calendar' | 'timer' | 'inbox' | 'home' {
   if (view.name === 'client') return 'clients';
   if (view.name === 'task') return 'tasks';
   return view.name;
@@ -63,26 +66,46 @@ export function App() {
           active={activeNav(view)}
           onNavigate={(name) => setView({ name } as View)}
         >
-          {view.name === 'home' ? <HomePage caller={state.caller} /> : null}
-          {view.name === 'clients' ? (
-            <ClientsPage onOpen={(id) => setView({ name: 'client', id })} />
-          ) : null}
-          {view.name === 'tasks' ? (
-            <TasksPage onOpen={(id) => setView({ name: 'task', id })} />
-          ) : null}
-          {view.name === 'task' ? (
-            <TaskPage id={view.id} onBack={() => setView({ name: 'tasks' })} />
-          ) : null}
-          {view.name === 'calendar' ? (
-            <CalendarPage onOpenTask={(id) => setView({ name: 'task', id })} />
-          ) : null}
-          {view.name === 'timer' ? <TimerPage /> : null}
-          {view.name === 'client' ? (
-            <ClientPage id={view.id} onBack={() => setView({ name: 'clients' })} />
-          ) : null}
+          <Screen view={view} caller={state.caller} go={setView} />
         </AppShell>
       );
     default:
       return <SignInPage />;
+  }
+}
+
+/**
+ * One screen, chosen by name.
+ *
+ * Pulled out of `App` because that function was doing two things: deciding
+ * whether anybody is signed in, and deciding what they are looking at. Every
+ * new screen made the second half longer without making the first any clearer.
+ */
+function Screen({
+  view,
+  caller,
+  go,
+}: {
+  view: View;
+  caller: Caller;
+  go: (view: View) => void;
+}) {
+  switch (view.name) {
+    case 'home':
+      return <HomePage caller={caller} />;
+    case 'clients':
+      return <ClientsPage onOpen={(id) => go({ name: 'client', id })} />;
+    case 'client':
+      return <ClientPage id={view.id} onBack={() => go({ name: 'clients' })} />;
+    case 'tasks':
+      return <TasksPage onOpen={(id) => go({ name: 'task', id })} />;
+    case 'task':
+      return <TaskPage id={view.id} onBack={() => go({ name: 'tasks' })} />;
+    case 'calendar':
+      return <CalendarPage onOpenTask={(id) => go({ name: 'task', id })} />;
+    case 'timer':
+      return <TimerPage />;
+    case 'inbox':
+      return <InboxPage />;
   }
 }

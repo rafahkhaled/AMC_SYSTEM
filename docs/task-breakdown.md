@@ -94,7 +94,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-28 | Day-one trigger: create the preparation task and send the document request on the first day of the filing month | FR-41 | P1-26, P1-16 | 1 |
 | P1-29 | Expiry monitoring at 90, 60 and 30 days, with a tax profile update task on renewal | FR-42 | P1-06 | 1 |
 | P1-30 | Escalation chain with configurable durations: client at 7 days, accountant at 14, manager 5 days before the deadline | FR-43 | P1-28 | 1 |
-| P1-31 | Notifications module: in-app inbox plus email through SES, per-user preferences | FR-43 | P0-12 | 1 |
+| P1-31 | Notifications: in-app inbox, email through SES, per-user preferences, wired to the escalation ladder | FR-43 | P0-12 | 1 |
 | P1-32 | Monthly deadline calendar: returns, expiries, overdue work, weekend and holiday shifts shown with their reason | FR-44 | P1-28 | 1.5 |
 | P1-33 | **P1 acceptance run** with a real client, on a phone and a desktop, against SRS §8 | — | all P1 | 1 |
 

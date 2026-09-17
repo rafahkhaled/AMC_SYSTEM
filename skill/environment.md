@@ -66,6 +66,11 @@ failed.
   MinIO no longer publishes public binaries and there is no Java for the
   alternatives.
 - **KMS**, same.
+- **SES**, so notification email has never actually been sent. The path runs
+  in full — the preference is read, the recipient looked up, the wording chosen
+  in the right language — and only the last call differs: without
+  `NOTIFICATION_FROM` the worker writes the email to the log instead. The SES
+  adapter itself is unexercised.
 
 All three are on the first-deploy checklist in `docs/deployment.md`.
 
