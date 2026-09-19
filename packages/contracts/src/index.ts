@@ -5,3 +5,4 @@ export * from './identity.js';
 export * from './notifications.js';
 export * from './tasks.js';
 export * from './time.js';
+export * from './whatsapp.js';
