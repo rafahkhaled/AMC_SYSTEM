@@ -21,6 +21,7 @@ export type Intent =
   | { kind: 'human' }
   | { kind: 'thanks' }
   | { kind: 'stop' }
+  | { kind: 'start' }
   | { kind: 'unclear' };
 
 export type Language = 'en' | 'ar';
@@ -73,6 +74,7 @@ export function normalise(text: string): string {
  * anything.
  */
 const WORDS: Readonly<Record<Exclude<Intent['kind'], 'unclear'>, readonly string[]>> = {
+  start: ['start', 'resume', 'subscribe', 'تفعيل', 'فعل', 'ابدا', 'استمرار'],
   stop: ['stop', 'unsubscribe', 'remove', 'ايقاف', 'اوقف', 'الغاء', 'كفايه', 'لاتراسلني'],
   human: [
     'human',
@@ -184,6 +186,7 @@ const WORDS: Readonly<Record<Exclude<Intent['kind'], 'unclear'>, readonly string
  * wants a human has already decided the bot is not helping.
  */
 const ORDER: readonly Exclude<Intent['kind'], 'unclear'>[] = [
+  'start',
   'stop',
   'human',
   'documents',

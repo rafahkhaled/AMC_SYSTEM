@@ -225,3 +225,60 @@ describe('the language', () => {
     expect(conversation.language).toBe('en');
   });
 });
+
+describe('being asked to stop', () => {
+  it('stops templates as well as free text', () => {
+    // This is the whole difference between opting out and closing. A client who
+    // typed STOP and then got the next automatic reminder anyway was ignored.
+    const conversation = started();
+    conversation.recordInbound({ at: hoursBefore(1), language: 'ar' });
+    conversation.optOut(now);
+
+    expect(conversation.maySend({ kind: 'text', body: 'Any news?' }, now).ok).toBe(false);
+    expect(conversation.maySend({ kind: 'template', name: 'documents_due' }, now).ok).toBe(false);
+  });
+
+  it('says so, so a screen can tell a person why they cannot write', () => {
+    const conversation = started();
+    conversation.optOut(now);
+    const refused = conversation.maySend({ kind: 'template', name: 'documents_due' }, now);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('asked not to receive');
+  });
+
+  it('is not undone by the client writing again', () => {
+    const conversation = started();
+    conversation.optOut(now);
+    conversation.recordInbound({ at: now, language: 'ar' });
+
+    // "One more thing" is not consent, and answering it with the bot would read
+    // it as consent it does not give.
+    expect(conversation.optedOut).toBe(true);
+    expect(conversation.botMaySpeak).toBe(false);
+  });
+
+  it('is undone by START, because it is always reversible', () => {
+    const conversation = started();
+    conversation.optOut(now);
+    conversation.optBackIn(now);
+    expect(conversation.optedOut).toBe(false);
+    expect(conversation.botMaySpeak).toBe(true);
+  });
+
+  it('records each change of mind once', () => {
+    const conversation = started();
+    conversation.pullEvents();
+
+    conversation.optOut(now);
+    conversation.optOut(now);
+    expect(conversation.pullEvents().map((event) => event.name)).toEqual([
+      'whatsapp.conversation.opted_out',
+    ]);
+
+    conversation.optBackIn(now);
+    conversation.optBackIn(now);
+    expect(conversation.pullEvents().map((event) => event.name)).toEqual([
+      'whatsapp.conversation.opted_back_in',
+    ]);
+  });
+});

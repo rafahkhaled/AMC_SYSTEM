@@ -150,3 +150,15 @@ describe('normalise', () => {
     expect(normalise('مَرحَبــا')).toBe('مرحبا');
   });
 });
+
+describe('turning automatic messages back on', () => {
+  it('hears START', () => {
+    expect(meaning('START')).toBe('start');
+    expect(meaning('start')).toBe('start');
+    expect(meaning('تفعيل')).toBe('start');
+  });
+
+  it('is heard above STOP, so a client cannot say both and be muted', () => {
+    expect(meaning('start sending reminders again, stop the calls')).toBe('start');
+  });
+});

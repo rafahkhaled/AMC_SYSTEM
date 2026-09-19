@@ -127,6 +127,28 @@ export function formatPhone(e164: string): string {
 }
 
 /**
+ * The number Meta just gave us, as E.164.
+ *
+ * Separate from `toE164` because the same digits mean different things
+ * depending on who wrote them. A person typing `971501234567` into a form might
+ * be writing the number the local way and might be writing it the
+ * international way, and `toE164` has to decide. Meta has no such ambiguity: a
+ * `wa_id` is always E.164 with the plus stripped, so putting the plus back is
+ * the whole conversion.
+ *
+ * Reading Meta's numbers with `toE164` instead looks like it works, because
+ * every UAE number comes out right. It fails on exactly the numbers nobody
+ * tests with: `966501234567` does not start with 971, so it is read as a local
+ * number, fails the national rules, and reduces to nothing — and a Saudi
+ * client's messages arrive attached to no client at all.
+ */
+export function fromWhatsAppAddress(waId: string): string | null {
+  const digits = waId.replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) return null;
+  return toE164(`+${digits}`);
+}
+
+/**
  * The form WhatsApp's API uses: E.164 with the plus removed.
  *
  * Meta accepts the plus on the way in and never sends it on the way out, which

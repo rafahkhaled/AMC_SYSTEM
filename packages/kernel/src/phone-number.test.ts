@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatPhone, kindOf, toE164, toWhatsAppAddress } from './phone-number.js';
+import {
+  formatPhone,
+  fromWhatsAppAddress,
+  kindOf,
+  toE164,
+  toWhatsAppAddress,
+} from './phone-number.js';
 
 /**
  * Every shape a number actually arrives in, and what it reduces to.
@@ -111,6 +117,37 @@ describe('formatPhone', () => {
 
   it('leaves a foreign number alone rather than grouping it by our rules', () => {
     expect(formatPhone('+442079460958')).toBe('+442079460958');
+  });
+});
+
+describe('fromWhatsAppAddress', () => {
+  it('puts the plus back on a UAE number', () => {
+    expect(fromWhatsAppAddress('971501234567')).toBe('+971501234567');
+  });
+
+  it('reads a foreign number, which toE164 alone cannot', () => {
+    // This is the whole reason the function exists. Read as something a person
+    // typed, '966501234567' is a local number that fails the national rules
+    // and reduces to nothing, and that client's messages arrive orphaned.
+    expect(fromWhatsAppAddress('966501234567')).toBe('+966501234567');
+    expect(fromWhatsAppAddress('442079460958')).toBe('+442079460958');
+    expect(fromWhatsAppAddress('14155550123')).toBe('+14155550123');
+  });
+
+  it('still holds a UAE number to the national rules', () => {
+    expect(fromWhatsAppAddress('9715012345678')).toBeNull();
+  });
+
+  it('refuses something that is not a number', () => {
+    expect(fromWhatsAppAddress('')).toBeNull();
+    expect(fromWhatsAppAddress('12345')).toBeNull();
+    expect(fromWhatsAppAddress('1234567890123456')).toBeNull();
+  });
+
+  it('is the inverse of toWhatsAppAddress', () => {
+    for (const e164 of ['+971501234567', '+97142345678', '+966501234567', '+442079460958']) {
+      expect(fromWhatsAppAddress(toWhatsAppAddress(e164))).toBe(e164);
+    }
   });
 });
 

@@ -49,6 +49,22 @@ CREATE TABLE whatsapp_conversations (
   -- this is what makes it give up and fetch somebody.
   unclear_streak   smallint    NOT NULL DEFAULT 0,
 
+  /*
+   * When they asked not to be messaged automatically, and null while they have
+   * not.
+   *
+   * Separate from `handling = 'closed'`, which only means nothing is
+   * outstanding. Closing a conversation still allows an approved template
+   * through — that is how a chase starts — so treating STOP as closing would
+   * have the client receive the next automatic reminder anyway, which is the
+   * one thing they asked not to happen.
+   *
+   * It does not stop a person writing to them. Their accountant still has a
+   * job to do, and somebody who typed STOP at a reminder rarely meant "never
+   * contact me about my tax again".
+   */
+  opted_out_at     timestamptz,
+
   -- The twenty-four hour service window runs from here. Outside it, Meta
   -- refuses anything but an approved template, so this column decides what
   -- may be sent and not merely what was received.

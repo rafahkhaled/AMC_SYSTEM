@@ -23,6 +23,8 @@ export interface ConversationState {
   readonly assignedUserId: string | null;
   readonly awaiting: Awaiting;
   readonly unclearStreak: number;
+  /** When they asked not to be messaged automatically. */
+  readonly optedOutAt: Date | null;
   readonly lastInboundAt: Date | null;
   readonly lastOutboundAt: Date | null;
   readonly createdAt: Date;
@@ -87,6 +89,7 @@ export class Conversation extends AggregateRoot {
       assignedUserId: null,
       awaiting: null,
       unclearStreak: 0,
+      optedOutAt: null,
       lastInboundAt: null,
       lastOutboundAt: null,
       createdAt: params.now,
@@ -134,6 +137,10 @@ export class Conversation extends AggregateRoot {
     return this.state.lastInboundAt;
   }
 
+  get optedOut(): boolean {
+    return this.state.optedOutAt !== null;
+  }
+
   windowAt(now: Date): WindowState {
     return windowStateAt(this.state.lastInboundAt, now);
   }
@@ -156,10 +163,18 @@ export class Conversation extends AggregateRoot {
       ...this.state,
       lastInboundAt: params.at,
       language: params.language,
-      // A conversation the bot had given up on is not reopened by the client
-      // writing again — a person still owns it — but a closed one is, because
-      // closed means "nothing outstanding", not "do not speak to us".
-      handling: this.state.handling === 'closed' ? 'bot' : this.state.handling,
+      /*
+       * A conversation the bot had given up on is not reopened by the client
+       * writing again — a person still owns it — but a closed one is, because
+       * closed means "nothing outstanding", not "do not speak to us".
+       *
+       * An opt-out is the exception: somebody who typed STOP and then writes
+       * "one more thing" has not withdrawn the STOP, and answering them with
+       * the bot would be reading a message as consent it does not give. Only
+       * START withdraws it.
+       */
+      handling:
+        this.state.handling === 'closed' && !this.state.optedOutAt ? 'bot' : this.state.handling,
     };
   }
 
@@ -253,6 +268,45 @@ export class Conversation extends AggregateRoot {
     return ok(undefined);
   }
 
+  /**
+   * They asked not to be messaged automatically.
+   *
+   * This stops templates as well as free text, which is the whole difference
+   * between it and closing. A client who typed STOP and then received the next
+   * automatic reminder anyway has been ignored, and in this country that is
+   * also a regulatory problem and not only a rude one.
+   *
+   * It does not stop a person writing to them.
+   */
+  optOut(now: Date): void {
+    if (this.state.optedOutAt) return;
+    this.state = {
+      ...this.state,
+      optedOutAt: now,
+      handling: 'closed',
+      assignedUserId: null,
+      awaiting: null,
+    };
+    this.record(
+      domainEvent('whatsapp.conversation.opted_out', this.id, now, {
+        conversationId: this.id,
+        clientId: this.state.clientId,
+      }),
+    );
+  }
+
+  /** They changed their mind, which is why STOP is always reversible. */
+  optBackIn(now: Date): void {
+    if (!this.state.optedOutAt) return;
+    this.state = { ...this.state, optedOutAt: null, handling: 'bot' };
+    this.record(
+      domainEvent('whatsapp.conversation.opted_back_in', this.id, now, {
+        conversationId: this.id,
+        clientId: this.state.clientId,
+      }),
+    );
+  }
+
   /** Nothing outstanding. Not an opt-out: the client writing again reopens it. */
   close(now: Date): void {
     if (this.state.handling === 'closed') return;
@@ -299,6 +353,11 @@ export class Conversation extends AggregateRoot {
 
   /** Whether this may go out now, by Meta's rule and by ours. */
   maySend(shape: OutboundShape, now: Date): Result<void, Conflict> {
+    if (this.state.optedOutAt) {
+      // Nothing automatic, of either shape. A person writing to them goes
+      // through `sendAsPerson`, which is a different question.
+      return err(new Conflict('This client asked not to receive automatic WhatsApp messages'));
+    }
     if (this.state.handling === 'closed' && shape.kind === 'text') {
       // A closed conversation can still be chased by template — that is how a
       // chase starts — but free text into one means somebody is typing at a
