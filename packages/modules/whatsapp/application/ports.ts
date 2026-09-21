@@ -1,5 +1,12 @@
+import type { WhatsAppConversationView, WhatsAppMessageView } from '@amc/contracts';
 import type { Conflict, Result } from '@amc/kernel';
-import type { Conversation, DeadlineLine, Language, Message } from '../domain/index.js';
+import type {
+  Conversation,
+  ConversationScope,
+  DeadlineLine,
+  Language,
+  Message,
+} from '../domain/index.js';
 
 export interface ConversationRepository {
   findByPhone(phone: string): Promise<Conversation | null>;
@@ -20,6 +27,25 @@ export interface MessageRepository {
   save(message: Message): Promise<void>;
   findByProviderId(providerMessageId: string): Promise<Message | null>;
   thread(conversationId: string, limit: number): Promise<Message[]>;
+}
+
+/**
+ * The conversations screen, and one thread.
+ *
+ * A reader rather than a repository: these are joins across four tables that
+ * produce views, and rehydrating aggregates in order to throw most of them away
+ * would be slower and say less.
+ */
+export interface ConversationReader {
+  list(scope: ConversationScope, now: Date): Promise<WhatsAppConversationView[]>;
+  thread(
+    id: string,
+    scope: ConversationScope,
+    now: Date,
+  ): Promise<{
+    conversation: WhatsAppConversationView;
+    messages: WhatsAppMessageView[];
+  } | null>;
 }
 
 /**

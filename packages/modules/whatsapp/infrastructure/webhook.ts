@@ -119,15 +119,7 @@ export function parseWebhook(payload: unknown): ParsedWebhook {
       continue;
     }
 
-    // The sender's display name lives beside the messages rather than on them,
-    // keyed by the same wa_id.
-    const names = new Map<string, string>();
-    for (const contact of array(value.contacts)) {
-      const entry = record(contact);
-      const waId = string(entry?.wa_id);
-      const name = string(record(entry?.profile)?.name);
-      if (waId && name) names.set(waId, name);
-    }
+    const names = namesIn(value.contacts);
 
     for (const raw of array(value.messages)) {
       const message = readMessage(raw, names);
@@ -143,6 +135,24 @@ export function parseWebhook(payload: unknown): ParsedWebhook {
   }
 
   return { messages, statuses, skipped };
+}
+
+/**
+ * The senders' display names, by wa_id.
+ *
+ * Meta puts these beside the messages rather than on them, keyed by the same
+ * wa_id, so they have to be gathered before the messages are read. It is the
+ * only name anybody has for a number nobody recognises.
+ */
+function namesIn(contacts: unknown): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const contact of array(contacts)) {
+    const entry = record(contact);
+    const waId = string(entry?.wa_id);
+    const name = string(record(entry?.profile)?.name);
+    if (waId && name) names.set(waId, name);
+  }
+  return names;
 }
 
 function readMessage(raw: unknown, names: Map<string, string>): InboundMessage | null {

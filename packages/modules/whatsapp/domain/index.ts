@@ -1,3 +1,4 @@
+export * from './access.js';
 export * from './conversation.js';
 export * from './intent.js';
 export * from './message.js';

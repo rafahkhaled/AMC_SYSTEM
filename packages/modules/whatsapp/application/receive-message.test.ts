@@ -1,5 +1,5 @@
 import { Conflict } from '@amc/kernel';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { replies } from '../domain/index.js';
 import { type InboundMessage, ReceiveMessage } from './receive-message.js';
 import {
