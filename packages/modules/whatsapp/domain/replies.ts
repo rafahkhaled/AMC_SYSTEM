@@ -64,17 +64,48 @@ export const NO_DEADLINES: Wording = {
   ar: 'لا توجد لديكم استحقاقات خلال الـ ٦٠ يوماً القادمة حسب سجلاتنا.\n\nإذا كنتم تتوقعون خلاف ذلك، أرسلوا ٣ وسنتحقق من الأمر.',
 };
 
-/** One line of the deadline list, already formatted by the caller. */
+/**
+ * One line of the deadline list, already formatted by the caller.
+ *
+ * The date is a `Wording` and not a string. It was a string, and the result was
+ * an Arabic message reading `• الإقرار الضريبي — بتاريخ 28 August 2026` — the
+ * one half of the sentence nobody thought of as language, sitting in the middle
+ * of the other half that was. A client who reads only Arabic gets a date they
+ * have to decipher, in a message about their tax.
+ */
 export interface DeadlineLine {
   readonly label: Wording;
-  readonly dueOn: string;
+  readonly dueOn: Wording;
+  /**
+   * Whether the date has already passed.
+   *
+   * Said out loud rather than left for the client to work out. "Due 28 August"
+   * on the 21st of September is true and useless; a practice that lets a bot
+   * report an overdue filing as an upcoming one has made its own chasing
+   * sound routine.
+   */
+  readonly overdue: boolean;
 }
 
 export function deadlines(lines: readonly DeadlineLine[]): Wording {
   if (lines.length === 0) return NO_DEADLINES;
 
-  const en = lines.map((line) => `• ${line.label.en} — due ${line.dueOn}`).join('\n');
-  const ar = lines.map((line) => `• ${line.label.ar} — بتاريخ ${line.dueOn}`).join('\n');
+  const en = lines
+    .map(
+      (line) =>
+        `• ${line.label.en} — ${line.overdue ? 'was due' : 'due'} ${line.dueOn.en}${
+          line.overdue ? ' (overdue)' : ''
+        }`,
+    )
+    .join('\n');
+  const ar = lines
+    .map(
+      (line) =>
+        `• ${line.label.ar} — ${line.overdue ? 'كان مستحقاً بتاريخ' : 'بتاريخ'} ${line.dueOn.ar}${
+          line.overdue ? ' (متأخر)' : ''
+        }`,
+    )
+    .join('\n');
 
   return {
     en: `Here is what we have for you:\n\n${en}\n\nReply 3 if you'd like to go through any of it with someone.`,

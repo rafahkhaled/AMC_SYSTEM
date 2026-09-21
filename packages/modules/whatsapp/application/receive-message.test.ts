@@ -147,7 +147,8 @@ describe('the deadlines it reads out', () => {
       reader = deadlines.returning([
         {
           label: { en: 'VAT return, Q3', ar: 'الإقرار الضريبي، الربع الثالث' },
-          dueOn: '28 Oct 2026',
+          dueOn: { en: '28 October 2026', ar: '٢٨ أكتوبر ٢٠٢٦' },
+          overdue: false,
         },
       ]);
       return {};
@@ -157,7 +158,74 @@ describe('the deadlines it reads out', () => {
     await h.handle({ body: 'متى موعد الإقرار؟' });
     const said = h.transport.sentText[0]?.body ?? '';
     expect(said).toContain('الإقرار الضريبي، الربع الثالث');
-    expect(said).toContain('28 Oct 2026');
+
+    /*
+     * The date in Arabic too, not only the words around it.
+     *
+     * This read `28 Oct 2026` until the bot was run against a real client, and
+     * the message that came out was `• الإقرار الضريبي — بتاريخ 28 August 2026`
+     * — the half of the sentence nobody had thought of as language sitting in
+     * the middle of the half that was.
+     */
+    expect(said).toContain('٢٨ أكتوبر ٢٠٢٦');
+    expect(said).not.toContain('28 October 2026');
+  });
+
+  it('answers in English with the English date', async () => {
+    const h = harness(({ deadlines }) => {
+      deadlines.returning([
+        {
+          label: { en: 'VAT return, Q3', ar: 'الإقرار الضريبي، الربع الثالث' },
+          dueOn: { en: '28 October 2026', ar: '٢٨ أكتوبر ٢٠٢٦' },
+          overdue: false,
+        },
+      ]);
+      return {};
+    });
+
+    await h.handle({ body: 'when is my VAT return due?' });
+    const said = h.transport.sentText[0]?.body ?? '';
+    expect(said).toContain('VAT return, Q3');
+    expect(said).toContain('28 October 2026');
+    expect(said).not.toContain('٢٨ أكتوبر ٢٠٢٦');
+  });
+
+  it('says outright when something is already late', async () => {
+    const h = harness(({ deadlines }) => {
+      deadlines.returning([
+        {
+          label: { en: 'VAT return, Q3', ar: 'الإقرار الضريبي، الربع الثالث' },
+          dueOn: { en: '28 August 2026', ar: '٢٨ أغسطس ٢٠٢٦' },
+          overdue: true,
+        },
+      ]);
+      return {};
+    });
+
+    await h.handle({ body: 'when is my VAT return due?' });
+    const said = h.transport.sentText[0]?.body ?? '';
+    // "Due 28 August" on the 21st of September is true and useless, and it
+    // makes the practice's own chasing sound routine.
+    expect(said).toContain('was due');
+    expect(said).toContain('overdue');
+  });
+
+  it('says it in Arabic too', async () => {
+    const h = harness(({ deadlines }) => {
+      deadlines.returning([
+        {
+          label: { en: 'VAT return, Q3', ar: 'الإقرار الضريبي، الربع الثالث' },
+          dueOn: { en: '28 August 2026', ar: '٢٨ أغسطس ٢٠٢٦' },
+          overdue: true,
+        },
+      ]);
+      return {};
+    });
+
+    await h.handle({ body: 'متى موعد الإقرار؟' });
+    const said = h.transport.sentText[0]?.body ?? '';
+    expect(said).toContain('كان مستحقاً بتاريخ');
+    expect(said).toContain('متأخر');
   });
 });
 

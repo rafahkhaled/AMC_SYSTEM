@@ -127,18 +127,40 @@ export function deadlineReader(db: Database): DeadlineReader {
         LIMIT 10
       `);
 
-      return rows.map((row) => ({
-        label: labelFor(row.service, row.period_key),
-        // The date as a person reads it, not an ISO stamp. This goes to a
-        // phone, where 2026-11-28 reads as a serial number.
-        dueOn: new Date(row.due_at).toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-          timeZone: 'Asia/Dubai',
-        }),
-      }));
+      const now = Date.now();
+      return rows.map((row) => {
+        const due = new Date(row.due_at);
+        return {
+          label: labelFor(row.service, row.period_key),
+          dueOn: readableDate(due),
+          overdue: due.getTime() < now,
+        };
+      });
     },
+  };
+}
+
+/**
+ * The date as a person reads it, in each language.
+ *
+ * Not an ISO stamp: this goes to a phone, where 2026-11-28 reads as a serial
+ * number. And not one string for both languages, which is what it was —
+ * `بتاريخ 28 August 2026` is half a sentence in each, and the half a client
+ * cannot read is the half that carries the deadline.
+ *
+ * Dubai time, because a filing due on the 28th is due on the 28th there, and a
+ * date rendered in UTC is a day early for a third of the evening.
+ */
+function readableDate(due: Date): { en: string; ar: string } {
+  const options = {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Dubai',
+  } as const;
+  return {
+    en: due.toLocaleDateString('en-GB', options),
+    ar: due.toLocaleDateString('ar-AE', options),
   };
 }
 
