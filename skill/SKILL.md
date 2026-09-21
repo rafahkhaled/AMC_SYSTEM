@@ -34,9 +34,11 @@ database holds whatever the application believes.
 **Then prove it three ways, in this order:**
 
 1. `pnpm verify` — lint, typecheck, every test, and the dependency rules.
-2. Start the thing and exercise it. The recurrence bug, the outbox bug and the
-   day-one trigger bug all passed their tests and failed the moment a real
-   process ran.
+2. Start the thing and exercise it. The recurrence bug, the outbox bug, the
+   day-one trigger bug and both WhatsApp wording bugs all passed their tests
+   and failed the moment a real process ran. If the change has a screen and
+   any Arabic on it, that includes opening it in a browser in Arabic — jsdom
+   does not reorder bidirectional text, so no test there can see it.
 3. For anything that matters, break it on purpose and check the test fails.
    A test that passes both ways is not testing anything.
 
@@ -46,6 +48,11 @@ before that was tried once.
 
 **Write the bug down.** Symptom, cause, fix, and the lesson in one sentence.
 If the same shape could exist elsewhere, search for it in the same breath.
+
+**If the fix could live on a utility, put it there.** Twice now a layout bug
+has been fixed on the one screen that showed it and found again months later
+on a screen that used the same utility. The phone-number bidi bug was fixed on
+`.u-ltr` and that repaired the leads board, which nobody had reported.
 
 ## The five rules that matter most
 
@@ -71,6 +78,12 @@ If the same shape could exist elsewhere, search for it in the same breath.
    test against the real thing. Three of the worst bugs in `bugs.md` passed
    their unit tests comfortably.
 
+6. **Both languages, including the parts that are not words.** Dates, numbers
+   and currency read differently in Arabic and none of them look like strings
+   to translate. A bilingual message is not done until a test asserts the
+   English form is *absent* from the Arabic one — asserting the Arabic form is
+   present passes even when both are there.
+
 ## The commands
 
 ```bash
@@ -78,6 +91,7 @@ pnpm verify                      # the gate: lint, typecheck, tests, dependency 
 ./scripts/dev.sh                 # Postgres, migrations, API, worker, web
 node scripts/acceptance-p1.mjs   # walks the whole Phase 1 journey against a running API
 node scripts/schema-audit.mjs    # asks the database what is wrong with itself
+WHATSAPP_DRIVER=log              # default: the bot runs in full, into the log
 ./scripts/mirror-push.sh         # pushes to every remote, non-zero if any failed
 ```
 

@@ -93,3 +93,32 @@ All three are on the first-deploy checklist in `docs/deployment.md`.
   never answers for `/api`), but whether the application installs to a home
   screen has to be confirmed on a real phone. It belongs in the P1 acceptance
   run.
+
+- **A WhatsApp Business account.** `WHATSAPP_DRIVER=log` is the default and
+  runs the whole path — a message is read from the webhook, matched to a
+  client, stored, answered, logged, queued, given an id and marked sent —
+  writing the last step to the log instead of to a phone. Untested: Meta's
+  Cloud API itself, the media fetch (which is two requests and a bearer token
+  on a host that looks public), and template sending, which cannot be tried at
+  all until Meta approves the templates. That is PW-09 and it is blocked on
+  Meta, not on us.
+
+  The signature check, the subscription handshake, duplicate deliveries and
+  the whole bot are exercised for real against a running server. To do it
+  again, sign a payload with the app secret:
+
+  ```bash
+  node -e 'const{createHmac}=require("node:crypto");const b=JSON.stringify(require("./payload.json"));console.log("sha256="+createHmac("sha256","devsecret").update(b).digest("hex"))'
+  ```
+
+  and post it to `/api/whatsapp/webhook` with that as `x-hub-signature-256`.
+  A wrong signature must give 403; anything it accepted, including a payload
+  it could not read, must give 200 — Meta retries anything else for a day and
+  disables the webhook after enough failures.
+
+- **Arabic rendering.** jsdom does not reorder bidirectional text, so no test
+  in `apps/web` can see a mixed Arabic-and-Latin line laid out wrongly. Any
+  screen that puts an identifier, a phone number, a TRN or an amount inside
+  Arabic prose has to be opened in a browser in Arabic once. A static page
+  that loads `apps/web/dist/assets/index-*.css` and holds the markup is enough
+  and needs no sign-in.

@@ -359,6 +359,65 @@ narrower than its content. When a scroll container refuses to scroll, measure
 its `clientWidth` against the viewport before touching the overflow property.
 The numbers name the guilty ancestor in one call; guessing does not.
 
+### The plus on a phone number moved to the wrong end
+
+**Symptom:** on Arabic screens `+971 50 123 4567` rendered as
+`4567 123 50 971+`. A different number, shown on the row somebody reads to
+decide who is calling them.
+
+**Cause:** `.u-ltr` set `direction: ltr` and nothing else. On an inline element
+that sets the base direction without starting a new bidi run, so a neutral
+character at the edge of the span — the `+` — still belongs to the surrounding
+Arabic paragraph and is placed at *its* end. The digits were right; the sign
+was not.
+
+**Fix:** `unicode-bidi: isolate` alongside `direction: ltr`, on the utility.
+The leads board used `.u-ltr` for the same kind of value and had the same bug
+unnoticed, so fixing the utility fixed a screen nobody had reported.
+
+**Lesson:** no test in jsdom can see this. jsdom does not do bidi reordering,
+so the DOM is correct and the rendering is not, and every assertion passes.
+Any screen that mixes Arabic prose with a Latin identifier — a number, a TRN, a
+reference, an amount with a currency sign — has to be looked at in a browser in
+Arabic, once, before it is called done.
+
+## The ones a real conversation showed
+
+### The bot answered in Arabic and dated it in English
+
+**Symptom:** the deadline reply came out as
+`• الإقرار الضريبي — بتاريخ 28 August 2026`.
+
+**Cause:** `DeadlineLine.label` was a `Wording` with both languages and
+`dueOn` was a plain `string`. Everything anybody thought of as *words* was
+translated; the date was thought of as data.
+
+**Fix:** `dueOn` is a `Wording` too, filled by the adapter with `en-GB` and
+`ar-AE` renderings of the same instant.
+
+**Lesson:** in a bilingual message, ask of every part whether it would be
+written differently by an Arabic speaker — not whether it is prose. Dates,
+number formats and currency all fail that test and none of them look like
+strings to translate. The test that guards it asserts the English form is
+**absent** from the Arabic message, not merely that the Arabic form is present:
+the original bug would have passed the second check.
+
+### An overdue filing announced as though it were upcoming
+
+**Symptom:** on the 21st of September the bot told a client
+`• VAT return — due 28 August 2026`.
+
+**Cause:** the deadline reader selected everything not yet completed within the
+horizon, which correctly includes what is already late, and nothing carried
+whether the date had passed.
+
+**Fix:** an `overdue` flag on the line, and wording that says `was due … 
+(overdue)` in both languages.
+
+**Lesson:** true and useless is still a bug when a client reads it. The
+practice's own chasing is what this channel exists to support, and a bot that
+reports a late filing in the same tone as a future one undercuts it.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
@@ -374,3 +433,17 @@ The numbers name the guilty ancestor in one call; guessing does not.
   configuration, or every cross-package import looked like an unknown element.
 - **`pg_ctl start` on a running server prints "could not start server"**, which
   reads as a fault and is not one. `scripts/pg.sh` checks first.
+- **A timestamp out of raw SQL is a string, not a `Date`.** The driver maps a
+  column to a `Date` only when the query builder told it what the column is.
+  A row type that claims `Date` over `db.execute(sql\`…\`)` typechecks and then
+  throws `getTime is not a function` the first time a real database answers.
+  Type those columns as `string` and parse them.
+- **`db.execute<T>` refuses an `interface`.** It wants `Record<string, unknown>`,
+  and TypeScript gives an implicit index signature to a type alias of an object
+  literal but not to an interface. `type Row = { … }`, not `interface Row`.
+- **`national` is a reserved word in Postgres.** It expects
+  `NATIONAL CHARACTER` after it, so `CREATE FUNCTION f(national text)` reports
+  a syntax error against `text` — the word *after* the guilty one.
+- **An old server kept answering, again.** A process from a previous session
+  was still holding port 3000 with a build that predated the module being
+  tested. `ps aux | grep dist/main.js` before believing a 404.
