@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+#
+# Prepares a fresh Ubuntu 24.04 instance in me-central-1 to run the system.
+#
+#   curl -fsSL https://gitlab.com/rafahkhaled7118/amc-system/-/raw/main/infra/aws/bootstrap.sh -o bootstrap.sh
+#   less bootstrap.sh          # read it before running it
+#   bash bootstrap.sh
+#
+# Safe to run twice. Every step checks whether it has already been done, so a
+# half-finished run can simply be repeated rather than unpicked.
+#
+# It installs Docker, clones the repository, and starts the stack. It does not
+# create anything on AWS and it does not invent secrets: if .env.production is
+# missing it writes the example, explains what to fill in, and stops.
+
+set -euo pipefail
+
+REPO="${AMC_REPO:-https://gitlab.com/rafahkhaled7118/amc-system.git}"
+BRANCH="${AMC_BRANCH:-main}"
+DIRECTORY="${AMC_DIRECTORY:-/opt/amc}"
+COMPOSE="docker compose -f infra/docker-compose.prod.yml --env-file .env.production"
+
+say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+die() { printf '\n\033[31mStopped: %s\033[0m\n' "$1" >&2; exit 1; }
+
+[ "$(id -u)" -ne 0 ] || die "run this as the ubuntu user, not as root. It uses sudo where it needs to."
+command -v sudo > /dev/null || die "sudo is not installed"
+command -v apt-get > /dev/null || die "this script expects Ubuntu. On Amazon Linux the package steps differ."
+
+# ---------------------------------------------------------------- packages --
+say "Installing packages"
+sudo apt-get update -qq
+sudo apt-get install -y -qq ca-certificates curl gnupg git ufw unzip
+
+if ! command -v docker > /dev/null; then
+  # Docker's own repository. Ubuntu's docker.io package lags far enough behind
+  # that `docker compose` as a subcommand may not exist at all.
+  sudo install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  sudo chmod a+r /etc/apt/keyrings/docker.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io \
+    docker-buildx-plugin docker-compose-plugin
+fi
+
+sudo systemctl enable --now docker
+# So the stack comes back after a reboot without anybody logging in.
+sudo usermod -aG docker "$USER"
+
+# pg_dump for the nightly backup, and the AWS CLI to upload it. Both run on the
+# host rather than in a container, which is why Postgres is published on
+# loopback in the compose file.
+if ! command -v pg_dump > /dev/null; then
+  sudo apt-get install -y -qq postgresql-client-16 || sudo apt-get install -y -qq postgresql-client
+fi
+if ! command -v aws > /dev/null; then
+  ARCHITECTURE="$(uname -m)"
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCHITECTURE}.zip" -o /tmp/awscli.zip
+  unzip -q -o /tmp/awscli.zip -d /tmp
+  sudo /tmp/aws/install --update
+  rm -rf /tmp/awscli.zip /tmp/aws
+fi
+
+# ---------------------------------------------------------------- firewall --
+say "Firewall"
+# The security group is the real boundary; this is the second one, in case a
+# rule there is ever widened by accident.
+sudo ufw allow 22/tcp  > /dev/null
+sudo ufw allow 80/tcp  > /dev/null
+sudo ufw allow 443/tcp > /dev/null
+sudo ufw --force enable > /dev/null
+sudo ufw status | sed 's/^/    /'
+
+# ------------------------------------------------------------------ source --
+say "Source at ${DIRECTORY}"
+if [ ! -d "${DIRECTORY}/.git" ]; then
+  sudo mkdir -p "$DIRECTORY"
+  sudo chown "$USER:$USER" "$DIRECTORY"
+  git clone --branch "$BRANCH" "$REPO" "$DIRECTORY"
+else
+  git -C "$DIRECTORY" fetch --quiet origin "$BRANCH"
+  git -C "$DIRECTORY" checkout --quiet "$BRANCH"
+  git -C "$DIRECTORY" reset --hard --quiet "origin/${BRANCH}"
+fi
+cd "$DIRECTORY"
+echo "    at $(git rev-parse --short HEAD)"
+
+# --------------------------------------------------------------- the secrets --
+if [ ! -f .env.production ]; then
+  cp .env.production.example .env.production
+  chmod 600 .env.production
+  cat <<'NOTE'
+
+    .env.production has been written from the example and nothing is filled in.
+
+    Generate the three secrets:
+
+      openssl rand -base64 32    # SECRET_ENCRYPTION_KEY
+      openssl rand -base64 24    # POSTGRES_PASSWORD
+      openssl rand -base64 32    # BACKUP_PASSPHRASE
+
+    Keep the backup passphrase somewhere other than this server. A backup you
+    cannot decrypt is not a backup, and this instance is what it protects
+    against.
+
+    Then set SITE_ADDRESS, ACME_EMAIL and STORAGE_BUCKET, and run this script
+    again.
+
+NOTE
+  die "fill in .env.production first"
+fi
+chmod 600 .env.production
+
+for required in SECRET_ENCRYPTION_KEY POSTGRES_PASSWORD SITE_ADDRESS ACME_EMAIL STORAGE_BUCKET; do
+  value="$(grep -E "^${required}=" .env.production | cut -d= -f2-)"
+  [ -n "$value" ] || die "${required} is empty in .env.production"
+done
+
+# ------------------------------------------------------------------- deploy --
+say "Building and starting"
+# sg docker, because the group membership added above does not apply to this
+# shell until the next login.
+sg docker -c "${COMPOSE} up -d --build"
+
+say "What is running"
+sg docker -c "${COMPOSE} ps"
+
+# ------------------------------------------------------------------ backups --
+say "Nightly backup"
+SITE="$(grep -E '^SITE_ADDRESS=' .env.production | cut -d= -f2-)"
+sudo tee /etc/cron.d/amc-backup > /dev/null <<CRON
+# Nightly encrypted dump, uploaded and read back before it is trusted.
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+30 22 * * * ${USER} cd ${DIRECTORY} && set -a && . ./.env.production && set +a && DATABASE_URL="postgres://amc:\${POSTGRES_PASSWORD}@127.0.0.1:5432/amc" ./infra/backup/backup.sh /var/backups/amc >> /var/log/amc-backup.log 2>&1
+CRON
+sudo mkdir -p /var/backups/amc
+sudo chown "$USER:$USER" /var/backups/amc
+sudo touch /var/log/amc-backup.log
+sudo chown "$USER:$USER" /var/log/amc-backup.log
+echo "    22:30 UTC, which is 02:30 in Dubai"
+
+cat <<NEXT
+
+Done. Next:
+
+  1. Point ${SITE} at this instance's Elastic IP, if you have not already.
+     Caddy cannot get a certificate until the DNS record resolves here.
+
+  2. Watch it get one:
+       cd ${DIRECTORY} && ${COMPOSE} logs -f caddy
+
+  3. Create the first user, since the screen that creates users is behind the
+     sign-in that needs one:
+       ${COMPOSE} exec -e AMC_PASSWORD='a long passphrase' \\
+         api node apps/api/dist/cli/create-user.js you@yourfirm.ae "Your Name" manager
+
+  4. Work through the first-deploy checklist in docs/deployment.md. It lists
+     the things this machine could never prove and this server can — S3, KMS,
+     SES, the backup restore, and the audit log refusing an update.
+
+  Log out and back in before running docker without sg, so your group
+  membership applies.
+
+NEXT

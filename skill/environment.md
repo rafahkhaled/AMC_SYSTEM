@@ -73,6 +73,12 @@ phase is done.
 ## What cannot be verified here
 
 - **Docker**, so the production image and compose file have never been built.
+  This is not a small gap: the Dockerfile's dependency stage had drifted six
+  workspace packages behind and `pnpm install --frozen-lockfile` would have
+  failed in the image, naming the lockfile rather than the missing package.
+  `scripts/dockerfile-manifests.mjs` runs in `arch:check` and catches that one
+  kind of drift; everything else about the image is still unproven until the
+  first `docker compose build` on the server.
 - **S3**, so `S3FileStorage` is tested only against our own usage of the API.
   MinIO no longer publishes public binaries and there is no Java for the
   alternatives.

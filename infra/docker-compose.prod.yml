@@ -79,8 +79,15 @@ services:
       POSTGRES_DB: amc
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    # Deliberately not published. Nothing outside this network reaches the
-    # database; backups run inside it.
+    # Published on loopback only.
+    #
+    # Nothing outside this instance can reach it — 127.0.0.1 is not the same as
+    # 0.0.0.0, and the security group does not open 5432 either. The reason it
+    # is published at all is the nightly backup: `backup.sh` runs `pg_dump` on
+    # the host, and the previous comment here claimed backups ran inside the
+    # network when nothing did.
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U amc -d amc"]
       interval: 10s

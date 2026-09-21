@@ -418,6 +418,48 @@ whether the date had passed.
 practice's own chasing is what this channel exists to support, and a bot that
 reports a late filing in the same tone as a future one undercuts it.
 
+## The ones nothing here could run
+
+### The image had drifted six packages behind the workspace
+
+**Symptom:** none, for months. Found by reading the Dockerfile before the first
+deploy.
+
+**Cause:** the dependency stage copies each workspace `package.json` by name so
+a source change does not reinstall everything. The list was written during P0
+and never revisited; by the time WhatsApp landed it named 12 of 18. pnpm reads
+the lockfile against the manifests actually present, so the missing ones would
+not have made the install smaller — they would have failed it, with an error
+about the lockfile rather than about the package.
+
+**Fix:** the full list, and `scripts/dockerfile-manifests.mjs` in `arch:check`
+to compare the Dockerfile against the filesystem.
+
+**Lesson:** a hand-maintained list of things that already exist somewhere else
+is a list that drifts, and it drifts fastest where nothing runs it. This
+machine has no Docker, so no test, no lint and no pipeline ever touched that
+file. Anything unverifiable here needs a check that *is* verifiable here.
+
+### The compose file configured four things nothing reads
+
+**Symptom:** would have been the API refusing to boot on the first deploy with
+a complaint about storage, beside a compose file that appeared to configure
+storage.
+
+**Cause:** `S3_BUCKET` and `S3_REGION` were written from the deployment plan;
+the schema calls them `STORAGE_BUCKET` and `STORAGE_REGION` and additionally
+insists `STORAGE_DRIVER=s3` in production. `VAULT_KMS_KEY_ID` and
+`ANTHROPIC_API_KEY` are read by nothing at all — they belong to phases not yet
+built.
+
+**Fix:** the names the code reads, and `.env.production.example` listing every
+one with what it costs if left empty.
+
+**Lesson:** environment variables are the one interface with no typechecker on
+either side. When you add one, grep for the name in the code before believing
+the file that sets it. A near-miss name is worse than a missing one, because
+it looks configured.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
