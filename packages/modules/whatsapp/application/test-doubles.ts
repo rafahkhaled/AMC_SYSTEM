@@ -1,6 +1,6 @@
 import type { Clock, Conflict, IdGenerator, Result } from '@amc/kernel';
 import { ok } from '@amc/kernel';
-import { type Conversation, type DeadlineLine, type Message } from '../domain/index.js';
+import type { Conversation, ConversationScope, DeadlineLine, Message } from '../domain/index.js';
 import type {
   ContactDirectory,
   ContactLogWriter,
@@ -52,6 +52,38 @@ export class InMemoryConversations implements ConversationRepository {
 
   async findById(id: string): Promise<Conversation | null> {
     return this.byId.get(id) ?? null;
+  }
+
+  /**
+   * The scoped fetch, modelled rather than waved through.
+   *
+   * A double that ignored the scope would let every access test in this suite
+   * pass against a use case that had stopped scoping at all — which is the one
+   * thing these tests exist to catch. The rule is the real one: everything for
+   * 'all', nothing for 'none', and for an accountant their own clients plus
+   * whatever was handed to them personally.
+   */
+  async findVisible(id: string, scope: ConversationScope): Promise<Conversation | null> {
+    if (scope.kind === 'none') return null;
+    const conversation = this.byId.get(id);
+    if (!conversation) return null;
+    if (scope.kind === 'all') return conversation;
+
+    const state = conversation.snapshot();
+    if (state.assignedUserId === scope.userId) return conversation;
+    if (state.clientId && this.assigned.get(scope.userId)?.has(state.clientId)) {
+      return conversation;
+    }
+    return null;
+  }
+
+  /** Which clients an accountant is on, for the scoped fetch above. */
+  private assigned = new Map<string, Set<string>>();
+
+  assign(userId: string, clientId: string): void {
+    const clients = this.assigned.get(userId) ?? new Set<string>();
+    clients.add(clientId);
+    this.assigned.set(userId, clients);
   }
 
   async save(conversation: Conversation): Promise<void> {

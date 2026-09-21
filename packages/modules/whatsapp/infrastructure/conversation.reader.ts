@@ -1,10 +1,10 @@
 import type { WhatsAppConversationView, WhatsAppMessageView } from '@amc/contracts';
-import { scopePredicate } from '@amc/database';
 import { formatPhone } from '@amc/kernel';
 import { type SQL, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ConversationReader } from '../application/ports.js';
 import { type ConversationScope, windowClosesAt, windowStateAt } from '../domain/index.js';
+import { conversationsVisibleTo } from './visibility.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
@@ -135,24 +135,9 @@ export class DrizzleConversationReader implements ConversationReader {
     };
   }
 
-  /**
-   * Which conversations this caller may see.
-   *
-   * An unmatched conversation — one with no client — is visible to whoever can
-   * see every client, and to the person it was handed to. Not to every
-   * accountant: until somebody says whose number it is, it might be anybody's
-   * client.
-   */
+  /** The shared predicate, so this cannot drift from the repository. */
   private visible(scope: ConversationScope): SQL {
-    if (scope.kind === 'all') return sql`true`;
-    if (scope.kind === 'none') return sql`false`;
-    return sql`(
-      (c.client_id IS NOT NULL AND ${scopePredicate(
-        { kind: 'assigned', userId: scope.userId },
-        sql`c.client_id`,
-      )})
-      OR c.assigned_user_id = ${scope.userId}
-    )`;
+    return conversationsVisibleTo(scope);
   }
 }
 

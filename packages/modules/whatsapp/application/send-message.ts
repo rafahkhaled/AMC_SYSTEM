@@ -1,5 +1,5 @@
 import { type Clock, Conflict, type IdGenerator, type Result, err, ok } from '@amc/kernel';
-import { type Language, Message } from '../domain/index.js';
+import { type Language, Message, scopeFor } from '../domain/index.js';
 import type {
   CallerLike,
   ContactLogWriter,
@@ -54,7 +54,10 @@ export class SendMessage {
     caller: CallerLike,
     command: SendAsPersonCommand,
   ): Promise<Result<{ messageId: string }, Conflict>> {
-    const conversation = await this.conversations.findById(command.conversationId);
+    const conversation = await this.conversations.findVisible(
+      command.conversationId,
+      scopeFor(caller),
+    );
     if (!conversation) return err(new Conflict('There is no such conversation'));
 
     const now = this.clock.now();
@@ -164,7 +167,7 @@ export class SendMessage {
 
   /** A person takes the conversation without writing anything yet. */
   async takeOver(caller: CallerLike, conversationId: string): Promise<Result<void, Conflict>> {
-    const conversation = await this.conversations.findById(conversationId);
+    const conversation = await this.conversations.findVisible(conversationId, scopeFor(caller));
     if (!conversation) return err(new Conflict('There is no such conversation'));
 
     const taken = conversation.takeOver({
@@ -179,8 +182,8 @@ export class SendMessage {
   }
 
   /** And gives it back, once whatever it was is dealt with. */
-  async handBack(conversationId: string): Promise<Result<void, Conflict>> {
-    const conversation = await this.conversations.findById(conversationId);
+  async handBack(caller: CallerLike, conversationId: string): Promise<Result<void, Conflict>> {
+    const conversation = await this.conversations.findVisible(conversationId, scopeFor(caller));
     if (!conversation) return err(new Conflict('There is no such conversation'));
 
     const handed = conversation.handBack(this.clock.now());
@@ -198,11 +201,12 @@ export class SendMessage {
    * still be fetched afterwards, but only while Meta is still holding it.
    */
   async identify(
+    caller: CallerLike,
     conversationId: string,
     clientId: string,
     contactId?: string,
   ): Promise<Result<void, Conflict>> {
-    const conversation = await this.conversations.findById(conversationId);
+    const conversation = await this.conversations.findVisible(conversationId, scopeFor(caller));
     if (!conversation) return err(new Conflict('There is no such conversation'));
 
     const identified = conversation.identify({

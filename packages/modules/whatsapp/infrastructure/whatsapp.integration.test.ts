@@ -372,6 +372,46 @@ describe('who may read a conversation', () => {
     });
   });
 
+  it('will not fetch a conversation out of scope for changing either', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await threeConversations(db);
+
+      const repository = new DrizzleConversationRepository(db);
+
+      // The dangerous half. Hiding a conversation from a list is worth little
+      // if knowing its id is enough to reply to it, and every write path goes
+      // through this one method.
+      expect(
+        await repository.findVisible('wa-s-gulf', { kind: 'assigned', userId: 'wa-omar' }),
+      ).toBeNull();
+      expect(
+        await repository.findVisible('wa-s-gulf', { kind: 'assigned', userId: 'wa-hana' }),
+      ).not.toBeNull();
+      expect(await repository.findVisible('wa-s-gulf', { kind: 'all' })).not.toBeNull();
+      expect(await repository.findVisible('wa-s-gulf', { kind: 'none' })).toBeNull();
+    });
+  });
+
+  it('lets whoever holds an unmatched conversation fetch it to answer', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await threeConversations(db);
+
+      const repository = new DrizzleConversationRepository(db);
+      const assigned = { kind: 'assigned', userId: 'wa-omar' } as const;
+
+      expect(await repository.findVisible('wa-s-stranger', assigned)).toBeNull();
+
+      const stranger = await repository.findById('wa-s-stranger');
+      if (!stranger) throw new Error('fixture');
+      stranger.takeOver({ userId: 'wa-omar', reason: 'staff_chose', now: NOW });
+      await repository.save(stranger);
+
+      expect(await repository.findVisible('wa-s-stranger', assigned)).not.toBeNull();
+    });
+  });
+
   it('shows nothing at all to somebody with no client permission', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const db = tx as unknown as Db;

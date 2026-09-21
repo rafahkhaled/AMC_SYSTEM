@@ -10,7 +10,15 @@ import type {
 
 export interface ConversationRepository {
   findByPhone(phone: string): Promise<Conversation | null>;
+  /**
+   * Unscoped, for the webhook.
+   *
+   * A message from a client arrives with nobody signed in, so there is no
+   * caller to scope by. Nothing that acts on behalf of a person may use this.
+   */
   findById(id: string): Promise<Conversation | null>;
+  /** Scoped, for everything a person does. Out of scope reads as not there. */
+  findVisible(id: string, scope: ConversationScope): Promise<Conversation | null>;
   save(conversation: Conversation): Promise<void>;
 }
 

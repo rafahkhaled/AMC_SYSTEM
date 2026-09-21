@@ -13,11 +13,20 @@ import {
 
 const now = new Date('2026-09-19T10:00:00.000Z');
 const hoursBefore = (hours: number) => new Date(now.getTime() - hours * 3_600_000);
+/** The manager, who may see every client. */
 const caller = {
   userId: 'u-1',
-  permissions: new Set<string>(),
-  roles: ['accountant'],
+  permissions: new Set(['clients.view.all', 'clients.edit']),
+  roles: ['manager'],
   displayName: 'Sara',
+};
+
+/** An accountant who is on no clients at all. */
+const outsider = {
+  userId: 'u-9',
+  permissions: new Set(['clients.view.assigned', 'clients.edit']),
+  roles: ['accountant'],
+  displayName: 'Nadia',
 };
 
 async function harness(
@@ -191,13 +200,13 @@ describe('taking over and handing back by hand', () => {
   it('hands it back', async () => {
     const h = await harness();
     await h.send.takeOver(caller, 'wc-1');
-    expect((await h.send.handBack('wc-1')).ok).toBe(true);
+    expect((await h.send.handBack(caller, 'wc-1')).ok).toBe(true);
     expect(h.conversation.handling).toBe('bot');
   });
 
   it('refuses to hand back what nobody holds', async () => {
     const h = await harness();
-    expect((await h.send.handBack('wc-1')).ok).toBe(false);
+    expect((await h.send.handBack(caller, 'wc-1')).ok).toBe(false);
   });
 });
 
@@ -222,14 +231,81 @@ describe('saying whose number it is', () => {
       new CountingIds(),
     );
 
-    expect((await send.identify('wc-2', 'c-9', 'k-9')).ok).toBe(true);
+    expect((await send.identify(caller, 'wc-2', 'c-9', 'k-9')).ok).toBe(true);
     expect(started.value.clientId).toBe('c-9');
   });
 
   it('refuses to move a conversation to a different client', async () => {
     const h = await harness();
-    const refused = await h.send.identify('wc-1', 'c-2');
+    const refused = await h.send.identify(caller, 'wc-1', 'c-2');
     expect(refused.ok).toBe(false);
     expect(h.conversation.clientId).toBe('c-1');
+  });
+});
+
+/**
+ * The writer paths, scoped.
+ *
+ * The screen already hides a conversation an accountant may not see. These
+ * check the far more dangerous half: that knowing the id is not enough to reply
+ * to somebody else's client, take their conversation, or attach it to a company
+ * of your choosing. Every one of these would have passed before `findVisible`
+ * existed.
+ */
+describe('who may act on a conversation', () => {
+  it("will not let an outsider write to another accountant's client", async () => {
+    const h = await harness();
+    const refused = await h.send.asPerson(outsider, {
+      conversationId: 'wc-1',
+      body: 'Hello, this is about your VAT.',
+    });
+
+    expect(refused.ok).toBe(false);
+    // The same words as a conversation that does not exist. Saying "not yours"
+    // would confirm that Gulf Trading is a client of this firm.
+    if (!refused.ok) expect(refused.error.message).toBe('There is no such conversation');
+    expect(h.transport.sentText).toHaveLength(0);
+  });
+
+  it('will not let an outsider take it over', async () => {
+    const h = await harness();
+    expect((await h.send.takeOver(outsider, 'wc-1')).ok).toBe(false);
+    expect(h.conversation.handling).toBe('bot');
+  });
+
+  it('will not let an outsider hand it back', async () => {
+    const h = await harness();
+    await h.send.takeOver(caller, 'wc-1');
+    expect((await h.send.handBack(outsider, 'wc-1')).ok).toBe(false);
+    expect(h.conversation.handling).toBe('human');
+  });
+
+  it('will not let an outsider say whose number it is', async () => {
+    const h = await harness();
+    expect((await h.send.identify(outsider, 'wc-1', 'c-2')).ok).toBe(false);
+    expect(h.conversation.clientId).toBe('c-1');
+  });
+
+  it('lets an accountant act once the client is actually theirs', async () => {
+    const h = await harness();
+    h.conversations.assign(outsider.userId, 'c-1');
+
+    const sent = await h.send.asPerson(outsider, {
+      conversationId: 'wc-1',
+      body: 'Hello, this is about your VAT.',
+    });
+    expect(sent.ok).toBe(true);
+  });
+
+  it('lets whoever holds the conversation act on it, client or no client', async () => {
+    const h = await harness();
+    // An unmatched number handed to somebody: they may answer it even though
+    // there is no client to be assigned to.
+    await h.send.takeOver(caller, 'wc-1');
+    h.conversation.identify({ clientId: 'c-1', now: new Date() });
+
+    const held = await harness();
+    await held.send.takeOver(caller, 'wc-1');
+    expect((await held.send.handBack(caller, 'wc-1')).ok).toBe(true);
   });
 });

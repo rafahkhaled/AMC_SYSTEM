@@ -3,12 +3,14 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ConversationRepository, MessageRepository } from '../application/ports.js';
 import {
   Conversation,
+  type ConversationScope,
   type Handling,
   type Language,
   Message,
   type MessageKind,
 } from '../domain/index.js';
 import { whatsappConversations, whatsappMessages } from './schema.js';
+import { conversationsVisibleTo } from './visibility.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
@@ -50,6 +52,28 @@ export class DrizzleConversationRepository implements ConversationRepository {
       .where(eq(whatsappConversations.id, id))
       .limit(1);
     return row ? toConversation(row) : null;
+  }
+
+  /**
+   * The same conversation, but only if this scope may reach it.
+   *
+   * Separate from `findById` rather than a scope argument on it, because the
+   * webhook genuinely has no caller — a message from a client arrives with
+   * nobody signed in — and an optional scope argument is one somebody forgets
+   * to pass. Every path that acts on behalf of a person uses this one.
+   *
+   * Out of scope answers the same as not there. Telling somebody a
+   * conversation exists but is not theirs is itself the thing being withheld.
+   */
+  async findVisible(id: string, scope: ConversationScope): Promise<Conversation | null> {
+    if (scope.kind === 'none') return null;
+
+    const rows = await this.db.execute<{ id: string }>(sql`
+      SELECT c.id FROM whatsapp_conversations c
+      WHERE c.id = ${id} AND ${conversationsVisibleTo(scope)}
+      LIMIT 1
+    `);
+    return rows[0] ? this.findById(id) : null;
   }
 
   /**
