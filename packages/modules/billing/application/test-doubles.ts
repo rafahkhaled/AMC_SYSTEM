@@ -1,8 +1,10 @@
 import type { Clock, CurrencyCode, IdGenerator } from '@amc/kernel';
 import { Money } from '@amc/kernel';
-import type { Quotation, Statement } from '../domain/index.js';
+import type { Invoice, Quotation, Statement } from '../domain/index.js';
 import type {
   BillableWork,
+  InvoiceNumbering,
+  InvoiceRepository,
   QuotationRepository,
   RateReader,
   StatementRepository,
@@ -138,5 +140,55 @@ export class RecordingAttachment implements WorkAttachment {
 
   async release(entryIds: readonly string[]): Promise<void> {
     this.released.push(...entryIds);
+  }
+}
+
+export class InMemoryInvoices implements InvoiceRepository {
+  readonly saved: Invoice[] = [];
+  private byId = new Map<string, Invoice>();
+  private byNumber = new Map<string, Invoice>();
+
+  async findById(id: string): Promise<Invoice | null> {
+    return this.byId.get(id) ?? null;
+  }
+  async findByNumber(number: string): Promise<Invoice | null> {
+    return this.byNumber.get(number) ?? null;
+  }
+  async save(invoice: Invoice): Promise<void> {
+    this.byId.set(invoice.id, invoice);
+    this.byNumber.set(invoice.snapshot().number, invoice);
+    this.saved.push(invoice);
+  }
+  async lateAsOf(asOf: Date): Promise<Invoice[]> {
+    return [...this.byId.values()].filter((invoice) => {
+      const state = invoice.snapshot();
+      return (
+        (state.settlement === 'issued' || state.settlement === 'part_paid') &&
+        state.dueOn.getTime() < asOf.getTime()
+      );
+    });
+  }
+  only(): Invoice {
+    const [first] = [...this.byId.values()];
+    if (!first) throw new Error('no invoice was raised');
+    return first;
+  }
+}
+
+/**
+ * A gapless sequence, per year.
+ *
+ * Modelled rather than stubbed with a constant, because the thing worth
+ * catching is a number handed out twice — and a double returning 'INV-1'
+ * forever would make that impossible to see.
+ */
+export class CountingNumbers implements InvoiceNumbering {
+  private issued = new Map<number, number>();
+
+  async next(issuedOn: Date): Promise<string> {
+    const year = issuedOn.getUTCFullYear();
+    const n = (this.issued.get(year) ?? 0) + 1;
+    this.issued.set(year, n);
+    return `INV-${year}-${String(n).padStart(4, '0')}`;
   }
 }

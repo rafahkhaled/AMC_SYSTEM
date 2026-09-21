@@ -1,5 +1,5 @@
 import type { Conflict, CurrencyCode, Money, Result } from '@amc/kernel';
-import type { Quotation, Statement } from '../domain/index.js';
+import type { Invoice, Quotation, Statement } from '../domain/index.js';
 
 export interface QuotationRepository {
   findById(id: string): Promise<Quotation | null>;
@@ -8,6 +8,32 @@ export interface QuotationRepository {
   save(quotation: Quotation): Promise<void>;
   /** Sent, past their date, and still waiting — what the expiry sweep asks. */
   lapsed(asOf: Date, limit: number): Promise<Quotation[]>;
+}
+
+export interface InvoiceRepository {
+  findById(id: string): Promise<Invoice | null>;
+  findByNumber(number: string): Promise<Invoice | null>;
+  save(invoice: Invoice): Promise<void>;
+  /** Unsettled, past their due date — what the overdue sweep asks each morning. */
+  lateAsOf(asOf: Date, limit: number): Promise<Invoice[]>;
+}
+
+/**
+ * The next number on the firm's invoice sequence.
+ *
+ * A port because the sequence has to be gapless and allocated exactly once,
+ * which is a database's job and not an aggregate's. A number allocated twice
+ * puts two documents in a client's file under one reference; a gap invites a
+ * question from an auditor that nobody can answer.
+ */
+export interface InvoiceNumbering {
+  next(issuedOn: Date): Promise<string>;
+}
+
+/** How the firm bills: VAT rate and payment terms. Configuration, not client data. */
+export interface BillingSettings {
+  readonly vatBasisPoints: number;
+  readonly paymentTermsDays: number;
 }
 
 export interface StatementRepository {
