@@ -40,10 +40,43 @@ ln -sf "$HOME/.local/opt/aws-cli/aws_completer" "$HOME/.local/bin/aws_completer"
 rm -f AWSCLIV2.pkg choices.xml
 ```
 
-**Credentials.** Create an access key for a user with the permissions above,
-then `aws configure` and answer its four questions. Set the region to
-`me-central-1`. Nobody else needs to see the key, including whoever is helping
-you deploy.
+**Credentials, and not the root account's.** Root access keys cannot be
+scoped: anything holding them can close the account, delete every backup and
+read every client's records. For a system built around an append-only audit
+log and an encrypted vault, a root key on a laptop undoes all of it.
+
+Create a user that can do the deploy and nothing else. The policy is in
+`infra/aws/deploy-user-policy.json` — IAM limited to roles named `amc-*`,
+`PassRole` limited to the instance role itself, and no permission to touch
+billing, users or anything outside this system.
+
+The policy names your account number in three ARNs. It is checked in with
+`ACCOUNT_ID` as a placeholder, because this repository is public and an account
+number published beside a description of what runs in it is a starting point
+somebody does not have to find for themselves.
+
+```bash
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+aws iam create-user --user-name amc-deploy
+aws iam put-user-policy --user-name amc-deploy --policy-name amc-deploy \
+  --policy-document "$(sed "s/ACCOUNT_ID/${ACCOUNT}/g" infra/aws/deploy-user-policy.json)"
+```
+
+Then, in the console rather than the CLI, because the secret is shown once and
+should not pass through anybody else's hands or terminal history: IAM → Users →
+`amc-deploy` → Security credentials → Create access key → Command Line
+Interface. Run `aws configure` with it and set the region to `me-central-1`.
+
+Check which identity you are actually using before going on — this is the step
+that tells you the switch worked:
+
+```bash
+aws sts get-caller-identity --query Arn --output text
+# .../amc-deploy, not .../root
+```
+
+Finally delete the root access key, under IAM → My security credentials. A key
+that exists is a key that can leak.
 
 **The region has to be switched on.** Middle East (UAE) is an *opt-in* region:
 a fresh account cannot use it until somebody enables it, and every command
