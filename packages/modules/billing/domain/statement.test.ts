@@ -227,15 +227,27 @@ describe('invoicing and cancelling', () => {
     s.markInvoiced(now);
 
     // The hours are frozen and an invoice exists; cancelling would orphan it.
-    const refused = s.cancel(now);
+    const refused = s.cancel('changed our mind', now);
     expect(refused.ok).toBe(false);
     if (!refused.ok) expect(refused.error.message).toContain('credit the invoice');
   });
 
-  it('cancels a draft', () => {
+  it('cancels a draft, with a reason that reaches the audit log', () => {
     const s = statement();
-    expect(s.cancel(now).ok).toBe(true);
+    expect(s.cancel('billed the wrong period', now).ok).toBe(true);
     expect(s.currentState).toBe('cancelled');
+
+    const [event] = s.pullEvents();
+    expect(event?.payload).toMatchObject({
+      reason: 'billed the wrong period',
+      releasedEntries: 1,
+    });
+  });
+
+  it('refuses to cancel without a reason', () => {
+    // Cancelling releases billed hours back to the unbilled pool, which is
+    // the one change permitted to time a client has already been shown.
+    expect(statement().cancel('  ', now).ok).toBe(false);
   });
 
   it('names every time entry behind it, which is what gets frozen', () => {

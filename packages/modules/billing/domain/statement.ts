@@ -270,17 +270,33 @@ export class Statement extends AggregateRoot {
     return ok(undefined);
   }
 
-  cancel(now: Date): Result<void, Conflict> {
+  /**
+   * Cancels it, and says why.
+   *
+   * The reason is not optional because cancelling releases billed hours back
+   * to the unbilled pool, and that is the one change permitted to time a
+   * client has already been shown. The event carries the words into the audit
+   * log, which is where somebody looks when a month is billed twice.
+   */
+  cancel(reason: string, now: Date): Result<void, Conflict> {
     if (this.state.state === 'invoiced') {
       // The hours behind it are frozen and an invoice exists. Credit the
       // invoice instead; cancelling here would orphan it.
       return err(new Conflict('This statement has been invoiced; credit the invoice instead'));
     }
+
+    const trimmed = reason.trim();
+    if (trimmed.length < 3) {
+      return err(new Conflict('Say why this statement is being cancelled'));
+    }
+
     this.state = { ...this.state, state: 'cancelled' };
     this.record(
       domainEvent('billing.statement.cancelled', this.id, now, {
         statementId: this.id,
         clientId: this.state.clientId,
+        reason: trimmed,
+        releasedEntries: this.entryIds().length,
       }),
     );
     return ok(undefined);
