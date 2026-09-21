@@ -4,9 +4,67 @@ import type {
   Conversation,
   ConversationScope,
   DeadlineLine,
+  DeliveryStatus,
   Language,
   Message,
+  MessageKind,
 } from '../domain/index.js';
+
+/** One message, as the webhook adapter has already unpacked it. */
+export interface InboundMessage {
+  readonly providerMessageId: string;
+  /** Already E.164 — the adapter used `fromWhatsAppAddress`. */
+  readonly from: string;
+  readonly profileName: string | null;
+  readonly kind: MessageKind;
+  readonly body: string | null;
+  readonly mediaId: string | null;
+  readonly mediaMimeType: string | null;
+  readonly mediaFilename: string | null;
+  readonly occurredAt: Date;
+  /** What Meta sent, kept for the morning when something was handled wrongly. */
+  readonly raw?: unknown;
+}
+
+/** A delivery status Meta reported about a message we sent. */
+export interface StatusUpdate {
+  readonly providerMessageId: string;
+  readonly status: DeliveryStatus;
+  readonly detail: string | null;
+  readonly occurredAt: Date;
+}
+
+export interface ParsedWebhook {
+  readonly messages: readonly InboundMessage[];
+  readonly statuses: readonly StatusUpdate[];
+  /** Entries this could not read at all, for the log. */
+  readonly skipped: number;
+}
+
+/**
+ * Meta's side of the webhook: the handshake, the signature, and the payload.
+ *
+ * A port because the route that uses it lives in this module's HTTP layer,
+ * which may not reach into its own infrastructure — and should not, since a
+ * controller that knows the payload shape has to change when Meta changes it.
+ */
+export interface WebhookGateway {
+  /** The subscription handshake. Returns the challenge to echo, or nothing. */
+  challengeFor(query: {
+    mode: string | undefined;
+    token: string | undefined;
+    challenge: string | undefined;
+  }): string | null;
+  /**
+   * Whether this delivery really came from Meta.
+   *
+   * Takes the raw bytes, not the parsed body: the signature is an HMAC over
+   * exactly what was sent, and a re-serialised body digests differently even
+   * when it holds the same data.
+   */
+  isAuthentic(rawBody: Buffer | string, header: string | undefined): boolean;
+  read(payload: unknown): ParsedWebhook;
+}
 
 export interface ConversationRepository {
   findByPhone(phone: string): Promise<Conversation | null>;

@@ -1,7 +1,8 @@
 import { Conflict } from '@amc/kernel';
 import { describe, expect, it } from 'vitest';
 import { replies } from '../domain/index.js';
-import { type InboundMessage, ReceiveMessage } from './receive-message.js';
+import type { InboundMessage } from './ports.js';
+import { ReceiveMessage } from './receive-message.js';
 import {
   CountingIds,
   FakeClock,

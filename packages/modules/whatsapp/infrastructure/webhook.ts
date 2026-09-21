@@ -1,6 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fromWhatsAppAddress } from '@amc/kernel';
-import type { InboundMessage } from '../application/receive-message.js';
+import type {
+  InboundMessage,
+  ParsedWebhook,
+  StatusUpdate,
+  WebhookGateway,
+} from '../application/ports.js';
 import type { DeliveryStatus, MessageKind } from '../domain/index.js';
 
 /**
@@ -18,21 +23,6 @@ import type { DeliveryStatus, MessageKind } from '../domain/index.js';
  * unrecognised is skipped rather than guessed at, and the raw entry is kept so
  * that a message handled wrongly can be looked at afterwards.
  */
-
-/** A delivery status Meta reported about a message we sent. */
-export interface StatusUpdate {
-  readonly providerMessageId: string;
-  readonly status: DeliveryStatus;
-  readonly detail: string | null;
-  readonly occurredAt: Date;
-}
-
-export interface ParsedWebhook {
-  readonly messages: readonly InboundMessage[];
-  readonly statuses: readonly StatusUpdate[];
-  /** Entries this could not read at all, for the log. */
-  readonly skipped: number;
-}
 
 /**
  * Checks the signature Meta puts on every delivery.
@@ -269,4 +259,33 @@ function array(value: unknown): unknown[] {
 
 function string(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * The three things the webhook route needs, behind one port.
+ *
+ * The controller cannot import this file — a module's HTTP layer may not reach
+ * into its own infrastructure, and the boundary linter fails the build over it,
+ * correctly: a controller that knows Meta's payload shape is a controller that
+ * has to change when Meta does. So the route takes this, the composition root
+ * supplies it, and the wire format stays here with the parser it belongs to.
+ */
+export class MetaWebhookGateway implements WebhookGateway {
+  constructor(private readonly secrets: { appSecret: string; verifyToken: string }) {}
+
+  challengeFor(query: {
+    mode: string | undefined;
+    token: string | undefined;
+    challenge: string | undefined;
+  }): string | null {
+    return verificationChallenge({ ...query, verifyToken: this.secrets.verifyToken });
+  }
+
+  isAuthentic(rawBody: Buffer | string, header: string | undefined): boolean {
+    return signatureMatches({ rawBody, header, appSecret: this.secrets.appSecret });
+  }
+
+  read(payload: unknown): ParsedWebhook {
+    return parseWebhook(payload);
+  }
 }

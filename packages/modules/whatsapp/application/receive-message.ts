@@ -18,28 +18,13 @@ import type {
   ConversationRepository,
   DeadlineReader,
   DocumentFiler,
+  InboundMessage,
   MessageRepository,
   PracticeIdentity,
   StaffNotifier,
   StaffPicker,
   WhatsAppTransport,
 } from './ports.js';
-
-/** One message, as the webhook adapter has already unpacked it. */
-export interface InboundMessage {
-  readonly providerMessageId: string;
-  /** Already E.164 — the adapter used `fromWhatsAppAddress`. */
-  readonly from: string;
-  readonly profileName: string | null;
-  readonly kind: MessageKind;
-  readonly body: string | null;
-  readonly mediaId: string | null;
-  readonly mediaMimeType: string | null;
-  readonly mediaFilename: string | null;
-  readonly occurredAt: Date;
-  /** What Meta sent, kept for the morning when something was handled wrongly. */
-  readonly raw?: unknown;
-}
 
 export type Handled =
   | 'answered'
