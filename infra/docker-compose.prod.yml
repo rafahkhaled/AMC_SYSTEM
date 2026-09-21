@@ -40,6 +40,12 @@ x-server: &server
     BUSINESS_TIME_ZONE: ${BUSINESS_TIME_ZONE:-Asia/Dubai}
     DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-AED}
 
+    # Billing. 500 basis points is the UAE's five percent; 0 if the firm is
+    # not VAT registered.
+    BILLING_VAT_BASIS_POINTS: ${BILLING_VAT_BASIS_POINTS:-500}
+    BILLING_PAYMENT_TERMS_DAYS: ${BILLING_PAYMENT_TERMS_DAYS:-30}
+    BILLING_DEFAULT_RATE_MINOR: ${BILLING_DEFAULT_RATE_MINOR:-30000}
+
     # WhatsApp. 'log' until Meta approves the business account, which runs the
     # whole path and writes the last step to the log instead of to a phone.
     # 'cloud' requires all four and the API refuses to boot without them.

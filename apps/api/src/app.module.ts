@@ -1,6 +1,20 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
 import {
+  GenerateStatement,
+  RaiseInvoice,
+  ReadBilling,
+  ReleaseFromStatement,
+  SettleInvoice,
+} from '@amc/billing';
+import { BillingModule } from '@amc/billing/http';
+import {
+  DrizzleBillingReader,
+  DrizzleInvoiceNumbering,
+  DrizzleInvoiceRepository,
+  DrizzleStatementRepository,
+} from '@amc/billing/infrastructure';
+import {
   ClientVault,
   ContactLog,
   GenerateLetter,
@@ -61,6 +75,7 @@ import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common
 import { APP_FILTER } from '@nestjs/core';
 import type { Logger } from 'pino';
 import { ulid } from 'ulid';
+import { rateReader, unbilledWork, workAttachment } from './billing/adapters.js';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { taskSummaries } from './clients/task-summaries.js';
 import { ConfigModule } from './config/config.module.js';
@@ -279,6 +294,54 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             appSecret: environment.WHATSAPP_APP_SECRET ?? '',
             verifyToken: environment.WHATSAPP_VERIFY_TOKEN ?? '',
           }),
+        };
+      },
+    }),
+    /*
+     * Billing (P2).
+     *
+     * Three of the ports here span two modules, so the adapters live in this
+     * app rather than in billing: which hours are unbilled joins time tracking
+     * to services, and the rate that applied on a day is a rule the clients
+     * module owns and is asked for rather than copied.
+     */
+    BillingModule.forRootAsync({
+      inject: [DATABASE, ENVIRONMENT],
+      useFactory: (db: Database, environment: Environment) => {
+        const ids = { next: () => ulid() };
+        const clock = new SystemClock();
+        const statements = new DrizzleStatementRepository(db);
+        const invoices = new DrizzleInvoiceRepository(db);
+        const attachment = workAttachment(db);
+        const settings = {
+          vatBasisPoints: environment.BILLING_VAT_BASIS_POINTS,
+          paymentTermsDays: environment.BILLING_PAYMENT_TERMS_DAYS,
+        };
+
+        return {
+          read: new ReadBilling(new DrizzleBillingReader(db), clock),
+          generate: new GenerateStatement(
+            unbilledWork(db, environment.BUSINESS_TIME_ZONE),
+            rateReader(db, {
+              perHourMinor: environment.BILLING_DEFAULT_RATE_MINOR,
+              currency: environment.DEFAULT_CURRENCY,
+            }),
+            statements,
+            attachment,
+            clock,
+            ids,
+          ),
+          raise: new RaiseInvoice(
+            statements,
+            invoices,
+            new DrizzleInvoiceNumbering(db),
+            settings,
+            clock,
+            ids,
+          ),
+          settle: new SettleInvoice(invoices, clock, ids),
+          release: new ReleaseFromStatement(statements, attachment),
+          statements,
         };
       },
     }),

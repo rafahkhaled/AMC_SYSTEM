@@ -1,5 +1,6 @@
+import type { InvoiceView, StatementView } from '@amc/contracts';
 import type { Conflict, CurrencyCode, Money, Result } from '@amc/kernel';
-import type { Invoice, Quotation, Statement } from '../domain/index.js';
+import type { BillingScope, Invoice, Quotation, Statement } from '../domain/index.js';
 
 export interface QuotationRepository {
   findById(id: string): Promise<Quotation | null>;
@@ -102,3 +103,23 @@ export interface WorkAttachment {
 /** The caller. Re-exported so modules import their ports, not the kernel. */
 export type { CallerLike } from '@amc/kernel';
 export type { Conflict, Result };
+
+/**
+ * The billing screens.
+ *
+ * A reader rather than a repository: these are joins across five tables that
+ * produce views, and rehydrating aggregates in order to throw most of them
+ * away would be slower and say less.
+ *
+ * Out of scope answers as not found, never as forbidden — telling somebody an
+ * invoice exists but is not theirs is itself the thing being withheld.
+ */
+export interface BillingReader {
+  statements(scope: BillingScope, clientId: string | null): Promise<StatementView[]>;
+  statement(id: string, scope: BillingScope): Promise<StatementView | null>;
+  invoices(
+    scope: BillingScope,
+    options: { outstandingOnly: boolean; asOf: Date },
+  ): Promise<InvoiceView[]>;
+  invoice(id: string, scope: BillingScope): Promise<InvoiceView | null>;
+}

@@ -132,6 +132,18 @@ export class Statement extends AggregateRoot {
     return this.state.state;
   }
 
+  /**
+   * The currency this statement is in.
+   *
+   * Exposed so a caller adjusting a line can build the amount in the right
+   * one without re-deriving it from a string that crossed the wire. The
+   * aggregate already knows; asking it is both shorter and impossible to get
+   * wrong.
+   */
+  get currency(): CurrencyCode {
+    return this.state.currency;
+  }
+
   /** What the client is being asked to pay. */
   total(): Money {
     return Money.sum(

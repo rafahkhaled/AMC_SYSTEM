@@ -50,6 +50,9 @@ importers:
       '@amc/audit':
         specifier: workspace:*
         version: link:../../packages/modules/audit
+      '@amc/billing':
+        specifier: workspace:*
+        version: link:../../packages/modules/billing
       '@amc/clients':
         specifier: workspace:*
         version: link:../../packages/modules/clients

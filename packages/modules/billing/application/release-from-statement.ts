@@ -29,7 +29,7 @@ export class ReleaseFromStatement {
      * A permission enforced only at the edge is one a later caller — a job, a
      * script, another use case — reaches around without noticing.
      */
-    if (!heldBy(caller).has('billing.release')) {
+    if (!heldBy(caller).has('billing.entries.unlink')) {
       return err(new Conflict('Only a manager can take hours back off a statement'));
     }
 

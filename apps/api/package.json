@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@amc/audit": "workspace:*",
+    "@amc/billing": "workspace:*",
     "@amc/clients": "workspace:*",
     "@amc/contracts": "workspace:*",
     "@amc/database": "workspace:*",

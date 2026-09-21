@@ -1,3 +1,4 @@
+export * from './billing.js';
 export * from './calendar.js';
 export * from './clients.js';
 export * from './errors.js';

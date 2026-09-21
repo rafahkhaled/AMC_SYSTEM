@@ -80,6 +80,22 @@ export const environmentSchema = z.object({
   WHATSAPP_API_VERSION: z.string().default('v21.0'),
   FIRM_NAME_ARABIC: z.string().default('الإدارة النشطة للاستشارات'),
 
+  /**
+   * Billing.
+   *
+   * VAT in basis points: 500 is the UAE's five percent, 0 for a firm that is
+   * not registered. A number rather than a flag because it is the rate that
+   * applied when an invoice was issued that stays on it, and a flag cannot
+   * carry a rate that later changes.
+   *
+   * The default hourly rate is what a client with no rate of their own is
+   * billed at. Clients almost always have one; this is the floor under the
+   * arithmetic so a missing rate bills at something visible rather than zero.
+   */
+  BILLING_VAT_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(500),
+  BILLING_PAYMENT_TERMS_DAYS: z.coerce.number().int().positive().max(365).default(30),
+  BILLING_DEFAULT_RATE_MINOR: z.coerce.number().int().nonnegative().default(30_000),
+
   // Business rules. Stored times are UTC; rules are expressed in Dubai time.
   BUSINESS_TIME_ZONE: z.string().default('Asia/Dubai'),
   DEFAULT_CURRENCY: z.enum(['AED', 'USD', 'EUR', 'GBP', 'SAR']).default('AED'),

@@ -9,7 +9,7 @@ const aed = (minor: number) => Money.ofMinor(minor, 'AED');
 
 const manager = {
   userId: 'u-boss',
-  permissions: new Set(['billing.release', 'clients.view.all']),
+  permissions: new Set(['billing.entries.unlink', 'clients.view.all']),
   roles: ['manager'],
   displayName: 'Wael Ajam',
 };
