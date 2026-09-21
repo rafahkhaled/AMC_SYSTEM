@@ -6,9 +6,9 @@ import { Button } from '../design/index.js';
 import { useSession } from '../features/auth/session.js';
 import { useUnreadCount } from '../features/inbox/inbox-page.js';
 
-type NavView = 'clients' | 'tasks' | 'calendar' | 'timer' | 'inbox' | 'home';
+type NavView = 'clients' | 'tasks' | 'calendar' | 'timer' | 'whatsapp' | 'inbox' | 'home';
 
-const VIEWS = ['clients', 'tasks', 'calendar', 'timer', 'inbox', 'home'] as const;
+const VIEWS = ['clients', 'tasks', 'calendar', 'timer', 'whatsapp', 'inbox', 'home'] as const;
 
 /**
  * The frame every signed-in screen sits in.

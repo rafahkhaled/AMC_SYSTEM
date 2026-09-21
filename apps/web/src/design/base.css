@@ -1246,6 +1246,86 @@ a {
  * rendered to a PDF on the server: browsers shape it correctly and PDF
  * libraries mostly do not. "Print to PDF" is one keystroke away in all of them.
  */
+/*
+ * WhatsApp: the conversation list and one thread (PW-08).
+ *
+ * Logical properties throughout, and no `[dir="rtl"]` rule anywhere. A thread
+ * is the one screen where a direction mistake is obvious — the bubbles end up
+ * on the wrong sides — and writing it with `inline-start` means Arabic mirrors
+ * the whole thing without a second set of rules to keep in step.
+ */
+.row--button {
+  display: flex;
+  inline-size: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.row--button:hover {
+  border-color: var(--line-strong);
+}
+.row--open {
+  border-color: var(--accent);
+}
+.row__main {
+  display: grid;
+  /* Without this the name of a long-named client stretches the row and the
+     badges fall off the end. A grid child defaults to min-width: auto. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+}
+.u-row--tight {
+  gap: var(--space-2);
+}
+
+.thread {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-block-size: 26rem;
+  overflow-y: auto;
+}
+
+.bubble {
+  max-inline-size: min(44ch, 85%);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  /* The client's words are the ones being read closely, so they get the plain
+     surface and the practice's own get the tinted one. */
+  background: var(--surface-sunken);
+}
+.bubble--out {
+  margin-inline-start: auto;
+  background: var(--accent-soft);
+}
+.bubble--in {
+  margin-inline-end: auto;
+}
+.bubble__body {
+  margin: 0;
+  /* WhatsApp messages carry their own line breaks, and a menu that arrives as
+     one long line is not a menu. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bubble__foot {
+  display: block;
+  margin-block-start: var(--space-1);
+  font-size: var(--text-xs);
+}
+
 @media print {
   .shell__menu,
   .shell__bar,
