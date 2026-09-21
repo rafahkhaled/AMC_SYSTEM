@@ -8,10 +8,19 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 # Manifests first, so a source change does not reinstall the world.
+#
+# Every workspace member has to be listed. pnpm reads the lockfile against the
+# manifests actually present, so a missing one is not a smaller install — it is
+# a failed one, and the failure names the lockfile rather than the package.
+#
+# This list drifted six packages behind the workspace and nobody noticed,
+# because this machine has no Docker and nothing ever built the image.
+# `scripts/dockerfile-manifests.mjs` now compares the two and fails the gate,
+# which is the only reason to trust the list below rather than re-check it.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
-COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/database/package.json packages/database/
 COPY packages/http-kit/package.json packages/http-kit/
@@ -20,7 +29,13 @@ COPY packages/queue/package.json packages/queue/
 COPY packages/storage/package.json packages/storage/
 COPY packages/vault/package.json packages/vault/
 COPY packages/modules/audit/package.json packages/modules/audit/
+COPY packages/modules/clients/package.json packages/modules/clients/
+COPY packages/modules/deadlines/package.json packages/modules/deadlines/
 COPY packages/modules/identity/package.json packages/modules/identity/
+COPY packages/modules/notifications/package.json packages/modules/notifications/
+COPY packages/modules/services/package.json packages/modules/services/
+COPY packages/modules/time-tracking/package.json packages/modules/time-tracking/
+COPY packages/modules/whatsapp/package.json packages/modules/whatsapp/
 
 RUN pnpm install --frozen-lockfile
 

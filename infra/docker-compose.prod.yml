@@ -12,15 +12,48 @@ x-server: &server
     context: ..
     target: server
   restart: unless-stopped
+  # These names are the ones the code actually reads. Four of the names that
+  # were here before — S3_BUCKET, S3_REGION, VAULT_KMS_KEY_ID and
+  # ANTHROPIC_API_KEY — are read by nothing: they were written from the plan
+  # rather than from the schema, and the two storage ones were near-misses for
+  # STORAGE_BUCKET and STORAGE_REGION, which are what the application wants.
+  # The API refuses to boot in production unless STORAGE_DRIVER is s3, so the
+  # first deploy would have failed with a message about storage and a compose
+  # file that appeared to configure it.
   environment:
     NODE_ENV: production
     DATABASE_URL: postgres://amc:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/amc
     SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:?set SECRET_ENCRYPTION_KEY}
-    S3_BUCKET: ${S3_BUCKET:-}
-    S3_REGION: ${S3_REGION:-me-central-1}
-    VAULT_KMS_KEY_ID: ${VAULT_KMS_KEY_ID:-}
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     LOG_LEVEL: ${LOG_LEVEL:-info}
+
+    # Documents. A folder on the application server is not where a firm's
+    # client records belong, which is why production will not accept 'local'.
+    STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+    STORAGE_BUCKET: ${STORAGE_BUCKET:?set STORAGE_BUCKET}
+    STORAGE_REGION: ${STORAGE_REGION:-me-central-1}
+
+    # The firm, as it signs its own letters and greets clients on WhatsApp.
+    FIRM_NAME: ${FIRM_NAME:-Active Management Consultancy}
+    FIRM_SIGNATORY: ${FIRM_SIGNATORY:-}
+    FIRM_NAME_ARABIC: ${FIRM_NAME_ARABIC:-}
+
+    BUSINESS_TIME_ZONE: ${BUSINESS_TIME_ZONE:-Asia/Dubai}
+    DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-AED}
+
+    # WhatsApp. 'log' until Meta approves the business account, which runs the
+    # whole path and writes the last step to the log instead of to a phone.
+    # 'cloud' requires all four and the API refuses to boot without them.
+    WHATSAPP_DRIVER: ${WHATSAPP_DRIVER:-log}
+    WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+    WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+    WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+    WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+
+    # Email, read by the worker. No sender means the worker writes emails to
+    # the log, which is the right default for a practice without a verified
+    # address: a working system and a note, not a crash on the first escalation.
+    NOTIFICATION_FROM: ${NOTIFICATION_FROM:-}
+    SES_REGION: ${SES_REGION:-me-central-1}
   depends_on:
     postgres:
       condition: service_healthy
