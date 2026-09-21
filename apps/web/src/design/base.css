@@ -128,9 +128,24 @@ a {
   color: var(--text-faint);
   font-size: var(--text-xs);
 }
-/* Identifiers, amounts and codes read left to right in any language. */
+/*
+ * Identifiers, amounts, codes and phone numbers read left to right in any
+ * language.
+ *
+ * `direction` alone was not enough, and the way it failed was invisible until
+ * an Arabic screen was opened in a browser: on an inline element it sets the
+ * base direction without starting a new bidi run, so neutral characters at
+ * the edges still belong to the surrounding paragraph. `+971 50 123 4567` in
+ * an Arabic line rendered as `4567 123 50 971+` — the plus moved to the far
+ * end and the number read as a different one.
+ *
+ * `isolate` is what makes the span its own run. This is not a direction rule
+ * of the kind the rest of this stylesheet avoids: it states the direction of
+ * the content, which is the one case where saying so is correct.
+ */
 .u-ltr {
   direction: ltr;
+  unicode-bidi: isolate;
 }
 .u-mono {
   font-family: var(--font-mono);

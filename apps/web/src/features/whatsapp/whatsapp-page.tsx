@@ -87,7 +87,7 @@ function ConversationRow({
     >
       <span className="row__main">
         <strong>{who}</strong>
-        <span className="u-text-faint">{conversation.phoneFormatted}</span>
+        <span className="u-text-faint u-ltr">{conversation.phoneFormatted}</span>
       </span>
 
       <span className="u-row u-row--tight">
@@ -148,7 +148,7 @@ function Thread({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <Card
       title={conversation.clientName ?? conversation.profileName ?? conversation.phoneFormatted}
-      description={conversation.phoneFormatted}
+      description={<span className="u-ltr">{conversation.phoneFormatted}</span>}
     >
       <div className="u-row">
         <Button small tone="quiet" onClick={onClose}>
