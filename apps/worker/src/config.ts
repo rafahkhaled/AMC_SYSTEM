@@ -1,3 +1,4 @@
+import { definedOnly } from '@amc/kernel';
 import { z } from 'zod';
 
 export const workerEnvironmentSchema = z.object({
@@ -33,7 +34,10 @@ export const workerEnvironmentSchema = z.object({
 export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>;
 
 export function readWorkerEnvironment(source: NodeJS.ProcessEnv = process.env): WorkerEnvironment {
-  const parsed = workerEnvironmentSchema.safeParse(source);
+  // Empty is absent. See definedOnly: compose writes `FOO: ${FOO:-}` for
+  // everything optional, and an empty string defeats both .optional() and
+  // .default().
+  const parsed = workerEnvironmentSchema.safeParse(definedOnly(source));
   if (parsed.success) return parsed.data;
   const issues = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
   throw new Error(`Worker configuration is not usable:\n  ${issues.join('\n  ')}`);

@@ -71,6 +71,28 @@ if ! command -v aws > /dev/null; then
   rm -rf /tmp/awscli.zip /tmp/aws
 fi
 
+# -------------------------------------------------------------------- swap --
+say "Swap"
+#
+# A t3.small has two gigabytes, and the image build does not fit in it: the
+# first build ever attempted was killed by the OOM killer partway through
+# compiling the workspace. The Dockerfile now limits how much it builds at
+# once, and this is the second half of that fix — headroom for the peak
+# rather than a hard wall at it.
+#
+# Two gigabytes of swap on a gp3 volume costs about sixteen fils a month.
+if ! swapon --show | grep -q .; then
+  sudo fallocate -l 2G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile > /dev/null
+  sudo swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab > /dev/null
+  # Swap is here for the build's peak, not to page the running system out.
+  sudo sysctl -q vm.swappiness=10
+  grep -q '^vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf > /dev/null
+fi
+swapon --show | sed 's/^/    /'
+
 # ---------------------------------------------------------------- firewall --
 say "Firewall"
 # The security group is the real boundary; this is the second one, in case a

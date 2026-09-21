@@ -43,6 +43,16 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 WORKDIR /app
 COPY . .
+
+# Turbo builds every package it can at once, which on a two-gigabyte instance
+# means eighteen `tsc -b` processes and a Vite build competing for memory. The
+# first build ever attempted was killed by the OOM killer at exactly that
+# point, on the same instance size this is deployed to.
+#
+# Two at a time is barely slower on two vCPUs — the parallelism was never
+# buying much there — and it is the difference between a build that finishes
+# and one that dies two thirds of the way through with exit 137.
+ENV TURBO_CONCURRENCY=2
 RUN pnpm build
 
 # ---- the server image --------------------------------------------------
@@ -58,7 +68,19 @@ RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 COPY --from=build --chown=amc:amc /app /app
 
 # Production dependencies only; the build tooling has done its job.
-RUN pnpm prune --prod && chown -R amc:amc /app/node_modules
+#
+# `pnpm install --prod`, not `pnpm prune --prod`. Pruning at the root of a
+# workspace prunes the root project: it leaves the packages themselves in the
+# virtual store and removes every symlink into it, so `packages/database`
+# ends up with an empty node_modules while `postgres@3.4.9` sits in
+# `.pnpm/` untouched. The image builds, and the migration container then dies
+# with ERR_MODULE_NOT_FOUND for a package that is demonstrably present.
+#
+# CI=true because both commands stop to ask "the modules directories will be
+# removed and reinstalled from scratch, proceed?" and wait for an answer.
+# Nobody can answer inside a build, so it hangs rather than fails — silently,
+# until something else gives up.
+RUN CI=true pnpm install --prod --frozen-lockfile && chown -R amc:amc /app/node_modules
 
 USER amc
 

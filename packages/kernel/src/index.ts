@@ -3,6 +3,7 @@ export * from './caller.js';
 export * from './clock.js';
 export * from './domain-event.js';
 export * from './duration.js';
+export * from './environment.js';
 export * from './errors.js';
 export * from './id.js';
 export * from './money.js';

@@ -1,3 +1,4 @@
+import { definedOnly } from '@amc/kernel';
 import { z } from 'zod';
 
 /**
@@ -152,7 +153,10 @@ export class ConfigurationError extends Error {
 }
 
 export function readEnvironment(source: NodeJS.ProcessEnv = process.env): Environment {
-  const parsed = validatedSchema.safeParse(source);
+  // Empty is absent. See definedOnly: compose writes `FOO: ${FOO:-}` for
+  // everything optional, and an empty string defeats both .optional() and
+  // .default().
+  const parsed = validatedSchema.safeParse(definedOnly(source));
   if (parsed.success) return parsed.data;
 
   const issues = parsed.error.issues.map(
