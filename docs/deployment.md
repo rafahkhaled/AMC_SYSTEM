@@ -15,7 +15,51 @@ Everything here is done from your own machine with the AWS CLI, signed in as a
 user who can create IAM, EC2 and S3 resources. The console does the same job if
 you prefer clicking; the names below are what the second half expects.
 
-Set the region first. Every command assumes it.
+### Before any of it
+
+**The CLI**, if `aws` is not found. There is no Homebrew on this machine, so
+the official installer goes into the home directory instead, beside node and
+pnpm, and needs no administrator password:
+
+```bash
+cd /tmp
+curl -fsSL https://awscli.amazonaws.com/AWSCLIV2.pkg -o AWSCLIV2.pkg
+cat > choices.xml <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><array><dict>
+  <key>choiceAttribute</key><string>customLocation</string>
+  <key>attributeSetting</key><string>HOME/.local/opt</string>
+  <key>choiceIdentifier</key><string>default</string>
+</dict></array></plist>
+XML
+sed -i '' "s|HOME|$HOME|" choices.xml
+installer -pkg AWSCLIV2.pkg -target CurrentUserHomeDirectory -applyChoiceChangesXML choices.xml
+ln -sf "$HOME/.local/opt/aws-cli/aws" "$HOME/.local/bin/aws"
+ln -sf "$HOME/.local/opt/aws-cli/aws_completer" "$HOME/.local/bin/aws_completer"
+rm -f AWSCLIV2.pkg choices.xml
+```
+
+**Credentials.** Create an access key for a user with the permissions above,
+then `aws configure` and answer its four questions. Set the region to
+`me-central-1`. Nobody else needs to see the key, including whoever is helping
+you deploy.
+
+**The region has to be switched on.** Middle East (UAE) is an *opt-in* region:
+a fresh account cannot use it until somebody enables it, and every command
+below fails with an authorisation error until they have. Console → your
+account name → **Account** → **AWS Regions** → enable **Middle East (UAE)
+me-central-1**. It takes a few minutes to become usable.
+
+```bash
+aws account get-region-opt-status --region-name me-central-1
+# ENABLED. Anything else and the rest of this document will not work.
+```
+
+Data residency is the whole reason for this region (ADR-0005), so this is not
+a step to work around by choosing a closer one that is already on.
+
+### The names everything below uses
 
 ```bash
 export AWS_REGION=me-central-1
