@@ -27,6 +27,7 @@
     { "path": "../../packages/modules/services" },
     { "path": "../../packages/modules/time-tracking" },
     { "path": "../../packages/modules/identity" },
-    { "path": "../../packages/modules/notifications" }
+    { "path": "../../packages/modules/notifications" },
+    { "path": "../../packages/modules/whatsapp" }
   ]
 }

@@ -86,6 +86,9 @@ importers:
       '@amc/vault':
         specifier: workspace:*
         version: link:../../packages/vault
+      '@amc/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/modules/whatsapp
       '@aws-sdk/client-s3':
         specifier: ^3.1132.0
         version: 3.1132.0

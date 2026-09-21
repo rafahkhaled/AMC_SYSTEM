@@ -57,6 +57,28 @@ export const environmentSchema = z.object({
   FIRM_NAME: z.string().default('Active Management Consultancy'),
   FIRM_SIGNATORY: z.string().default('Wael Ajam'),
 
+  /**
+   * WhatsApp, through Meta's Cloud API.
+   *
+   * All optional, and the driver defaults to `log`, because the business
+   * account takes weeks to approve and nothing else should wait for it. The
+   * logging driver exercises the whole path — a message is composed, stored,
+   * queued, given an id and marked sent — so what is left untested when the
+   * real credentials arrive is one HTTP call, and not the bot.
+   *
+   * WHATSAPP_APP_SECRET signs the webhook; without it every delivery is
+   * refused, which is the correct behaviour for a `cloud` driver that has not
+   * been given one. WHATSAPP_VERIFY_TOKEN is the string Meta echoes during the
+   * subscription handshake and is chosen by us, not issued.
+   */
+  WHATSAPP_DRIVER: z.enum(['log', 'cloud']).default('log'),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
+  WHATSAPP_APP_SECRET: z.string().optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  WHATSAPP_API_VERSION: z.string().default('v21.0'),
+  FIRM_NAME_ARABIC: z.string().default('الإدارة النشطة للاستشارات'),
+
   // Business rules. Stored times are UTC; rules are expressed in Dubai time.
   BUSINESS_TIME_ZONE: z.string().default('Asia/Dubai'),
   DEFAULT_CURRENCY: z.enum(['AED', 'USD', 'EUR', 'GBP', 'SAR']).default('AED'),
@@ -65,6 +87,30 @@ export const environmentSchema = z.object({
 const DEVELOPMENT_KEY = Buffer.alloc(32, 'amc-development-key').toString('base64');
 
 const validatedSchema = environmentSchema.superRefine((environment, context) => {
+  /*
+   * A `cloud` driver with nothing to authenticate with.
+   *
+   * Refused at boot rather than at the first message. The failure mode
+   * otherwise is silent in the worst way: the practice believes WhatsApp is
+   * live, clients write in, and every reply fails somewhere nobody is looking.
+   */
+  if (environment.WHATSAPP_DRIVER === 'cloud') {
+    for (const key of [
+      'WHATSAPP_PHONE_NUMBER_ID',
+      'WHATSAPP_ACCESS_TOKEN',
+      'WHATSAPP_APP_SECRET',
+      'WHATSAPP_VERIFY_TOKEN',
+    ] as const) {
+      if (!environment[key]) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: 'is required when WHATSAPP_DRIVER is cloud',
+        });
+      }
+    }
+  }
+
   if (environment.NODE_ENV === 'production' && !environment.SECRET_ENCRYPTION_KEY) {
     context.addIssue({
       code: z.ZodIssueCode.custom,

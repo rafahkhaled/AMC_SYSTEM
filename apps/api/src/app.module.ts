@@ -48,8 +48,18 @@ import {
   DrizzleWorkingHoursRepository,
 } from '@amc/time-tracking/infrastructure';
 import { AuditedVault, EnvelopeCipher, LocalKeyProvider } from '@amc/vault';
+import { ReadConversations, ReceiveMessage, RecordDelivery, SendMessage } from '@amc/whatsapp';
+import { WhatsAppModule } from '@amc/whatsapp/http';
+import {
+  DrizzleContactDirectory,
+  DrizzleConversationReader,
+  DrizzleConversationRepository,
+  DrizzleMessageRepository,
+  MetaWebhookGateway,
+} from '@amc/whatsapp/infrastructure';
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import type { Logger } from 'pino';
 import { ulid } from 'ulid';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { taskSummaries } from './clients/task-summaries.js';
@@ -58,6 +68,7 @@ import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
 import { contactFileStore, documentFileStore } from './documents/adapters.js';
 import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
+import { LOGGER } from './observability/logger.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
@@ -66,6 +77,14 @@ import { taskContext } from './tasks/adapters.js';
 import { workloadReader } from './tasks/workload.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
 import { secretAccessRecorder } from './vault/adapters.js';
+import {
+  contactLogWriter,
+  deadlineReader,
+  documentFiler,
+  staffNotifier,
+  staffPicker,
+} from './whatsapp/adapters.js';
+import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
 
 /**
  * The composition root. This is the only file allowed to know which adapter
@@ -178,6 +197,88 @@ import { secretAccessRecorder } from './vault/adapters.js';
             ids,
           ),
           read: new ReadTimer(timerViewReader(db), clock),
+        };
+      },
+    }),
+    /*
+     * WhatsApp (P-W).
+     *
+     * Every port this module declares is answered here, which is the whole
+     * point of it declaring them: the module knows there is a way to file a
+     * document and a way to tell somebody, and nothing about Postgres, S3 or
+     * Meta. Swapping the transport for the logging one is a configuration
+     * change, and it is how the whole path is exercised before the business
+     * account exists.
+     */
+    WhatsAppModule.forRootAsync({
+      imports: [StorageModule],
+      inject: [DATABASE, ENVIRONMENT, LOGGER, FILE_STORAGE],
+      useFactory: (
+        db: Database,
+        environment: Environment,
+        logger: Logger,
+        storage: FileStorage,
+      ) => {
+        const ids = { next: () => ulid() };
+        const clock = new SystemClock();
+
+        /*
+         * The clients module's own use case, not an insert.
+         *
+         * It is what supersedes a previous version of a document in the right
+         * order — supersede first, insert second — and doing that backwards is
+         * a bug this project has already had once.
+         */
+        const documents = new ReceiveDocument(
+          new DrizzleUnitOfWork(db, ids, clock),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) =>
+              new DrizzleDocumentRepository(transaction as Database, collector),
+          },
+          new DrizzleDocumentRepository(db),
+          documentFileStore(storage),
+          ids,
+        );
+
+        const conversations = new DrizzleConversationRepository(db);
+        const messages = new DrizzleMessageRepository(db);
+        const log = contactLogWriter(db, ids);
+        const transport =
+          environment.WHATSAPP_DRIVER === 'cloud'
+            ? cloudApiTransport(
+                {
+                  // Checked at boot: the environment refuses a cloud driver
+                  // with any of these missing, so they are present here.
+                  phoneNumberId: environment.WHATSAPP_PHONE_NUMBER_ID ?? '',
+                  accessToken: environment.WHATSAPP_ACCESS_TOKEN ?? '',
+                  apiVersion: environment.WHATSAPP_API_VERSION,
+                },
+                logger,
+              )
+            : loggingTransport(logger);
+
+        return {
+          conversations: new ReadConversations(new DrizzleConversationReader(db), clock),
+          send: new SendMessage(conversations, messages, log, transport, clock, ids),
+          receive: new ReceiveMessage(
+            conversations,
+            messages,
+            new DrizzleContactDirectory(db),
+            log,
+            documentFiler(documents),
+            deadlineReader(db),
+            staffPicker(db),
+            staffNotifier(db, ids),
+            transport,
+            { name: { en: environment.FIRM_NAME, ar: environment.FIRM_NAME_ARABIC } },
+            clock,
+            ids,
+          ),
+          deliveries: new RecordDelivery(messages),
+          gateway: new MetaWebhookGateway({
+            appSecret: environment.WHATSAPP_APP_SECRET ?? '',
+            verifyToken: environment.WHATSAPP_VERIFY_TOKEN ?? '',
+          }),
         };
       },
     }),

@@ -33,6 +33,7 @@ export class WhatsAppModule {
    * repositories has already decided both.
    */
   static forRootAsync(options: {
+    imports?: DynamicModule['imports'];
     inject?: (InjectionToken | OptionalFactoryDependency)[];
     useFactory: (...dependencies: never[]) => WhatsAppParts | Promise<WhatsAppParts>;
   }): DynamicModule {
@@ -40,6 +41,7 @@ export class WhatsAppModule {
 
     return {
       module: WhatsAppModule,
+      imports: options.imports ?? [],
       controllers: [WhatsAppController, WhatsAppWebhookController],
       providers: [
         {

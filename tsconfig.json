@@ -35,6 +35,12 @@
       "path": "./packages/modules/identity"
     },
     {
+      "path": "./packages/modules/notifications"
+    },
+    {
+      "path": "./packages/modules/whatsapp"
+    },
+    {
       "path": "./packages/modules/services"
     },
     {

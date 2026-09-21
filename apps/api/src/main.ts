@@ -23,6 +23,16 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     logger: new PinoLoggerService(logger),
     bufferLogs: true,
+    /*
+     * Keep the bytes of every request body alongside the parsed one.
+     *
+     * The WhatsApp webhook is authenticated by an HMAC over exactly what Meta
+     * sent, and JSON.parse followed by JSON.stringify does not reproduce those
+     * bytes — key order, whitespace and unicode escapes all differ, and the
+     * digest differs with them. Without this the signature never matches and
+     * every message a client sends is refused.
+     */
+    rawBody: true,
   });
 
   /**
