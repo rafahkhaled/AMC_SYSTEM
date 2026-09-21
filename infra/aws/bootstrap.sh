@@ -2,9 +2,15 @@
 #
 # Prepares a fresh Ubuntu 24.04 instance in me-central-1 to run the system.
 #
-#   curl -fsSL https://gitlab.com/rafahkhaled7118/amc-system/-/raw/main/infra/aws/bootstrap.sh -o bootstrap.sh
+#   # from your laptop, inside the repository:
+#   scp -i ~/.ssh/amc.pem infra/aws/bootstrap.sh ubuntu@<instance>:~/
+#   ssh -i ~/.ssh/amc.pem ubuntu@<instance>
 #   less bootstrap.sh          # read it before running it
 #   bash bootstrap.sh
+#
+# Copied up rather than fetched, because the repository is private: there is no
+# URL this script could curl itself from before it has arranged the access it
+# needs to clone.
 #
 # Safe to run twice. Every step checks whether it has already been done, so a
 # half-finished run can simply be repeated rather than unpicked.
@@ -15,7 +21,7 @@
 
 set -euo pipefail
 
-REPO="${AMC_REPO:-https://gitlab.com/rafahkhaled7118/amc-system.git}"
+REPO="${AMC_REPO:-git@gitlab.com:rafahkhaled7118/amc-system.git}"
 BRANCH="${AMC_BRANCH:-main}"
 DIRECTORY="${AMC_DIRECTORY:-/opt/amc}"
 COMPOSE="docker compose -f infra/docker-compose.prod.yml --env-file .env.production"
@@ -74,6 +80,42 @@ sudo ufw allow 80/tcp  > /dev/null
 sudo ufw allow 443/tcp > /dev/null
 sudo ufw --force enable > /dev/null
 sudo ufw status | sed 's/^/    /'
+
+# ------------------------------------------------------------- repository access --
+say "Repository access"
+#
+# The repository is private, so the instance needs its own read-only way in.
+# A deploy key rather than a token: the private half is generated here and
+# never leaves this machine, there is nothing to paste into a script or a
+# shell history, and revoking it is one click that affects nothing else.
+if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
+  ssh-keygen -t ed25519 -N '' -C "amc-deploy-$(hostname)" -f "$HOME/.ssh/id_ed25519" > /dev/null
+  echo "    generated a new key for this instance"
+fi
+ssh-keyscan -t rsa,ecdsa,ed25519 gitlab.com 2>/dev/null | sort -u >> "$HOME/.ssh/known_hosts"
+sort -u -o "$HOME/.ssh/known_hosts" "$HOME/.ssh/known_hosts"
+
+if ! ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes git@gitlab.com 2>&1 | grep -qi "welcome\|successfully"; then
+  cat <<NOTE
+
+    This instance cannot read the repository yet.
+
+    Add the public key below to GitLab as a *deploy key*, with read-only
+    access — Project → Settings → Repository → Deploy keys → Add key:
+
+NOTE
+  echo "    $(cat "$HOME/.ssh/id_ed25519.pub")"
+  cat <<'NOTE'
+
+    Read-only. This instance never pushes, and a deploy key that can write is
+    a server that can rewrite the history it deploys from.
+
+    Then run this script again.
+
+NOTE
+  die "add the deploy key first"
+fi
+echo "    gitlab.com accepts this instance's key"
 
 # ------------------------------------------------------------------ source --
 say "Source at ${DIRECTORY}"

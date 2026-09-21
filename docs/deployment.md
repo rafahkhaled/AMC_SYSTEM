@@ -269,17 +269,33 @@ verified, which is enough for testing and not for clients.
 
 ## Part two: the instance
 
+The repository is private, so the script is copied up rather than fetched:
+there is no URL it could curl itself from before it has arranged the access it
+needs to clone.
+
 ```bash
+# from your laptop, inside the repository
+scp -i ~/.ssh/amc.pem infra/aws/bootstrap.sh ubuntu@"$AMC_DOMAIN":~/
 ssh -i ~/.ssh/amc.pem ubuntu@"$AMC_DOMAIN"
 
-curl -fsSL https://gitlab.com/rafahkhaled7118/amc-system/-/raw/main/infra/aws/bootstrap.sh -o bootstrap.sh
 less bootstrap.sh          # read it before running it
 bash bootstrap.sh
 ```
 
-It installs Docker, clones the repository to `/opt/amc`, and stops the first
-time to tell you to fill in `.env.production`. Generate the three secrets it
-names, set `SITE_ADDRESS`, `ACME_EMAIL` and `STORAGE_BUCKET`, and run it again.
+It stops **twice**, on purpose, each time asking for something only a person
+can give it.
+
+**First, for a deploy key.** It generates an SSH key on the instance and prints
+the public half. Add it in GitLab under Project → Settings → Repository →
+Deploy keys, **read-only** — this instance never pushes, and a deploy key that
+can write is a server that can rewrite the history it deploys from. A deploy
+key rather than a token because the private half is generated on the instance
+and never leaves it: nothing to paste into a script or a shell history, and
+revoking it is one click that affects nothing else.
+
+**Then, for the secrets.** It writes `.env.production` from the example and
+stops. Generate the three it names, set `SITE_ADDRESS`, `ACME_EMAIL` and
+`STORAGE_BUCKET`, and run it again.
 
 The backup passphrase must also live somewhere that survives the server,
 because a backup you cannot decrypt is not a backup and this instance is the
