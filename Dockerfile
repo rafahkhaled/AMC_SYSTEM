@@ -29,6 +29,7 @@ COPY packages/queue/package.json packages/queue/
 COPY packages/storage/package.json packages/storage/
 COPY packages/vault/package.json packages/vault/
 COPY packages/modules/audit/package.json packages/modules/audit/
+COPY packages/modules/billing/package.json packages/modules/billing/
 COPY packages/modules/clients/package.json packages/modules/clients/
 COPY packages/modules/deadlines/package.json packages/modules/deadlines/
 COPY packages/modules/identity/package.json packages/modules/identity/
