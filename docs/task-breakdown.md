@@ -254,9 +254,26 @@ same channel.
 | PW-08 | The staff screen: conversations, threads, take over from the bot and hand back | FR-65 | PW-05 | 1.5 |
 | PW-09 | **Acceptance run** against a real WhatsApp Business number | — | all PW | 0.5 |
 
-**PW-09 is blocked until Meta approves the business account.** Everything
-before it is built and tested against a fake transport, the same way email was
-built against a logging sender in P1 before SES existed.
+**PW-01 to PW-08 are done.** PW-09 is blocked until Meta approves the business
+account. Everything before it is built and exercised against a running server
+with `WHATSAPP_DRIVER=log`, the same way email was built against a logging
+sender in P1 before SES existed: a message is read from the webhook, matched to
+a client, stored, answered, written to the contact log, queued, given an id and
+marked sent — and only the last call differs.
+
+What PW-09 still has to prove on a real number: Meta's Cloud API itself, the
+media fetch, and template sending, which cannot be tried at all until Meta
+approves the templates.
+
+Two things are deliberately not built and are not in the list above, because
+nothing needs them yet:
+
+- Matching an inbound number to an existing **lead** rather than a client.
+  `leads.phone_e164` is indexed for it; the directory does not use it, so an
+  enquiry from a number already on the leads board arrives as a stranger.
+- **Outbound chasing on a schedule.** `SendMessage.asTemplate` exists and the
+  worker does not call it. Turning the escalation ladder into WhatsApp
+  templates is the natural next step and belongs with P5.
 
 ---
 
