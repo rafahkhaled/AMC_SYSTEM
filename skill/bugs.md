@@ -460,6 +460,111 @@ either side. When you add one, grep for the name in the code before believing
 the file that sets it. A near-miss name is worse than a missing one, because
 it looks configured.
 
+## The ones a rehearsal on a throwaway server found
+
+The image had never been built by anybody, so before the first real deploy it
+was built on a disposable instance in another region. Five failures, in one
+afternoon, every one of which would have landed on the production server with
+the domain already pointed at it. They are listed in the order they appeared,
+because the order is the point: each was hidden behind the one before.
+
+### bootstrap.sh could not clone the repository
+
+**Symptom:** `curl: (22) ... 403` on the very first command.
+
+**Cause:** the script fetched itself from a raw GitLab URL and cloned over
+HTTPS. The project is private; both return 401.
+
+**Fix:** the script is copied up with `scp`, and generates an SSH key on the
+instance whose public half is added to GitLab as a read-only deploy key. It
+stops and prints the key rather than guessing.
+
+**Lesson:** a deploy script cannot fetch itself from the thing it is arranging
+access to. Check the first command of a runbook from a machine that has none
+of your credentials.
+
+### The image build was killed by the OOM killer
+
+**Symptom:** `exit=137` two thirds of the way through compiling the workspace.
+
+**Cause:** turbo builds every package it can at once. Eighteen `tsc -b`
+processes and a Vite build do not fit in the two gigabytes a t3.small has, and
+there was no swap.
+
+**Fix:** `TURBO_CONCURRENCY=2` in the Dockerfile and two gigabytes of swap in
+`bootstrap.sh`. Peak memory went from "killed" to 781 MB.
+
+**Lesson:** the machine that builds the image is the machine that runs it, and
+it is the smallest one in the system. Parallelism tuned on a laptop is a
+memory limit somewhere else.
+
+### `pnpm prune` hung the build instead of failing it
+
+**Symptom:** nothing. Twenty minutes of silence at
+`RUN pnpm prune --prod`.
+
+**Cause:** pnpm asks "the modules directories will be removed and reinstalled
+from scratch, proceed?" and waits. Nothing inside a build can answer.
+
+**Fix:** `CI=true`.
+
+**Lesson:** a hang is worse than a failure, because there is no error to
+search for and no exit code to check. Any build step that could prompt needs
+to be told it is not talking to a person.
+
+### `pnpm prune --prod` left the store and removed every symlink
+
+**Symptom:** the image built clean, then the migration container died with
+`Cannot find package 'postgres'` — for a package sitting in
+`node_modules/.pnpm/postgres@3.4.9`, plainly present.
+
+**Cause:** pruning at the root of a workspace prunes the root project. The
+packages stay in the virtual store; the symlinks into it from each workspace
+package do not. `packages/database/node_modules` was empty.
+
+**Fix:** `pnpm install --prod --frozen-lockfile`, which relinks across the
+whole workspace.
+
+**Lesson:** in a pnpm workspace, "is the package there" and "can this file
+import it" are different questions. The store answers the first and the
+symlink answers the second.
+
+### An empty environment variable is not an unset one
+
+**Symptom:** the worker crash-looped with `NOTIFICATION_FROM: Invalid email`
+while `NOTIFICATION_FROM` was, apparently, not set.
+
+**Cause:** compose writes every optional variable as `FOO: ${FOO:-}`, which
+puts `FOO=` into the container rather than leaving it out.
+`z.string().email().optional()` accepts `undefined` and rejects `''`.
+
+The same cause had a second, silent form: `FIRM_NAME_ARABIC` has a default,
+and `z.string().default('...')` accepts `''` as a perfectly good string. The
+default never applied, and the only sign was a WhatsApp greeting welcoming
+clients to a firm with no name.
+
+**Fix:** `definedOnly` in the kernel, dropping variables that carry nothing
+before either schema sees them.
+
+**Lesson:** the loud half of this would have been found in an hour. The silent
+half would have gone out over the practice's name to every Arabic-speaking
+client. When a variable is optional, test it empty as well as absent — they
+are not the same value and only one of them is what compose actually sends.
+
+### A deploy user that could create instances but not terminate them
+
+**Symptom:** the throwaway instance would not tear down.
+
+**Cause:** the scoped policy granted `ec2:RunInstances` and no
+`ec2:TerminateInstances`.
+
+**Fix:** lifecycle actions added, limited by condition to instances tagged
+`amc*`.
+
+**Lesson:** scope a policy by what the job needs end to end, including the
+end. Create without destroy does not fail safe — it leaves something running
+that nobody is looking at, on somebody's bill.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`

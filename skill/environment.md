@@ -72,7 +72,13 @@ phase is done.
 
 ## What cannot be verified here
 
-- **Docker**, so the production image and compose file have never been built.
+- **Docker**, so the production image and compose file cannot be built *here*.
+  They have now been built and run once, on a disposable EC2 instance in
+  us-east-1, which is the only reason any of it is known to work. That
+  rehearsal found five failures in an afternoon — see `bugs.md`. Do the same
+  before any change to the Dockerfile or the compose file is trusted: a
+  throwaway instance costs about ten cents and is the only machine in this
+  project that can tell you the truth about either file.
   This is not a small gap: the Dockerfile's dependency stage had drifted six
   workspace packages behind and `pnpm install --frozen-lockfile` would have
   failed in the image, naming the lockfile rather than the missing package.
