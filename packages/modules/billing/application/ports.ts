@@ -1,4 +1,5 @@
-import type { Quotation } from '../domain/index.js';
+import type { Conflict, CurrencyCode, Money, Result } from '@amc/kernel';
+import type { Quotation, Statement } from '../domain/index.js';
 
 export interface QuotationRepository {
   findById(id: string): Promise<Quotation | null>;
@@ -9,5 +10,69 @@ export interface QuotationRepository {
   lapsed(asOf: Date, limit: number): Promise<Quotation[]>;
 }
 
+export interface StatementRepository {
+  findById(id: string): Promise<Statement | null>;
+  save(statement: Statement): Promise<void>;
+}
+
+/**
+ * One piece of recorded work, ready to be priced.
+ *
+ * Flat rather than an aggregate, because billing does not own time entries and
+ * should not learn their shape. The composition root joins time-tracking's
+ * tables to services' and hands over what billing actually needs: whose work,
+ * on what task, on which day, for how long.
+ */
+export interface BillableWork {
+  readonly entryId: string;
+  readonly taskId: string;
+  readonly service: string;
+  /** The calendar day in the firm's timezone, which is what chooses the rate. */
+  readonly performedOn: Date;
+  readonly userId: string | null;
+  readonly seconds: number;
+}
+
+/**
+ * Which hours are waiting to be billed.
+ *
+ * Implemented against the index migration 0011 created for exactly this
+ * question: approved, billable, finished, and not yet on a statement.
+ */
+export interface UnbilledWorkReader {
+  forClient(params: {
+    clientId: string;
+    from: Date;
+    to: Date;
+  }): Promise<BillableWork[]>;
+}
+
+/**
+ * What to charge for work done on a given day.
+ *
+ * A port rather than a read of `client_rates`, because the rule for "the rate
+ * that day" lives in the clients module and belongs to it. Billing asks; it
+ * does not reimplement.
+ */
+export interface RateReader {
+  perHourOn(clientId: string, day: Date): Promise<Money>;
+  currencyFor(clientId: string): Promise<CurrencyCode>;
+}
+
+/**
+ * Attaching hours to a statement line, and letting them go again.
+ *
+ * Attaching is what stops the same hour being billed twice: once an entry
+ * carries a statement line it is invisible to the next generation, and the
+ * database freezes it against edits. Releasing is what cancelling a draft
+ * statement has to do, or those hours are frozen and attached to nothing —
+ * unbillable and invisible, discovered only when somebody adds up a year.
+ */
+export interface WorkAttachment {
+  attach(lineId: string, entryIds: readonly string[]): Promise<void>;
+  release(entryIds: readonly string[]): Promise<void>;
+}
+
 /** The caller. Re-exported so modules import their ports, not the kernel. */
 export type { CallerLike } from '@amc/kernel';
+export type { Conflict, Result };

@@ -69,6 +69,31 @@ describe('recorded time against a real database', () => {
        VALUES ('as-b', 't-1', 'user-b', 'collaborator', '2026-01-01', 'manager')`,
     );
 
+    /*
+     * A statement line for the entries that get billed in these tests.
+     *
+     * Migration 0026 gave `time_entries.statement_line_id` the foreign key it
+     * had been missing since 0011, and these fixtures had been stamping
+     * 'line-1' at a row that did not exist. That was always wrong — an hour
+     * frozen against nothing is unbillable and invisible — and the column
+     * simply had nothing to refuse it with until billing existed.
+     *
+     * Raw SQL rather than the billing module: this module does not depend on
+     * that one, and a test fixture that reached for it would create a
+     * dependency the boundary linter is there to prevent.
+     */
+    await db.execute(
+      `INSERT INTO statements (id, client_id, period_start, period_end, state, created_by)
+       VALUES ('st-1', 'c-1', '2026-04-01', '2026-04-30', 'draft', 'user-a')`,
+    );
+    await db.execute(
+      `INSERT INTO statement_lines
+         (id, statement_id, task_id, service, performed_on, user_id,
+          worked_seconds, per_hour_minor, position)
+       VALUES ('line-1', 'st-1', 't-1', 'monthly_accounting', '2026-04-01', 'user-a',
+               5400, 30000, 0)`,
+    );
+
     return {
       db,
       entries: new DrizzleTimeEntryRepository(db),
@@ -244,7 +269,7 @@ describe('recorded time against a real database', () => {
       // Approved and already billed.
       const billed = entry('e-billed', 'as-a', '2026-04-01T15:00:00Z', '2026-04-01T16:00:00Z');
       billed.approve('manager-1', at('2026-04-02T06:00:00Z'));
-      billed.includeInStatement('line-9', at('2026-04-03T06:00:00Z'));
+      billed.includeInStatement('line-1', at('2026-04-03T06:00:00Z'));
       await entries.save(billed);
 
       const unbilled = await entries.unbilledForClient('c-1', at('2026-05-01T00:00:00Z'));
