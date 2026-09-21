@@ -1341,6 +1341,62 @@ a {
   font-size: var(--text-xs);
 }
 
+/*
+ * Billing: the statement review and the invoice detail (P2).
+ *
+ * Logical properties only, as everywhere in this file. The one thing worth
+ * saying about this block is `.totals`: it is the row a reviewer's eye goes to
+ * first, so the figures are tabular and the labels above them are small.
+ */
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding: var(--space-3) 0;
+  border-block: 1px solid var(--line);
+  margin-block: var(--space-3);
+}
+.totals > span {
+  display: grid;
+  /* minmax(0, 1fr): a long figure otherwise stretches the row and pushes the
+     rest off the end. The same trap as .page and .u-stack. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.totals strong {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.line {
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+/*
+ * An excluded line stays on the statement, faded rather than hidden, because
+ * the gap between what was worked and what is billed is the thing a reviewer
+ * is checking. Opacity alone would fail a contrast check, so the border says
+ * it too.
+ */
+.line--excluded {
+  border-style: dashed;
+  background: var(--surface-sunken);
+}
+.line--excluded .row__main strong {
+  text-decoration: line-through;
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 @media print {
   .shell__menu,
   .shell__bar,

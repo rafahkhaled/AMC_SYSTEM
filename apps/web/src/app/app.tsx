@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSession } from '../features/auth/session.js';
 import { SignInPage } from '../features/auth/sign-in-page.js';
 import { TwoFactorPage } from '../features/auth/two-factor-page.js';
+import { BillingPage } from '../features/billing/billing-page.js';
 import { CalendarPage } from '../features/calendar/calendar-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
@@ -31,6 +32,7 @@ type View =
   | { name: 'task'; id: string }
   | { name: 'calendar' }
   | { name: 'timer' }
+  | { name: 'billing' }
   | { name: 'whatsapp' }
   | { name: 'inbox' }
   | { name: 'client'; id: string };
@@ -43,7 +45,7 @@ type View =
  */
 function activeNav(
   view: View,
-): 'clients' | 'tasks' | 'calendar' | 'timer' | 'whatsapp' | 'inbox' | 'home' {
+): 'clients' | 'tasks' | 'calendar' | 'timer' | 'billing' | 'whatsapp' | 'inbox' | 'home' {
   if (view.name === 'client') return 'clients';
   if (view.name === 'task') return 'tasks';
   return view.name;
@@ -109,6 +111,8 @@ function Screen({
       return <CalendarPage onOpenTask={(id) => go({ name: 'task', id })} />;
     case 'timer':
       return <TimerPage />;
+    case 'billing':
+      return <BillingPage />;
     case 'whatsapp':
       return <WhatsAppPage />;
     case 'inbox':
