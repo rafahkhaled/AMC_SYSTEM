@@ -5,6 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, useLanguage } from '../../test-support.js';
 import { BillingPage } from './billing-page.js';
 
+/**
+ * Renders the page and opens a tab.
+ *
+ * Quotations is first now — it is where the work starts — so a test about
+ * statements or invoices has to say so rather than rely on the default.
+ */
+async function showTab(tab: 'Quotations' | 'Statements' | 'Invoices') {
+  renderScreen(<BillingPage />);
+  await userEvent.click(screen.getByRole('button', { name: tab }));
+}
+
 const statements = vi.hoisted(() => vi.fn());
 const statement = vi.hoisted(() => vi.fn());
 const generate = vi.hoisted(() => vi.fn());
@@ -112,27 +123,27 @@ beforeEach(async () => {
 
 describe('the statement list', () => {
   it('names the client and shows what will be billed', async () => {
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     expect(await screen.findByText('Gulf Trading LLC')).toBeInTheDocument();
     expect(screen.getByText(/2026-09-01/)).toBeInTheDocument();
   });
 
   it('says so when there is nothing yet', async () => {
     statements.mockResolvedValue([]);
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     expect(await screen.findByText('No statements yet')).toBeInTheDocument();
   });
 
   it('reports a failure rather than an empty list', async () => {
     statements.mockRejectedValue(new Error('nope'));
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     expect(await screen.findByText('The billing data could not be loaded.')).toBeInTheDocument();
   });
 });
 
 describe('reviewing a statement', () => {
   it('shows each line with who did it and at what rate', async () => {
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
 
     // Scoped to the line: the hours also appear in the totals row above, and
@@ -143,7 +154,7 @@ describe('reviewing a statement', () => {
   });
 
   it('hides "as worked" while nothing has been changed', async () => {
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     await screen.findByText('To bill');
 
@@ -161,7 +172,7 @@ describe('reviewing a statement', () => {
       }),
     );
 
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
 
     expect(await screen.findByText('As worked')).toBeInTheDocument();
@@ -170,7 +181,7 @@ describe('reviewing a statement', () => {
   });
 
   it('will not revise a line without a reason', async () => {
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Revise' }));
 
@@ -185,7 +196,7 @@ describe('reviewing a statement', () => {
   it('excludes a line when no amount is given', async () => {
     reviseLine.mockResolvedValue(statementOf({ total: aed(0) }));
 
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Revise' }));
     await userEvent.type(screen.getByLabelText('Reason'), 'written off, goodwill');
@@ -201,7 +212,7 @@ describe('reviewing a statement', () => {
   it('adjusts to the amount typed, in whole fils', async () => {
     reviseLine.mockResolvedValue(statementOf());
 
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Revise' }));
     await userEvent.type(screen.getByLabelText('New amount'), '500.50');
@@ -219,7 +230,7 @@ describe('reviewing a statement', () => {
   });
 
   it('refuses an amount that is not one', async () => {
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Revise' }));
     await userEvent.type(screen.getByLabelText('New amount'), '1.234');
@@ -232,7 +243,7 @@ describe('reviewing a statement', () => {
   });
 
   it('offers approve on a draft and invoice on an approved one', async () => {
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     expect(await screen.findByRole('button', { name: 'Approve statement' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Raise invoice' })).not.toBeInTheDocument();
@@ -241,7 +252,7 @@ describe('reviewing a statement', () => {
   it('offers only invoice once approved, and no revising', async () => {
     statement.mockResolvedValue(statementOf({ state: 'approved', approvedBy: 'Wael Ajam' }));
 
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
 
     expect(await screen.findByRole('button', { name: 'Raise invoice' })).toBeVisible();
@@ -252,7 +263,7 @@ describe('reviewing a statement', () => {
   it('shows what the server said when it refuses', async () => {
     approve.mockRejectedValue(new Error('Every line has been excluded'));
 
-    renderScreen(<BillingPage />);
+    await showTab('Statements');
     await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Approve statement' }));
 
@@ -262,16 +273,14 @@ describe('reviewing a statement', () => {
 
 describe('invoices', () => {
   it('lists them with what is still owing', async () => {
-    renderScreen(<BillingPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Invoices' }));
+    await showTab('Invoices');
 
     expect(await screen.findByText('INV-2026-0001')).toBeInTheDocument();
     expect(screen.getByText('Issued')).toBeInTheDocument();
   });
 
   it('shows the VAT breakdown, which a UAE client checks', async () => {
-    renderScreen(<BillingPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Invoices' }));
+    await showTab('Invoices');
     await userEvent.click(await screen.findByRole('button', { name: /INV-2026-0001/ }));
 
     expect(await screen.findByText('Net')).toBeInTheDocument();
@@ -282,8 +291,7 @@ describe('invoices', () => {
   it('records a payment in whole fils', async () => {
     recordPayment.mockResolvedValue(invoiceOf({ status: 'part_paid', balance: aed(43_000) }));
 
-    renderScreen(<BillingPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Invoices' }));
+    await showTab('Invoices');
     await userEvent.click(await screen.findByRole('button', { name: /INV-2026-0001/ }));
 
     await userEvent.type(await screen.findByLabelText('Amount received'), '200.00');
@@ -299,8 +307,7 @@ describe('invoices', () => {
   it('offers no payment box once it is settled', async () => {
     invoices.mockResolvedValue([invoiceOf({ status: 'paid', paid: aed(63_000), balance: aed(0) })]);
 
-    renderScreen(<BillingPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Invoices' }));
+    await showTab('Invoices');
     await userEvent.click(await screen.findByRole('button', { name: /INV-2026-0001/ }));
 
     await screen.findByText('Net');
@@ -312,8 +319,7 @@ describe('invoices', () => {
       invoiceOf({ status: 'overdue', overdueSince: '2026-11-01T00:00:00.000Z' }),
     ]);
 
-    renderScreen(<BillingPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Invoices' }));
+    await showTab('Invoices');
     await userEvent.click(await screen.findByRole('button', { name: /INV-2026-0001/ }));
 
     // The follow-up ladder counts from that day, so the screen shows it.
@@ -325,9 +331,9 @@ describe('in Arabic', () => {
   it('reads right through', async () => {
     await useLanguage('ar');
     renderScreen(<BillingPage />);
-    // The words appear on the tab and on the card, so match the one that is
-    // a tab rather than asserting there is only one.
-    expect(await screen.findByRole('button', { name: 'كشوف الأعمال' })).toBeInTheDocument();
-    expect(await screen.findByText(/مسعّرة بسعر اليوم/)).toBeInTheDocument();
+    // Every tab in Arabic, and the quotations pane beneath them.
+    expect(await screen.findByRole('button', { name: 'عروض الأسعار' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'كشوف الأعمال' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'الفواتير' })).toBeInTheDocument();
   });
 });

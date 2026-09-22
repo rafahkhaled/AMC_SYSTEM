@@ -13,6 +13,7 @@ import {
   statement as statementById,
 } from './api.js';
 import { formatHours, formatMoney, minorUnitsFrom } from './money.js';
+import { Quotations } from './quotations.js';
 
 /**
  * Billing (FR-31 to FR-33).
@@ -25,13 +26,13 @@ import { formatHours, formatMoney, minorUnitsFrom } from './money.js';
  */
 export function BillingPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<'statements' | 'invoices'>('statements');
+  const [tab, setTab] = useState<'quotations' | 'statements' | 'invoices'>('quotations');
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <div className="u-stack">
       <div className="u-row tabs">
-        {(['statements', 'invoices'] as const).map((which) => (
+        {(['quotations', 'statements', 'invoices'] as const).map((which) => (
           <button
             key={which}
             type="button"
@@ -47,11 +48,9 @@ export function BillingPage() {
         ))}
       </div>
 
-      {tab === 'statements' ? (
-        <StatementList openId={openId} onOpen={setOpenId} />
-      ) : (
-        <InvoiceList openId={openId} onOpen={setOpenId} />
-      )}
+      {tab === 'quotations' ? <Quotations openId={openId} onOpen={setOpenId} /> : null}
+      {tab === 'statements' ? <StatementList openId={openId} onOpen={setOpenId} /> : null}
+      {tab === 'invoices' ? <InvoiceList openId={openId} onOpen={setOpenId} /> : null}
     </div>
   );
 }

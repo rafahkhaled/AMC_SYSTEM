@@ -1,13 +1,16 @@
 import {
   type InvoiceView,
+  type QuotationView,
   type StatementView,
   type Statements,
   invoiceSchema,
   invoicesSchema,
+  quotationSchema,
+  quotationsSchema,
   statementSchema,
   statementsSchema,
 } from '@amc/contracts';
-import { request, send } from '../auth/api.js';
+import { del, request, send } from '../auth/api.js';
 
 export async function statements(clientId?: string): Promise<StatementView[]> {
   const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
@@ -69,3 +72,53 @@ export async function recordPayment(
 }
 
 export type { Statements };
+
+/* ---------------------------------------------------------------- quotations */
+
+export async function quotations(clientId?: string): Promise<QuotationView[]> {
+  const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+  return quotationsSchema.parse(await request(`/billing/quotations${query}`)).quotations;
+}
+
+export async function draftQuotation(input: {
+  clientId: string;
+  reference: string;
+  validUntil?: string;
+}): Promise<QuotationView> {
+  return quotationSchema.parse(await send('/billing/quotations', input));
+}
+
+export async function addQuotationLine(
+  id: string,
+  line: {
+    descriptionEn?: string;
+    descriptionAr?: string;
+    hours?: number;
+    perHourMinor?: number;
+    amountMinor?: number;
+  },
+): Promise<QuotationView> {
+  return quotationSchema.parse(
+    await send(`/billing/quotations/${encodeURIComponent(id)}/lines`, line),
+  );
+}
+
+export async function removeQuotationLine(id: string, lineId: string): Promise<QuotationView> {
+  return quotationSchema.parse(
+    await del(`/billing/quotations/${encodeURIComponent(id)}/lines/${encodeURIComponent(lineId)}`),
+  );
+}
+
+/**
+ * Sending, and the client's answer.
+ *
+ * The act is in the path rather than a state in the body: three different
+ * decisions with three different consequences, and a body carrying a state
+ * invites this function to send whichever one it happens to hold.
+ */
+export async function answerQuotation(
+  id: string,
+  act: 'send' | 'accept' | 'decline',
+): Promise<QuotationView> {
+  return quotationSchema.parse(await send(`/billing/quotations/${encodeURIComponent(id)}/${act}`));
+}
