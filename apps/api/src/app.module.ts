@@ -14,6 +14,7 @@ import {
   DrizzleDocumentNumbering,
   DrizzleInvoiceRepository,
   DrizzleQuotationRepository,
+  DrizzleReportReader,
   DrizzleStatementRepository,
 } from '@amc/billing/infrastructure';
 import {
@@ -329,7 +330,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
         };
 
         return {
-          read: new ReadBilling(new DrizzleBillingReader(db), clock),
+          read: new ReadBilling(new DrizzleBillingReader(db), new DrizzleReportReader(db), clock),
           generate: new GenerateStatement(
             unbilledWork(db, environment.BUSINESS_TIME_ZONE),
             rates,

@@ -1,6 +1,8 @@
 import type {
+  HoursReport,
   InvoiceView,
   Invoices,
+  ProfitabilityReport,
   QuotationView,
   Quotations,
   StatementView,
@@ -177,6 +179,38 @@ export class BillingController {
     const quotation = await this.read.quotation(caller, id);
     if (!quotation) throw new NotFoundException('No such quotation');
     return quotation;
+  }
+
+  /* ---------------------------------------------------------- reports -- */
+
+  /**
+   * Hours, and what became of them (FR-35).
+   *
+   * The split between billed and unbilled is the point of it: a large
+   * unbilled figure is either work in progress or work quietly given away,
+   * and a practice cannot tell which without looking.
+   */
+  @RequirePermissions('billing.view')
+  @Get('reports/hours')
+  async hoursReport(
+    @CurrentCaller() caller: Caller,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('by') by?: string,
+  ): Promise<HoursReport> {
+    const period = readPeriod(from, to);
+    const grouping = by === 'person' || by === 'service' ? by : 'client';
+    return this.read.hours(caller, { ...period, by: grouping });
+  }
+
+  @RequirePermissions('billing.view')
+  @Get('reports/profitability')
+  async profitabilityReport(
+    @CurrentCaller() caller: Caller,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<ProfitabilityReport> {
+    return this.read.profitability(caller, readPeriod(from, to));
   }
 
   /* ------------------------------------------------------- statements -- */
@@ -384,4 +418,30 @@ export class BillingController {
 
 function day(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+/**
+ * The period a report covers, defaulting to the current month.
+ *
+ * `to` is exclusive and the caller gives an inclusive date, so a request for
+ * 1 to 30 September has to reach the query as "before 1 October". Getting
+ * that wrong drops the last day of every month, which is exactly the day a
+ * practice does its filing.
+ */
+function readPeriod(from?: string, to?: string): { from: Date; to: Date } {
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  const now = new Date();
+  const start =
+    from && iso.test(from)
+      ? day(from)
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const inclusiveEnd =
+    to && iso.test(to)
+      ? day(to)
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+
+  if (inclusiveEnd.getTime() < start.getTime()) {
+    throw new BadRequestException('A report period has to end after it starts');
+  }
+  return { from: start, to: new Date(inclusiveEnd.getTime() + 86_400_000) };
 }

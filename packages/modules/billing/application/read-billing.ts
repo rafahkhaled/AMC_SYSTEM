@@ -1,7 +1,13 @@
-import type { InvoiceView, QuotationView, StatementView } from '@amc/contracts';
+import type {
+  HoursReport,
+  InvoiceView,
+  ProfitabilityReport,
+  QuotationView,
+  StatementView,
+} from '@amc/contracts';
 import type { Clock } from '@amc/kernel';
 import { scopeFor } from '../domain/index.js';
-import type { BillingReader, CallerLike } from './ports.js';
+import type { BillingReader, CallerLike, ReportReader } from './ports.js';
 
 /**
  * The billing screens (FR-31, FR-33).
@@ -14,8 +20,30 @@ import type { BillingReader, CallerLike } from './ports.js';
 export class ReadBilling {
   constructor(
     private readonly reader: BillingReader,
+    private readonly reports: ReportReader,
     private readonly clock: Clock,
   ) {}
+
+  /**
+   * Reports, scoped exactly as the documents are.
+   *
+   * A report is a faster way to read the same rows, and must not become a way
+   * around who may see them: an accountant's hours report covers their own
+   * clients and nobody else's.
+   */
+  async hours(
+    caller: CallerLike,
+    params: { from: Date; to: Date; by: 'client' | 'person' | 'service' },
+  ): Promise<HoursReport> {
+    return this.reports.hours(scopeFor(caller), params);
+  }
+
+  async profitability(
+    caller: CallerLike,
+    params: { from: Date; to: Date },
+  ): Promise<ProfitabilityReport> {
+    return this.reports.profitability(scopeFor(caller), params);
+  }
 
   async quotations(caller: CallerLike, clientId?: string): Promise<QuotationView[]> {
     return this.reader.quotations(scopeFor(caller), clientId ?? null);

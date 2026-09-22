@@ -1,4 +1,10 @@
-import type { InvoiceView, QuotationView, StatementView } from '@amc/contracts';
+import type {
+  HoursReport,
+  InvoiceView,
+  ProfitabilityReport,
+  QuotationView,
+  StatementView,
+} from '@amc/contracts';
 import type { Conflict, CurrencyCode, Money, Result } from '@amc/kernel';
 import type { BillingScope, Invoice, Quotation, Statement } from '../domain/index.js';
 
@@ -139,4 +145,23 @@ export interface BillingReader {
     options: { outstandingOnly: boolean; asOf: Date },
   ): Promise<InvoiceView[]>;
   invoice(id: string, scope: BillingScope): Promise<InvoiceView | null>;
+}
+
+/**
+ * The reports (FR-35).
+ *
+ * Separate from BillingReader because it answers a different question with
+ * different shapes: that one returns documents, this one returns sums. Both
+ * are scoped the same way — a report is a faster way to read the same rows,
+ * and must not become a way around who may see them.
+ */
+export interface ReportReader {
+  hours(
+    scope: BillingScope,
+    params: { from: Date; to: Date; by: 'client' | 'person' | 'service' },
+  ): Promise<HoursReport>;
+  profitability(
+    scope: BillingScope,
+    params: { from: Date; to: Date },
+  ): Promise<ProfitabilityReport>;
 }

@@ -210,3 +210,74 @@ export const addQuotationLineRequestSchema = z
     message: 'Say what the line is for, in at least one language',
   });
 export type AddQuotationLineRequest = z.infer<typeof addQuotationLineRequestSchema>;
+
+/* ------------------------------------------------------------------ reports */
+
+/**
+ * Hours, and what became of them (FR-35).
+ *
+ * Recorded splits into billed and unbilled, and the split is the point: a
+ * large unbilled figure is either work in progress or work quietly given
+ * away, and a practice cannot tell which without looking.
+ */
+export const hoursRowSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  recordedSeconds: z.number().int().nonnegative(),
+  billedSeconds: z.number().int().nonnegative(),
+  unbilledSeconds: z.number().int().nonnegative(),
+  /** What the billed hours were actually charged at. */
+  billedAmount: moneySchema,
+});
+export type HoursRow = z.infer<typeof hoursRowSchema>;
+
+export const hoursReportSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  by: z.enum(['client', 'person', 'service']),
+  rows: z.array(hoursRowSchema),
+  totals: hoursRowSchema,
+});
+export type HoursReport = z.infer<typeof hoursReportSchema>;
+
+/**
+ * What a client is worth (FR-35).
+ *
+ * The number that matters under a fixed fee is the effective hourly rate:
+ * what was invoiced divided by the hours it took. A practice billing 1,750
+ * for twelve hours is earning 145 an hour against a standard rate of 300, and
+ * nothing else on this report says so as plainly.
+ *
+ * Null when no hours were recorded — dividing by nothing produces a figure
+ * that looks like a triumph.
+ */
+export const profitabilityRowSchema = z.object({
+  clientId: z.string(),
+  clientName: z.string(),
+  recordedSeconds: z.number().int().nonnegative(),
+  /**
+   * What the firm earned, before VAT.
+   *
+   * VAT is collected for the FTA and never belongs to the practice, so it is
+   * the net figure that divides into hours. Kept apart from `grossInvoiced`
+   * because a net figure sitting beside a VAT-inclusive `paid` reads as an
+   * overpayment when the client has in fact paid exactly the invoice.
+   */
+  netInvoiced: moneySchema,
+  /** What the client was asked to pay: net plus VAT. */
+  grossInvoiced: moneySchema,
+  paid: moneySchema,
+  /** Gross against gross. Never negative: an overpayment shows as settled. */
+  outstanding: moneySchema,
+  effectivePerHour: moneySchema.nullable(),
+  /** The client's own rate, for comparison. */
+  standardPerHour: moneySchema,
+});
+export type ProfitabilityRow = z.infer<typeof profitabilityRowSchema>;
+
+export const profitabilityReportSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  rows: z.array(profitabilityRowSchema),
+});
+export type ProfitabilityReport = z.infer<typeof profitabilityReportSchema>;

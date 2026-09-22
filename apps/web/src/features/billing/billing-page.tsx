@@ -244,33 +244,6 @@ function StatementLineRow({
 }) {
   const { t, i18n } = useTranslation();
   const [revising, setRevising] = useState(false);
-  const [reason, setReason] = useState('');
-  const [amount, setAmount] = useState('');
-
-  const revise = useMutation({
-    mutationFn: (body: { reason: string; adjustToMinor?: number }) =>
-      reviseLine(statementId, line.id, body),
-    onSuccess: (next) => {
-      onRevised(next);
-      setRevising(false);
-      setReason('');
-      setAmount('');
-    },
-  });
-
-  /*
-   * Intent and validity are different questions.
-   *
-   * Anything typed in the amount box means "adjust this line"; whether it
-   * parses decides only whether the button works. Deriving the label from the
-   * parsed value instead made it flip back to "Exclude line" the moment
-   * somebody typed 1.234 — telling them it would take the line off the bill
-   * when what they wanted was to change its figure.
-   */
-  const wantsToAdjust = amount.trim() !== '';
-  const typedAmount = wantsToAdjust ? minorUnitsFrom(amount) : null;
-  const amountIsWrong = wantsToAdjust && typedAmount === null;
-  const canSubmit = reason.trim().length >= 3 && !amountIsWrong;
 
   return (
     <div className={`line${line.excluded ? ' line--excluded' : ''}`}>
@@ -316,46 +289,99 @@ function StatementLineRow({
       ) : null}
 
       {revising ? (
-        <form
-          className="u-stack-tight"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!canSubmit) return;
-            revise.mutate(
-              typedAmount === null
-                ? { reason: reason.trim() }
-                : { reason: reason.trim(), adjustToMinor: typedAmount },
-            );
+        <ReviseLineForm
+          statementId={statementId}
+          lineId={line.id}
+          onDone={(next) => {
+            onRevised(next);
+            setRevising(false);
           }}
-        >
-          <Field
-            label={t('billing.newAmount')}
-            hint={t('billing.newAmountHint')}
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            {...(amountIsWrong ? { error: t('billing.notAnAmount') } : {})}
-          />
-          <Field
-            label={t('billing.reason')}
-            hint={t('billing.reasonHint')}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-          />
-
-          {revise.isError ? <Alert tone="error">{(revise.error as Error).message}</Alert> : null}
-
-          <div className="u-row">
-            <Button type="submit" small busy={revise.isPending} disabled={!canSubmit}>
-              {wantsToAdjust ? t('billing.adjustLine') : t('billing.excludeLine')}
-            </Button>
-            <Button small tone="quiet" onClick={() => setRevising(false)}>
-              {t('billing.cancel')}
-            </Button>
-          </div>
-        </form>
+          onCancel={() => setRevising(false)}
+        />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Excluding a line and adjusting one are the same form: both are a revision
+ * that must carry a reason. Which of the two it is depends only on whether an
+ * amount was typed, so asking twice would be asking the same question twice.
+ */
+function ReviseLineForm({
+  statementId,
+  lineId,
+  onDone,
+  onCancel,
+}: {
+  statementId: string;
+  lineId: string;
+  onDone: (next: StatementView) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const [reason, setReason] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const revise = useMutation({
+    mutationFn: (body: { reason: string; adjustToMinor?: number }) =>
+      reviseLine(statementId, lineId, body),
+    onSuccess: onDone,
+  });
+
+  /*
+   * Intent and validity are different questions.
+   *
+   * Anything typed in the amount box means "adjust this line"; whether it
+   * parses decides only whether the button works. Deriving the label from the
+   * parsed value instead made it flip back to "Exclude line" the moment
+   * somebody typed 1.234 — telling them it would take the line off the bill
+   * when what they wanted was to change its figure.
+   */
+  const wantsToAdjust = amount.trim() !== '';
+  const typedAmount = wantsToAdjust ? minorUnitsFrom(amount) : null;
+  const amountIsWrong = wantsToAdjust && typedAmount === null;
+  const canSubmit = reason.trim().length >= 3 && !amountIsWrong;
+
+  return (
+    <form
+      className="u-stack-tight"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!canSubmit) return;
+        revise.mutate(
+          typedAmount === null
+            ? { reason: reason.trim() }
+            : { reason: reason.trim(), adjustToMinor: typedAmount },
+        );
+      }}
+    >
+      <Field
+        label={t('billing.newAmount')}
+        hint={t('billing.newAmountHint')}
+        inputMode="decimal"
+        value={amount}
+        onChange={(event) => setAmount(event.target.value)}
+        {...(amountIsWrong ? { error: t('billing.notAnAmount') } : {})}
+      />
+      <Field
+        label={t('billing.reason')}
+        hint={t('billing.reasonHint')}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+      />
+
+      {revise.isError ? <Alert tone="error">{(revise.error as Error).message}</Alert> : null}
+
+      <div className="u-row">
+        <Button type="submit" small busy={revise.isPending} disabled={!canSubmit}>
+          {wantsToAdjust ? t('billing.adjustLine') : t('billing.excludeLine')}
+        </Button>
+        <Button small tone="quiet" onClick={onCancel}>
+          {t('billing.cancel')}
+        </Button>
+      </div>
+    </form>
   );
 }
 
