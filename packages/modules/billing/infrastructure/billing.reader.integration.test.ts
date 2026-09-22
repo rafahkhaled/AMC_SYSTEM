@@ -6,7 +6,7 @@ import { RaiseInvoice } from '../application/raise-invoice.js';
 import { CountingIds, FakeClock } from '../application/test-doubles.js';
 import { Statement, type StatementLine } from '../domain/index.js';
 import { DrizzleBillingReader } from './billing.reader.js';
-import { DrizzleInvoiceNumbering, DrizzleInvoiceRepository } from './invoice.repository.js';
+import { DrizzleDocumentNumbering, DrizzleInvoiceRepository } from './invoice.repository.js';
 import { DrizzleStatementRepository } from './statement.repository.js';
 
 type Db = ReturnType<typeof drizzle>;
@@ -220,7 +220,7 @@ describe('the billing screens, against a real database', () => {
       const raised = await new RaiseInvoice(
         statements,
         invoices,
-        new DrizzleInvoiceNumbering(db),
+        new DrizzleDocumentNumbering(db),
         { vatBasisPoints: 500, paymentTermsDays: 30 },
         new FakeClock(NOW),
         new CountingIds(),
@@ -262,7 +262,7 @@ describe('the billing screens, against a real database', () => {
       const raise = new RaiseInvoice(
         statements,
         invoices,
-        new DrizzleInvoiceNumbering(db),
+        new DrizzleDocumentNumbering(db),
         { vatBasisPoints: 0, paymentTermsDays: 30 },
         new FakeClock(NOW),
         new CountingIds(),

@@ -40,9 +40,9 @@ x-server: &server
     BUSINESS_TIME_ZONE: ${BUSINESS_TIME_ZONE:-Asia/Dubai}
     DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-AED}
 
-    # Billing. 500 basis points is the UAE's five percent; 0 if the firm is
-    # not VAT registered.
-    BILLING_VAT_BASIS_POINTS: ${BILLING_VAT_BASIS_POINTS:-500}
+    # Billing. 0 matches the firm's own invoice template, which carries no
+    # VAT line; 500 is the UAE's five percent if that changes.
+    BILLING_VAT_BASIS_POINTS: ${BILLING_VAT_BASIS_POINTS:-0}
     BILLING_PAYMENT_TERMS_DAYS: ${BILLING_PAYMENT_TERMS_DAYS:-30}
     BILLING_DEFAULT_RATE_MINOR: ${BILLING_DEFAULT_RATE_MINOR:-30000}
 

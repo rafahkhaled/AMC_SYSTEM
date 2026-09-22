@@ -83,16 +83,19 @@ export const environmentSchema = z.object({
   /**
    * Billing.
    *
-   * VAT in basis points: 500 is the UAE's five percent, 0 for a firm that is
-   * not registered. A number rather than a flag because it is the rate that
-   * applied when an invoice was issued that stays on it, and a flag cannot
-   * carry a rate that later changes.
+   * VAT in basis points: 500 is the UAE's five percent.
+   *
+   * Zero by default, because the firm's own invoice template carries no VAT
+   * line — it totals the work and stops. A number rather than a flag because
+   * the rate that applied when an invoice was issued is the rate that stays
+   * on it, so registering later is one setting and not a rebuild, and old
+   * invoices keep what they were issued at.
    *
    * The default hourly rate is what a client with no rate of their own is
    * billed at. Clients almost always have one; this is the floor under the
    * arithmetic so a missing rate bills at something visible rather than zero.
    */
-  BILLING_VAT_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(500),
+  BILLING_VAT_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   BILLING_PAYMENT_TERMS_DAYS: z.coerce.number().int().positive().max(365).default(30),
   BILLING_DEFAULT_RATE_MINOR: z.coerce.number().int().nonnegative().default(30_000),
 

@@ -77,7 +77,7 @@ export class RaiseInvoice {
 
     const issuedOn = this.clock.now();
     const dueOn = new Date(issuedOn.getTime() + this.settings.paymentTermsDays * 86_400_000);
-    const number = await this.numbering.next(issuedOn);
+    const number = await this.numbering.next();
 
     const invoice = Invoice.raise({
       id: this.ids.next(),

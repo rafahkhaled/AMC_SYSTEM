@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RaiseInvoice } from '../application/raise-invoice.js';
 import { CountingIds, FakeClock } from '../application/test-doubles.js';
 import { Statement, type StatementLine } from '../domain/index.js';
-import { DrizzleInvoiceNumbering, DrizzleInvoiceRepository } from './invoice.repository.js';
+import { DrizzleDocumentNumbering, DrizzleInvoiceRepository } from './invoice.repository.js';
 import { DrizzleStatementRepository } from './statement.repository.js';
 
 type Db = ReturnType<typeof drizzle>;
@@ -189,7 +189,7 @@ describe('invoices, against a real database', () => {
     const raise = new RaiseInvoice(
       statements,
       invoices,
-      new DrizzleInvoiceNumbering(db),
+      new DrizzleDocumentNumbering(db),
       { vatBasisPoints: 500, paymentTermsDays: 30 },
       new FakeClock(NOW),
       new CountingIds(),
@@ -209,7 +209,7 @@ describe('invoices, against a real database', () => {
       expect(invoice?.net().minorUnits).toBe(60_000);
       expect(invoice?.vat().minorUnits).toBe(3_000);
       expect(invoice?.total().minorUnits).toBe(63_000);
-      expect(invoice?.snapshot().number).toBe('INV-2026-0001');
+      expect(invoice?.snapshot().number).toBe('2071');
       expect(invoice?.snapshot().lines[0]?.projectId).toBe('b-t1');
     });
   });
@@ -278,7 +278,7 @@ describe('invoices, against a real database', () => {
           INSERT INTO invoices
             (id, client_id, statement_id, number, settlement, currency,
              vat_basis_points, issued_on, due_on, issued_by)
-          VALUES ('b-inv9', 'b-c1', 'b-s1', 'INV-2026-0001', 'issued', 'AED',
+          VALUES ('b-inv9', 'b-c1', 'b-s1', '2071', 'issued', 'AED',
                   500, now(), now() + interval '30 days', 'b-u1')
         `),
       ).rejects.toThrow();
@@ -297,17 +297,20 @@ describe('the invoice sequence', () => {
     await database?.close();
   });
 
-  it('counts from one, per year', async () => {
+  it('continues the firm\u2019s own numbering rather than restarting', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const db = tx as unknown as Db;
-      const numbering = new DrizzleInvoiceNumbering(db);
+      const numbering = new DrizzleDocumentNumbering(db);
 
-      expect(await numbering.next(NOW)).toBe('INV-2026-0001');
-      expect(await numbering.next(NOW)).toBe('INV-2026-0002');
-      expect(await numbering.next(NOW)).toBe('INV-2026-0003');
-      // A new year starts again at one, which is how everybody counts them.
-      expect(await numbering.next(new Date('2027-01-02T00:00:00Z'))).toBe('INV-2027-0001');
-      expect(await numbering.next(NOW)).toBe('INV-2026-0004');
+      // Seeded by migration 0029 one past the last invoice issued by hand.
+      // A restart at 1 would put invoice 1 in a file that already holds 2070.
+      expect(await numbering.next()).toBe('2071');
+      expect(await numbering.next()).toBe('2072');
+
+      // Quotations run their own sequence, from their own last number.
+      const quotations = new DrizzleDocumentNumbering(db, 'quotation');
+      expect(await quotations.next()).toBe('193');
+      expect(await numbering.next()).toBe('2073');
     });
   });
 
@@ -316,33 +319,33 @@ describe('the invoice sequence', () => {
      * Outside a rollback transaction on purpose: the point is genuine
      * concurrency, and two statements inside one transaction cannot contend.
      * Reading the highest number and adding one would give both callers the
-     * same answer, and an invoice number handed out twice cannot be undone —
-     * the client has both documents.
-     *
-     * The statement is written out rather than driven through
-     * DrizzleInvoiceNumbering because the harness hands out a postgres.js
-     * handle here, not a Drizzle one. It is the same SQL, which is the part
-     * being tested.
+     * same answer, and a number handed out twice cannot be undone — the
+     * client has both documents.
      */
+    const before = await database.sql<{ next_value: number }[]>`
+      SELECT next_value FROM document_numbers WHERE kind = 'invoice'
+    `;
+    const start = Number(before[0]?.next_value ?? 0);
+
     const results = await Promise.all(
       Array.from(
         { length: 20 },
         () =>
           database.sql<{ next_value: number }[]>`
-          INSERT INTO invoice_numbers (year, next_value)
-          VALUES (2099, 2)
-          ON CONFLICT (year) DO UPDATE SET
-            next_value = invoice_numbers.next_value + 1,
-            updated_at = now()
-          RETURNING invoice_numbers.next_value - 1 AS next_value
+          UPDATE document_numbers
+          SET next_value = next_value + 1, updated_at = now()
+          WHERE kind = 'invoice'
+          RETURNING next_value - 1 AS next_value
         `,
       ),
     );
 
-    const handed = results.map((rows) => rows[0]?.next_value).sort((a, b) => Number(a) - Number(b));
+    const handed = results.map((rows) => Number(rows[0]?.next_value)).sort((a, b) => a - b);
     expect(new Set(handed).size).toBe(20);
-    expect(handed).toEqual(Array.from({ length: 20 }, (_, index) => index + 1));
+    expect(handed).toEqual(Array.from({ length: 20 }, (_, index) => start + index));
 
-    await database.sql`DELETE FROM invoice_numbers WHERE year = 2099`;
+    await database.sql`
+      UPDATE document_numbers SET next_value = ${start} WHERE kind = 'invoice'
+    `;
   });
 });

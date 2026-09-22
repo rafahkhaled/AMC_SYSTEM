@@ -24,7 +24,7 @@ function raise(over: Partial<Parameters<typeof Invoice.raise>[0]> = {}) {
     id: 'inv-1',
     clientId: 'c-1',
     statementId: 's-1',
-    number: 'INV-2026-0042',
+    number: '2071',
     currency: 'AED',
     lines: [line()],
     vatBasisPoints: 500,

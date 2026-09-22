@@ -11,7 +11,7 @@ import {
 import { BillingModule } from '@amc/billing/http';
 import {
   DrizzleBillingReader,
-  DrizzleInvoiceNumbering,
+  DrizzleDocumentNumbering,
   DrizzleInvoiceRepository,
   DrizzleQuotationRepository,
   DrizzleStatementRepository,
@@ -341,7 +341,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
           raise: new RaiseInvoice(
             statements,
             invoices,
-            new DrizzleInvoiceNumbering(db),
+            new DrizzleDocumentNumbering(db),
             settings,
             clock,
             ids,

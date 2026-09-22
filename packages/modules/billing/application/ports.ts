@@ -26,9 +26,12 @@ export interface InvoiceRepository {
  * which is a database's job and not an aggregate's. A number allocated twice
  * puts two documents in a client's file under one reference; a gap invites a
  * question from an auditor that nobody can answer.
+ *
+ * It takes no date: the firm's sequence runs continuously and has never reset
+ * at a year boundary.
  */
 export interface InvoiceNumbering {
-  next(issuedOn: Date): Promise<string>;
+  next(): Promise<string>;
 }
 
 /** How the firm bills: VAT rate and payment terms. Configuration, not client data. */

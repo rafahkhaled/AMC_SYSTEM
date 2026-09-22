@@ -201,7 +201,8 @@ describe('numbering', () => {
     if (!first.ok || !next.ok) throw new Error('both should have been raised');
 
     // Two documents under one reference is a dispute nobody can settle.
-    expect(first.value.number).toBe('INV-2026-0001');
-    expect(next.value.number).toBe('INV-2026-0002');
+    // Plain running integers continuing the firm's own sequence.
+    expect(first.value.number).toBe('2071');
+    expect(next.value.number).toBe('2072');
   });
 });

@@ -176,19 +176,18 @@ export class InMemoryInvoices implements InvoiceRepository {
 }
 
 /**
- * A gapless sequence, per year.
+ * A gapless running sequence.
  *
  * Modelled rather than stubbed with a constant, because the thing worth
- * catching is a number handed out twice — and a double returning 'INV-1'
+ * catching is a number handed out twice — and a double returning '2071'
  * forever would make that impossible to see.
  */
 export class CountingNumbers implements InvoiceNumbering {
-  private issued = new Map<number, number>();
+  constructor(private value = 2071) {}
 
-  async next(issuedOn: Date): Promise<string> {
-    const year = issuedOn.getUTCFullYear();
-    const n = (this.issued.get(year) ?? 0) + 1;
-    this.issued.set(year, n);
-    return `INV-${year}-${String(n).padStart(4, '0')}`;
+  async next(): Promise<string> {
+    const issued = this.value;
+    this.value += 1;
+    return String(issued);
   }
 }

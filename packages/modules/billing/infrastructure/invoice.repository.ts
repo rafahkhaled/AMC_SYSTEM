@@ -182,32 +182,39 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
 }
 
 /**
- * The next invoice number, allocated by the database.
+ * The next document number, allocated by the database.
  *
  * `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` takes a row lock for the
- * year and hands back a value nobody else can receive. Reading the highest
- * number and adding one would give two people the same answer under any
- * concurrency at all, and an invoice number handed out twice cannot be undone:
- * the client has both documents.
+ * kind and hands back a value nobody else can receive. Reading the highest
+ * number and adding one would give two callers the same answer, and a number
+ * handed out twice cannot be undone: the client has both documents.
+ *
+ * A plain running integer, continuing the sequence the firm kept by hand.
+ * Their last invoice was 2070; the next one this issues is 2071. No year in
+ * the number, because theirs has never had one — the sequence is the record,
+ * and a restart would put invoice 1 in a file that already holds 2070.
  */
-export class DrizzleInvoiceNumbering implements InvoiceNumbering {
-  constructor(private readonly db: Db) {}
+export class DrizzleDocumentNumbering implements InvoiceNumbering {
+  constructor(
+    private readonly db: Db,
+    private readonly kind: 'invoice' | 'quotation' = 'invoice',
+  ) {}
 
-  async next(issuedOn: Date): Promise<string> {
-    const year = issuedOn.getUTCFullYear();
+  async next(): Promise<string> {
     const rows = await this.db.execute<{ next_value: number }>(sql`
-      INSERT INTO invoice_numbers (year, next_value)
-      VALUES (${year}, 2)
-      ON CONFLICT (year) DO UPDATE SET
-        next_value = invoice_numbers.next_value + 1,
-        updated_at = now()
-      RETURNING invoice_numbers.next_value - 1 AS next_value
+      UPDATE document_numbers
+      SET next_value = next_value + 1, updated_at = now()
+      WHERE kind = ${this.kind}
+      RETURNING next_value - 1 AS next_value
     `);
 
     const value = rows[0]?.next_value;
     if (value === undefined) {
-      throw new Error('The invoice sequence did not return a number');
+      // The row is seeded by migration 0029. Its absence means somebody
+      // deleted it, and inventing a number here would collide with whatever
+      // the firm has already issued.
+      throw new Error(`There is no ${this.kind} sequence to draw a number from`);
     }
-    return `INV-${year}-${String(value).padStart(4, '0')}`;
+    return String(value);
   }
 }
