@@ -70,6 +70,19 @@ ending with what it could not check. It is not a test suite — the suites prove
 the pieces — it proves they join up, and it is the thing to run before saying a
 phase is done.
 
+## What AWS will not let a new account do
+
+A new AWS account may launch EC2 only in N. Virginia, Oregon and Ohio,
+whatever regions it has enabled. me-central-1 refuses `RunInstances` with
+`RequestLimitExceeded: throttled due to an operational issue`, which is a
+message about nothing: it is refused with `--dry-run`, refused for every
+instance type, and refused while other EC2 writes in that region succeed.
+
+It cost most of a day to establish, and the only thing that identified it was
+running the identical dry run in us-east-1 at the same moment and watching it
+pass. Keep that comparison in the toolbox: when one region misbehaves, run the
+same call in an old one before believing anything the error says.
+
 ## What cannot be verified here
 
 - **Docker**, so the production image and compose file cannot be built *here*.

@@ -78,7 +78,29 @@ aws sts get-caller-identity --query Arn --output text
 Finally delete the root access key, under IAM → My security credentials. A key
 that exists is a key that can leak.
 
-**The region has to be switched on.** Middle East (UAE) is an *opt-in* region:
+**A new account cannot launch EC2 outside three US regions.** This is separate
+from the opt-in below and is not documented anywhere you would look. A new
+AWS account may launch instances only in N. Virginia, Oregon and Ohio,
+whatever regions it has enabled, and every other region refuses `RunInstances`
+with:
+
+```
+RequestLimitExceeded: ... throttled due to an operational issue
+```
+
+That message says nothing true about the cause. It is refused even with
+`--dry-run`, which launches nothing, and refused for every instance type,
+while `CreateSecurityGroup` and `CreateKeyPair` in the same region with the
+same credentials succeed. The same dry run in us-east-1 succeeds at the same
+moment. Nothing about it suggests a new-account limit.
+
+Lifting it takes a support case — Support → Create case → Service limit
+increase → EC2 Instances, naming the region. Allow days, not hours, and open
+it before anything else: it is the long pole and every other step can be done
+while it is in flight.
+
+**The region has to be switched on** as well. Middle East (UAE) is an *opt-in*
+region:
 a fresh account cannot use it until somebody enables it, and every command
 below fails with an authorisation error until they have. Console → your
 account name → **Account** → **AWS Regions** → enable **Middle East (UAE)
