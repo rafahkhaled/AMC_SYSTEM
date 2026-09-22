@@ -275,6 +275,16 @@ export function templateFor(code: ServiceCode): ServiceTemplate {
   return SERVICE_TEMPLATES[code];
 }
 
+/**
+ * Whether a string names one of the firm's eleven services.
+ *
+ * Needed where a service code arrives from outside — a request body — because
+ * `ServiceCode` is a compile-time type and a POST is not compiled.
+ */
+export function isServiceCode(value: string): value is ServiceCode {
+  return Object.hasOwn(SERVICE_TEMPLATES, value);
+}
+
 /** The documents that block a project from starting, for this service. */
 export function mandatoryDocumentsFor(code: ServiceCode): string[] {
   return SERVICE_TEMPLATES[code].requiredDocuments

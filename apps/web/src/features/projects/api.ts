@@ -41,3 +41,18 @@ export async function attachDocument(
 export async function workload(): Promise<Workload> {
   return workloadSchema.parse(await request('/projects/workload'));
 }
+
+/**
+ * Opening a piece of work by hand (FR-10).
+ *
+ * The recurring services arrive on their own; a de-registration or a penalty
+ * waiver is asked for on the phone and somebody has to be able to open it.
+ */
+export async function startProject(input: {
+  clientId: string;
+  service: string;
+  dueOn?: string;
+  periodKey?: string;
+}): Promise<ProjectDetail> {
+  return projectDetailSchema.parse(await send('/projects', input));
+}

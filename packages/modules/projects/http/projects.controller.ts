@@ -1,9 +1,15 @@
 import type { ProjectBoard, ProjectDetail, Workload } from '@amc/contracts';
-import { attachDocumentSchema, completeTaskSchema, moveProjectSchema } from '@amc/contracts';
+import {
+  attachDocumentSchema,
+  completeTaskSchema,
+  moveProjectSchema,
+  startProjectSchema,
+} from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -12,9 +18,11 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
-import { ProjectWorkflow } from '../application/project-workflow.js';
+import { ProjectWorkflow, scopeFor } from '../application/project-workflow.js';
 import { ReadProjects } from '../application/read-projects.js';
 import { ReadWorkload } from '../application/read-workload.js';
+import { StartProject } from '../application/start-project.js';
+import { isServiceCode } from '../domain/index.js';
 
 /**
  * The work.
@@ -33,7 +41,42 @@ export class ProjectsController {
     @Inject(ReadProjects) private readonly projects: ReadProjects,
     @Inject(ProjectWorkflow) private readonly workflow: ProjectWorkflow,
     @Inject(ReadWorkload) private readonly workload: ReadWorkload,
+    @Inject(StartProject) private readonly start: StartProject,
   ) {}
+
+  /**
+   * Opening a piece of work (FR-10, FR-11).
+   *
+   * The recurring services arrive on their own; these are the ones somebody
+   * asks for on the phone. `projects.edit`, which an accountant already has —
+   * taking the call and opening the job is the same act.
+   */
+  @Post()
+  @RequirePermissions('projects.edit')
+  async create(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<ProjectDetail> {
+    const parsed = startProjectSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'That is not enough to start work',
+      );
+    }
+    if (!isServiceCode(parsed.data.service)) {
+      throw new BadRequestException('That is not one of the services the firm offers');
+    }
+
+    const started = await this.start.execute({
+      clientId: parsed.data.clientId,
+      service: parsed.data.service,
+      scope: scopeFor(caller),
+      ...(parsed.data.dueOn ? { dueAt: new Date(`${parsed.data.dueOn}T00:00:00.000Z`) } : {}),
+      ...(parsed.data.periodKey ? { periodKey: parsed.data.periodKey } : {}),
+    });
+    if (!started.ok) throw new ConflictException(started.error.message);
+
+    const detail = await this.projects.detail(caller, started.value.id);
+    if (!detail) throw new NotFoundException('No such project');
+    return detail;
+  }
 
   @Get()
   async board(@CurrentCaller() caller: Caller): Promise<ProjectBoard> {

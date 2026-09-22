@@ -108,3 +108,50 @@ export const workloadSchema = z.object({
   unassignedProjects: z.number().int().nonnegative(),
 });
 export type Workload = z.infer<typeof workloadSchema>;
+
+/**
+ * The eleven services the firm offers.
+ *
+ * Declared here so a screen can offer them in a list. The domain keeps its
+ * own union — it may not import contracts, because it sees the kernel and
+ * itself and nothing else — and `service-code-agreement.test.ts` in the
+ * projects module fails if the two ever drift apart.
+ */
+export const serviceCodes = [
+  'ct_registration',
+  'vat_registration',
+  'vat_return',
+  'ct_return',
+  'tax_profile_update',
+  'deregistration',
+  'vat_refund',
+  'penalty_waiver',
+  'emaratax_request',
+  'monthly_accounting',
+  'audit',
+] as const;
+export type ServiceCodeName = (typeof serviceCodes)[number];
+
+/**
+ * Starting a piece of work by hand (FR-10).
+ *
+ * The one-off services — a de-registration, a penalty waiver, a VAT refund —
+ * never come from the recurrence sweep, which returns early for a template
+ * that happens once. Somebody has to be able to open them.
+ */
+export const startProjectSchema = z.object({
+  clientId: z.string().min(1),
+  service: z.string().min(1),
+  /** Inclusive calendar day, as the browser's date input writes it. */
+  dueOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  /**
+   * The period this covers, for recurring work opened by hand — a VAT return
+   * for a quarter the sweep missed. Left out for one-off work, which has no
+   * period at all.
+   */
+  periodKey: z.string().min(1).optional(),
+});
+export type StartProjectRequest = z.infer<typeof startProjectSchema>;

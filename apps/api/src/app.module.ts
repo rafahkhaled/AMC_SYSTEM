@@ -53,9 +53,12 @@ import {
   DrizzleNotificationRepository,
   DrizzlePreferenceRepository,
 } from '@amc/notifications/infrastructure';
-import { ProjectWorkflow, ReadProjects, ReadWorkload } from '@amc/projects';
+import { ProjectWorkflow, ReadProjects, ReadWorkload, StartProject } from '@amc/projects';
 import { ProjectsModule } from '@amc/projects/http';
-import { DrizzleProjectRepository } from '@amc/projects/infrastructure';
+import {
+  DrizzleClientServiceRepository,
+  DrizzleProjectRepository,
+} from '@amc/projects/infrastructure';
 import type { FileStorage } from '@amc/storage';
 import { ApproveTime, ReadTimer, TimerService } from '@amc/time-tracking';
 import { TimerModule } from '@amc/time-tracking/http';
@@ -195,6 +198,14 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
           new SystemClock(),
         ),
         workload: new ReadWorkload(workloadReader(db)),
+        // The one-off services never come from the recurrence sweep, so this
+        // is the only way a de-registration or a penalty waiver is opened.
+        start: new StartProject(
+          new DrizzleProjectRepository(db),
+          new DrizzleClientServiceRepository(db),
+          new SystemClock(),
+          { next: () => ulid() },
+        ),
         workflow: new ProjectWorkflow(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
           {

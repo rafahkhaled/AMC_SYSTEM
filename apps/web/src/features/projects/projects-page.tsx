@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge, Card, Empty, Loading } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
 import { projectBoard } from './api.js';
+import { StartProjectForm } from './start-project.js';
 import { WorkloadPanel } from './workload-panel.js';
 
 /**
@@ -52,29 +53,36 @@ function Board({ onOpen }: { onOpen: (id: string) => void }) {
 
   if (total === 0) {
     return (
-      <Card title={t('nav.projects')}>
-        <Empty title={t('projects.none')} description={t('projects.noneHint')} />
-      </Card>
+      <div className="u-stack">
+        <StartProjectForm onStarted={onOpen} />
+        <Card title={t('nav.projects')}>
+          <Empty title={t('projects.none')} description={t('projects.noneHint')} />
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="board">
-      {columns.map((column) => (
-        <section key={column.state} className="board__column">
-          <header className="board__heading">
-            <h2>{t(`projectStates.${column.state}`)}</h2>
-            <span className="u-text-faint u-numeric">{column.projects.length}</span>
-          </header>
-          {column.projects.length === 0 ? (
-            <p className="board__quiet">{t('projects.columnEmpty')}</p>
-          ) : (
-            column.projects.map((project) => (
-              <ProjectCard key={project.id} project={project} onOpen={() => onOpen(project.id)} />
-            ))
-          )}
-        </section>
-      ))}
+    <div className="u-stack">
+      <StartProjectForm onStarted={onOpen} />
+
+      <div className="board">
+        {columns.map((column) => (
+          <section key={column.state} className="board__column">
+            <header className="board__heading">
+              <h2>{t(`projectStates.${column.state}`)}</h2>
+              <span className="u-text-faint u-numeric">{column.projects.length}</span>
+            </header>
+            {column.projects.length === 0 ? (
+              <p className="board__quiet">{t('projects.columnEmpty')}</p>
+            ) : (
+              column.projects.map((project) => (
+                <ProjectCard key={project.id} project={project} onOpen={() => onOpen(project.id)} />
+              ))
+            )}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

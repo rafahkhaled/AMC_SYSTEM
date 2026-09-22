@@ -7,12 +7,14 @@ import {
 import { ProjectWorkflow } from '../application/project-workflow.js';
 import { ReadProjects } from '../application/read-projects.js';
 import { ReadWorkload } from '../application/read-workload.js';
+import { StartProject } from '../application/start-project.js';
 import { ProjectsController } from './projects.controller.js';
 
 interface Parts {
   read: ReadProjects;
   workflow: ProjectWorkflow;
   workload: ReadWorkload;
+  start: StartProject;
 }
 
 @Module({})
@@ -39,6 +41,7 @@ export class ProjectsModule {
           useFactory: (p: Parts) => p.workflow,
         },
         { provide: ReadWorkload, inject: [PARTS], useFactory: (p: Parts) => p.workload },
+        { provide: StartProject, inject: [PARTS], useFactory: (p: Parts) => p.start },
       ],
       exports: [ReadProjects, ProjectWorkflow, ReadWorkload],
     };
