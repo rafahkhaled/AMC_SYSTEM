@@ -6,7 +6,7 @@ import { type SQL, sql } from 'drizzle-orm';
 
 /**
  * Finds the assignment a person books time against, creating one if they are
- * not on the task yet.
+ * not on the project yet.
  *
  * Joins time-tracking to services, so it lives here rather than in either.
  * Adding the person as a collaborator rather than refusing is the deliberate
@@ -15,23 +15,23 @@ import { type SQL, sql } from 'drizzle-orm';
  */
 export function assignmentResolver(db: Database, ids: { next(): string }): AssignmentResolver {
   return {
-    async forUserOnTask({ userId, taskId, assignedBy }) {
+    async forUserOnProject({ userId, projectId, assignedBy }) {
       const [existing] = await db.execute<{ id: string }>(sql`
-        SELECT id FROM task_assignments
-        WHERE task_id = ${taskId} AND user_id = ${userId} AND unassigned_at IS NULL
+        SELECT id FROM project_assignments
+        WHERE project_id = ${projectId} AND user_id = ${userId} AND unassigned_at IS NULL
         LIMIT 1
       `);
       if (existing) return { assignmentId: existing.id };
 
-      const [task] = await db.execute<{ id: string }>(sql`
-        SELECT id FROM tasks WHERE id = ${taskId}
+      const [project] = await db.execute<{ id: string }>(sql`
+        SELECT id FROM projects WHERE id = ${projectId}
       `);
-      if (!task) return null;
+      if (!project) return null;
 
       const id = ids.next();
       await db.execute(sql`
-        INSERT INTO task_assignments (id, task_id, user_id, role, assigned_by)
-        VALUES (${id}, ${taskId}, ${userId}, 'collaborator', ${assignedBy})
+        INSERT INTO project_assignments (id, project_id, user_id, role, assigned_by)
+        VALUES (${id}, ${projectId}, ${userId}, 'collaborator', ${assignedBy})
       `);
       return { assignmentId: id };
     },
@@ -49,7 +49,7 @@ export function assignmentResolver(db: Database, ids: { next(): string }): Assig
 async function readEntries(db: Database, userId: string, where: SQL): Promise<TimeEntryView[]> {
   const rows = await db.execute<{
     id: string;
-    task_id: string;
+    project_id: string;
     client_name: string;
     service: string;
     started_at: string;
@@ -60,15 +60,15 @@ async function readEntries(db: Database, userId: string, where: SQL): Promise<Ti
     statement_line_id: string | null;
     review_reason: string | null;
   }>(sql`
-    SELECT e.id, t.id AS task_id, c.legal_name AS client_name, t.service,
+    SELECT e.id, t.id AS project_id, c.legal_name AS client_name, t.service,
            e.started_at, e.ended_at, e.duration_seconds, e.billable, e.source,
            e.statement_line_id,
            -- Null once somebody has confirmed it, so the screen shows only
            -- what is still waiting on them.
            CASE WHEN e.reviewed_at IS NULL THEN e.review_reason END AS review_reason
     FROM time_entries e
-    JOIN task_assignments a ON a.id = e.assignment_id
-    JOIN tasks t ON t.id = a.task_id
+    JOIN project_assignments a ON a.id = e.assignment_id
+    JOIN projects t ON t.id = a.project_id
     JOIN clients c ON c.id = t.client_id
     WHERE a.user_id = ${userId} AND ${where}
     ORDER BY e.started_at DESC
@@ -76,7 +76,7 @@ async function readEntries(db: Database, userId: string, where: SQL): Promise<Ti
 
   return rows.map((row) => ({
     id: row.id,
-    taskId: row.task_id,
+    projectId: row.project_id,
     clientName: row.client_name,
     service: row.service,
     startedAt: new Date(row.started_at).toISOString(),
@@ -94,33 +94,33 @@ export function timerViewReader(db: Database): TimerViewReader {
   return {
     async running(userId): Promise<TimerState['running']> {
       const [row] = await db.execute<{
-        task_id: string;
+        project_id: string;
         assignment_id: string;
         client_id: string;
         client_name: string;
         service: string;
         started_at: string;
         held_at: string | null;
-        today_on_task_seconds: string | number;
+        today_on_project_seconds: string | number;
       }>(sql`
-        SELECT t.id AS task_id, r.assignment_id, t.client_id, c.legal_name AS client_name,
+        SELECT t.id AS project_id, r.assignment_id, t.client_id, c.legal_name AS client_name,
                t.service, r.started_at, r.held_at,
-               -- What has already been banked on this task today, which is the
+               -- What has already been banked on this project today, which is the
                -- figure somebody wants when they come back to a held job. The
                -- day is Dubai's, because a working day is local.
                COALESCE((
                  SELECT SUM(e.duration_seconds)
                  FROM time_entries e
-                 JOIN task_assignments ea ON ea.id = e.assignment_id
-                 WHERE ea.task_id = t.id
+                 JOIN project_assignments ea ON ea.id = e.assignment_id
+                 WHERE ea.project_id = t.id
                    AND ea.user_id = r.user_id
                    AND e.ended_at IS NOT NULL
                    AND (e.started_at AT TIME ZONE 'Asia/Dubai')::date
                        = (now() AT TIME ZONE 'Asia/Dubai')::date
-               ), 0) AS today_on_task_seconds
+               ), 0) AS today_on_project_seconds
         FROM running_timers r
-        JOIN task_assignments a ON a.id = r.assignment_id
-        JOIN tasks t ON t.id = a.task_id
+        JOIN project_assignments a ON a.id = r.assignment_id
+        JOIN projects t ON t.id = a.project_id
         JOIN clients c ON c.id = t.client_id
         WHERE r.user_id = ${userId}
       `);
@@ -129,7 +129,7 @@ export function timerViewReader(db: Database): TimerViewReader {
       const startedAt = new Date(row.started_at);
       const held = row.held_at !== null;
       return {
-        taskId: row.task_id,
+        projectId: row.project_id,
         assignmentId: row.assignment_id,
         clientId: row.client_id,
         clientName: row.client_name,
@@ -142,7 +142,7 @@ export function timerViewReader(db: Database): TimerViewReader {
           ? 0
           : Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000)),
         held,
-        todayOnTaskSeconds: Number(row.today_on_task_seconds ?? 0),
+        todayOnProjectSeconds: Number(row.today_on_project_seconds ?? 0),
       };
     },
 

@@ -122,7 +122,7 @@ describe('what the pipeline offers next', () => {
   /*
    * The board reads this to decide which buttons to draw, and it is the same
    * table the move itself checks. Two accounts of the pipeline — one for the
-   * rules and one for the buttons — is how a screen ends up offering a step
+   * rules and one for the buttons — is how a screen ends up offering a task
    * the domain refuses.
    */
   const NOW = at('2026-03-02T06:00:00Z');

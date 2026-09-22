@@ -13,11 +13,11 @@ export const PERMISSIONS = [
   'clients.rates.manage',
   'clients.vault.read',
 
-  // Tasks and time
-  'tasks.view.all',
-  'tasks.view.assigned',
-  'tasks.edit',
-  'tasks.assign',
+  // Projects and time
+  'projects.view.all',
+  'projects.view.assigned',
+  'projects.edit',
+  'projects.assign',
   'time.record',
   'time.edit.any',
 
@@ -63,9 +63,9 @@ const MATRIX: Readonly<Record<Role, readonly Permission[]>> = {
     'clients.edit',
     'clients.rates.manage',
     'clients.vault.read',
-    'tasks.view.all',
-    'tasks.edit',
-    'tasks.assign',
+    'projects.view.all',
+    'projects.edit',
+    'projects.assign',
     'time.record',
     'time.edit.any',
     'billing.view',
@@ -83,8 +83,8 @@ const MATRIX: Readonly<Record<Role, readonly Permission[]>> = {
   accountant: [
     'clients.view.assigned',
     'clients.vault.read',
-    'tasks.view.assigned',
-    'tasks.edit',
+    'projects.view.assigned',
+    'projects.edit',
     'time.record',
     'billing.view',
     'invoices.upload',
@@ -92,7 +92,7 @@ const MATRIX: Readonly<Record<Role, readonly Permission[]>> = {
     'invoices.approve.assigned',
     'export.excel',
   ],
-  data_entry: ['tasks.view.assigned', 'invoices.upload', 'invoices.correct'],
+  data_entry: ['projects.view.assigned', 'invoices.upload', 'invoices.correct'],
   client: ['portal.self.view', 'portal.self.upload'],
 };
 

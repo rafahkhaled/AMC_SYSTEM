@@ -27,7 +27,7 @@ function entry(over: Partial<CalendarEntry> = {}): CalendarEntry {
     movedBecause: null,
     isOverdue: false,
     isDone: false,
-    taskId: 't-1',
+    projectId: 't-1',
     ...over,
   };
 }
@@ -50,14 +50,14 @@ function month(entries: CalendarEntry[] = [], overdue: CalendarEntry[] = []): Ca
   };
 }
 
-function show(view: CalendarMonth, onOpenTask = vi.fn()) {
+function show(view: CalendarMonth, onOpenProject = vi.fn()) {
   calendarMonth.mockResolvedValue(view);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  render(<CalendarPage onOpenTask={onOpenTask} />, { wrapper: Wrapper });
-  return onOpenTask;
+  render(<CalendarPage onOpenProject={onOpenProject} />, { wrapper: Wrapper });
+  return onOpenProject;
 }
 
 describe('the month ahead', () => {
@@ -90,17 +90,17 @@ describe('the month ahead', () => {
     expect(screen.queryByText('Overdue')).not.toBeInTheDocument();
   });
 
-  it('opens the task behind an entry', async () => {
+  it('opens the project behind an entry', async () => {
     const user = userEvent.setup();
-    const onOpenTask = show(month([entry({ taskId: 'task-9' })]));
+    const onOpenProject = show(month([entry({ projectId: 'project-9' })]));
 
     await user.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
 
-    expect(onOpenTask).toHaveBeenCalledWith('task-9');
+    expect(onOpenProject).toHaveBeenCalledWith('project-9');
   });
 
-  it('leaves a document expiry unclickable, because there is no task behind it', async () => {
-    show(month([entry({ kind: 'document_expiry', subject: 'trade_licence', taskId: null })]));
+  it('leaves a document expiry unclickable, because there is no project behind it', async () => {
+    show(month([entry({ kind: 'document_expiry', subject: 'trade_licence', projectId: null })]));
 
     expect(await screen.findByText('Trade licence')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Gulf Trading LLC/ })).not.toBeInTheDocument();

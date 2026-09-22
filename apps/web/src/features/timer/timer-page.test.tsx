@@ -42,7 +42,7 @@ const empty: TimerState = { running: null, today: [], todaySeconds: 0, todayBill
 function entry(over: Partial<TimerState['today'][number]> = {}): TimerState['today'][number] {
   return {
     id: 'e1',
-    taskId: 't1',
+    projectId: 't1',
     clientName: 'Gulf Trading LLC',
     service: 'vat_return',
     startedAt: '2026-09-16T06:00:00.000Z',
@@ -58,7 +58,7 @@ function entry(over: Partial<TimerState['today'][number]> = {}): TimerState['tod
 
 function running(over: Partial<NonNullable<TimerState['running']>> = {}) {
   return {
-    taskId: 't1',
+    projectId: 't1',
     assignmentId: 'a1',
     clientId: 'c1',
     clientName: 'Gulf Trading LLC',
@@ -66,7 +66,7 @@ function running(over: Partial<NonNullable<TimerState['running']>> = {}) {
     startedAt: '2026-09-16T06:00:00.000Z',
     elapsedSeconds: 60,
     held: false,
-    todayOnTaskSeconds: 60,
+    todayOnProjectSeconds: 60,
     ...over,
   };
 }
@@ -106,7 +106,9 @@ describe('the timer screen', () => {
   it('says plainly that nothing is running, and where to start one', async () => {
     show(empty);
     expect(await screen.findByText('No timer running')).toBeInTheDocument();
-    expect(screen.getByText('Start the timer from a task in a client file.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Start the timer from a project in a client file.'),
+    ).toBeInTheDocument();
   });
 
   it('reads the running timer as a clock, starting from the server count', async () => {
@@ -238,7 +240,7 @@ describe('the timer screen', () => {
     show({ ...empty, running: running() });
     holdTimer.mockResolvedValue({
       ...empty,
-      running: running({ held: true, elapsedSeconds: 0, todayOnTaskSeconds: 2400 }),
+      running: running({ held: true, elapsedSeconds: 0, todayOnProjectSeconds: 2400 }),
       today: [entry({ seconds: 2400 })],
       todaySeconds: 2400,
       todayBillableSeconds: 2400,
@@ -250,19 +252,19 @@ describe('the timer screen', () => {
     expect(await screen.findByRole('button', { name: 'Resume' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Hold' })).not.toBeInTheDocument();
     expect(screen.getByText('Held')).toBeInTheDocument();
-    // Still on the task, which is the whole difference between this and stop.
+    // Still on the project, which is the whole difference between this and stop.
     // Twice: once in the held panel, once in the entry the hold just recorded.
     expect(screen.getAllByText('Gulf Trading LLC')).toHaveLength(2);
   });
 
-  it('shows the day on the task while held, not a clock counting the pause', async () => {
+  it('shows the day on the project while held, not a clock counting the pause', async () => {
     show({
       ...empty,
-      running: running({ held: true, elapsedSeconds: 0, todayOnTaskSeconds: 5400 }),
+      running: running({ held: true, elapsedSeconds: 0, todayOnProjectSeconds: 5400 }),
     });
 
     expect(await screen.findByText('1:30')).toBeInTheDocument();
-    expect(screen.getByText('today on this task')).toBeInTheDocument();
+    expect(screen.getByText('today on this project')).toBeInTheDocument();
     // A running clock reads h:mm:ss. Nothing on a held screen should.
     expect(screen.queryByText(/^\d+:\d\d:\d\d$/)).not.toBeInTheDocument();
   });

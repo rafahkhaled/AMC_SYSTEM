@@ -44,7 +44,7 @@
       "path": "./packages/modules/whatsapp"
     },
     {
-      "path": "./packages/modules/services"
+      "path": "./packages/modules/projects"
     },
     {
       "path": "./packages/modules/notifications"

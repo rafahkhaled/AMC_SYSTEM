@@ -67,8 +67,8 @@ The largest phase and the one that earns money, because it is the one that captu
 | P1-11 | Service templates: seed the eleven services with steps, required documents, deadline rules | FR-10 | P1-01 | 1.5 |
 | P1-12 | Client service subscription, and automatic task creation from the template with its checklist | FR-11 | P1-11 | 1 |
 | P1-13 | Task state machine as an explicit transition table, plus the mandatory-documents gate before "in progress" | FR-12 | P1-12 | 1 |
-| P1-14 | `task_documents` join and the checklist UI that resolves requirements against the client's own documents | FR-12, ERD 1 | P1-13, P1-06 | 1 |
-| P1-15 | Append-only `task_assignments`, reassignment, and the per-person workload view, manager only | FR-13 | P1-13 | 1 |
+| P1-14 | `project_documents` join and the checklist UI that resolves requirements against the client's own documents | FR-12, ERD 1 | P1-13, P1-06 | 1 |
+| P1-15 | Append-only `project_assignments`, reassignment, and the per-person workload view, manager only | FR-13 | P1-13 | 1 |
 | P1-16 | Recurrence engine: monthly, quarterly and annual renewal keyed by period, idempotent on replay | FR-14 | P1-13, P0-12 | 1.5 |
 | P1-17 | Letter generation from the firm's templates, filled from the client record, bilingual, printable | FR-15 | P1-14 | 1.5 |
 | P1-18 | Tasks UI: board by state, task detail with steps, documents and assignment | FR-12, FR-13 | P1-15 | 2 |
@@ -110,7 +110,7 @@ The largest phase and the one that earns money, because it is the one that captu
 | P2-02 | Quotation UI and PDF output, bilingual | FR-30 | P2-01 | 1 |
 | P2-03 | Statement generation: approved unbilled hours times the client's rate, grouped by service, task, date and person | FR-31 | P1-24, P1-02 | 2 |
 | P2-04 | Statement review: exclude or adjust any line, every change recorded with a reason | FR-32 | P2-03 | 1 |
-| P2-05 | Conversion to invoice in one click, with `task_id` required on every line and the billable-state check | FR-32, ERD 4 | P2-04 | 1.5 |
+| P2-05 | Conversion to invoice in one click, with `project_id` required on every line and the billable-state check | FR-32, ERD 4 | P2-04 | 1.5 |
 | P2-06 | Invoice states and the scheduled job that moves an unpaid invoice to overdue | FR-33 | P2-05 | 1 |
 | P2-07 | Entry locking once invoiced, and the manager-only unlink that writes to the audit log | FR-26 | P2-05 | 1 |
 | P2-08 | Payments: full and partial, with the resulting state change | FR-33 | P2-06 | 1 |
@@ -228,7 +228,7 @@ work in front of them is done.
 
 | ID | Task | Note |
 |---|---|---|
-| X-01 | An employees tab: the staff list with each person's own data — role, working hours, assigned clients, tasks in hand, hours booked this month and last, leave, and when their own documents expire | The data mostly exists already. `users`, `user_working_hours`, `task_assignments` and `time_entries` between them answer all of it; what is missing is a screen and one read model that joins them. A manager currently has to open four screens to ask "what is this person doing this week". Scoped by role: everyone sees the directory, only the Manager sees hours and value |
+| X-01 | An employees tab: the staff list with each person's own data — role, working hours, assigned clients, tasks in hand, hours booked this month and last, leave, and when their own documents expire | The data mostly exists already. `users`, `user_working_hours`, `project_assignments` and `time_entries` between them answer all of it; what is missing is a screen and one read model that joins them. A manager currently has to open four screens to ask "what is this person doing this week". Scoped by role: everyone sees the directory, only the Manager sees hours and value |
 | X-02 | Analytics on the home screen | Overlaps C-01 and C-02, which already specify a role-aware dashboard shell and a card registry. Build it there rather than as a second thing. The request adds what the cards should show first: work in hand, deadlines inside thirty days, hours booked against hours expected, and which clients have gone quiet |
 
 Neither is blocked on anything. Both are behind the phase in flight.

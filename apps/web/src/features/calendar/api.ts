@@ -10,9 +10,9 @@ export function monthOf(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-/** The month `step` months away from `month`, without tripping over December. */
-export function shiftMonth(month: string, step: number): string {
+/** The month `task` months away from `month`, without tripping over December. */
+export function shiftMonth(month: string, task: number): string {
   const [year, index] = month.split('-').map(Number);
-  const date = new Date(Date.UTC(year ?? 2026, (index ?? 1) - 1 + step, 1));
+  const date = new Date(Date.UTC(year ?? 2026, (index ?? 1) - 1 + task, 1));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }

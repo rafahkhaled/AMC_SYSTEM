@@ -4,7 +4,7 @@ import { type Clock } from '@amc/kernel';
 /**
  * Reads what the timer screen shows.
  *
- * The queries join tasks and clients, which belong to other modules, so the
+ * The queries join projects and clients, which belong to other modules, so the
  * composition root supplies the reader. This module says what it needs; it
  * does not reach across to get it.
  */

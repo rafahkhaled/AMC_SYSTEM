@@ -15,7 +15,7 @@ const aed = (minor: number) => Money.ofMinor(minor, 'AED');
 
 const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   id: 'sl-1',
-  taskId: 't-1',
+  projectId: 't-1',
   service: 'vat_return',
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'u-1',
@@ -74,19 +74,19 @@ describe('raising an invoice from a statement', () => {
     expect(invoice.snapshot().lines).toHaveLength(1);
   });
 
-  it('keeps the task on every line', async () => {
+  it('keeps the project on every line', async () => {
     const h = await harness();
     await h.raise.execute('u-1', 's-1');
 
-    // Nothing bills without a task, and this is the column that makes a line
+    // Nothing bills without a project, and this is the column that makes a line
     // defensible three years later.
     expect(
       h.invoices
         .only()
         .snapshot()
-        .lines.every((line) => line.taskId.length > 0),
+        .lines.every((line) => line.projectId.length > 0),
     ).toBe(true);
-    expect(h.invoices.only().snapshot().lines[0]?.taskId).toBe('t-1');
+    expect(h.invoices.only().snapshot().lines[0]?.projectId).toBe('t-1');
   });
 
   it('describes a line in words a client can read, in both languages', async () => {
@@ -94,7 +94,7 @@ describe('raising an invoice from a statement', () => {
     await h.raise.execute('u-1', 's-1');
     const [invoiceLine] = h.invoices.only().snapshot().lines;
 
-    // Not the task id: a client can do nothing with t-01M2N0...
+    // Not the project id: a client can do nothing with t-01M2N0...
     expect(invoiceLine?.descriptionEn).toContain('VAT return');
     expect(invoiceLine?.descriptionEn).toContain('September 2026');
     expect(invoiceLine?.descriptionAr).toContain('الإقرار الضريبي');
@@ -113,7 +113,7 @@ describe('raising an invoice from a statement', () => {
   });
 
   it('leaves excluded lines off the client’s document', async () => {
-    const statement = statementOf([line({ id: 'a' }), line({ id: 'b', taskId: 't-2' })], false);
+    const statement = statementOf([line({ id: 'a' }), line({ id: 'b', projectId: 't-2' })], false);
     statement.exclude('b', 'written off, client goodwill', now);
     statement.approve('u-boss', now);
     statement.pullEvents();
@@ -178,7 +178,7 @@ describe('numbering', () => {
       periodStart: new Date('2026-09-01T00:00:00.000Z'),
       periodEnd: new Date('2026-09-30T00:00:00.000Z'),
       currency: 'AED',
-      lines: [line({ id: 'sl-2', taskId: 't-9' })],
+      lines: [line({ id: 'sl-2', projectId: 't-9' })],
       createdBy: 'u-9',
       now,
     });

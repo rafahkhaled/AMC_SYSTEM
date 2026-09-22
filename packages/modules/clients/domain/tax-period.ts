@@ -117,7 +117,7 @@ export class FinancialYear {
       : new Date(Date.UTC(year + 1, this.endMonth, 0));
   }
 
-  /** How that year is labelled, for a task or a filing. */
+  /** How that year is labelled, for a project or a filing. */
   keyFor(date: Date): string {
     return `FY${this.yearEndFor(date).getUTCFullYear()}`;
   }

@@ -31,7 +31,7 @@ export function recipientReader(db: Database): RecipientReader {
  * Development and test. It exists so the path runs for real — the preference
  * is read, the recipient is looked up, the wording is chosen in the right
  * language — rather than being skipped until the day it is first tried in
- * production. Only the last step differs.
+ * production. Only the last task differs.
  */
 export function loggingEmailSender(logger: Logger): EmailSender {
   return {

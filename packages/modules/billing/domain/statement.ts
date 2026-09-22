@@ -25,16 +25,16 @@ import {
  * asked six months later is never "what did we charge" but "why is this line
  * not what the timesheet says".
  *
- * Converting it to an invoice is a separate step, and the thing that makes an
- * invoice defensible is that every line still points at a task.
+ * Converting it to an invoice is a separate task, and the thing that makes an
+ * invoice defensible is that every line still points at a project.
  */
 
 export type StatementState = 'draft' | 'approved' | 'invoiced' | 'cancelled';
 
 export interface StatementLine {
   readonly id: string;
-  /** Required, always. Nothing bills without a task (ERD rule 4). */
-  readonly taskId: string;
+  /** Required, always. Nothing bills without a project (ERD rule 4). */
+  readonly projectId: string;
   readonly service: string;
   /** The day the work was done, which decides the rate. */
   readonly performedOn: Date;

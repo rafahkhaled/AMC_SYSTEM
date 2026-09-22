@@ -139,7 +139,7 @@ describe('renewal', () => {
     receive(document, '2026-06-30T00:00:00Z');
     expect(document.supersede('doc-2', at('2026-06-15T06:00:00Z')).ok).toBe(true);
 
-    // A task completed in March used the licence valid in March, and the file
+    // A project completed in March used the licence valid in March, and the file
     // behind that work must still be the file that was used.
     expect(document.isSuperseded).toBe(true);
     expect(document.snapshot().storageKey).toBe('clients/client-1/documents/doc-1.pdf');

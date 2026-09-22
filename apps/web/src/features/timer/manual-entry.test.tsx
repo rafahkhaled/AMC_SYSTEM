@@ -18,14 +18,14 @@ vi.mock('./api.js', () => ({
   timesheet: vi.fn(),
 }));
 
-const TASKS = [{ taskId: 't-1', label: 'Gulf Trading LLC — VAT return' }];
+const TASKS = [{ projectId: 't-1', label: 'Gulf Trading LLC — VAT return' }];
 
 function show(onRecorded = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  render(<ManualEntry tasks={TASKS} onRecorded={onRecorded} />, { wrapper: Wrapper });
+  render(<ManualEntry projects={TASKS} onRecorded={onRecorded} />, { wrapper: Wrapper });
   return onRecorded;
 }
 
@@ -33,7 +33,7 @@ async function fillIn(
   user: ReturnType<typeof userEvent.setup>,
   over: Partial<Record<string, string>> = {},
 ) {
-  await user.selectOptions(screen.getByLabelText('Task'), 't-1');
+  await user.selectOptions(screen.getByLabelText('Project'), 't-1');
   await user.type(screen.getByLabelText('From'), over.from ?? '2026-09-14T14:00');
   await user.type(screen.getByLabelText('To'), over.to ?? '2026-09-14T15:45');
   if (over.reason !== '') {
@@ -69,7 +69,7 @@ describe('time recorded by hand (FR-22)', () => {
     expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled();
   });
 
-  it('will not record against no task', async () => {
+  it('will not record against no project', async () => {
     const user = userEvent.setup();
     show();
     await user.type(screen.getByLabelText('From'), '2026-09-14T14:00');
@@ -93,7 +93,7 @@ describe('time recorded by hand (FR-22)', () => {
     await user.click(screen.getByRole('button', { name: 'Record' }));
 
     expect(recordManual).toHaveBeenCalledWith({
-      taskId: 't-1',
+      projectId: 't-1',
       startedAt: '2026-09-14T14:00',
       endedAt: '2026-09-14T15:45',
       reason: 'Call with the client',

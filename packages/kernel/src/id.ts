@@ -1,6 +1,6 @@
 /**
  * Identifiers are branded strings, so a ClientId cannot be passed where a
- * TaskId belongs. The brand exists only at compile time; the runtime value is
+ * ProjectId belongs. The brand exists only at compile time; the runtime value is
  * an ordinary string.
  */
 export type Id<TBrand extends string> = string & { readonly __brand: TBrand };

@@ -29,7 +29,7 @@ export const NO_CONVERSATIONS: ConversationScope = { kind: 'none' };
  * It reads the client permissions rather than WhatsApp ones of its own. The
  * SRS's role table is the authority on who may see a client's affairs, and a
  * conversation with a client is their affairs; inventing `whatsapp.view` here
- * would put the code out of step with the document it is built from, and give
+ * would put the code out of task with the document it is built from, and give
  * somebody a way to read a client file through a channel nobody thought to
  * check.
  */

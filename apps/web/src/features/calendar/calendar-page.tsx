@@ -13,7 +13,7 @@ import { calendarMonth, monthOf, shiftMonth } from './api.js';
  * the two differ the entry says so, because "the 30th, because the 28th was
  * Eid" is a sentence a client understands and a bare date is not.
  */
-export function CalendarPage({ onOpenTask }: { onOpenTask: (taskId: string) => void }) {
+export function CalendarPage({ onOpenProject }: { onOpenProject: (projectId: string) => void }) {
   const { t, i18n } = useTranslation();
   const [month, setMonth] = useState(() => monthOf(new Date()));
   const view = useQuery({ queryKey: ['calendar', month], queryFn: () => calendarMonth(month) });
@@ -43,17 +43,17 @@ export function CalendarPage({ onOpenTask }: { onOpenTask: (taskId: string) => v
 
       {view.isLoading ? <Loading label={t('loading')} /> : null}
       {view.isError ? <p className="alert alert--error">{t('calendar.failed')}</p> : null}
-      {view.data ? <Month view={view.data} onOpenTask={onOpenTask} /> : null}
+      {view.data ? <Month view={view.data} onOpenProject={onOpenProject} /> : null}
     </div>
   );
 }
 
 function Month({
   view,
-  onOpenTask,
+  onOpenProject,
 }: {
   view: CalendarMonth;
-  onOpenTask: (taskId: string) => void;
+  onOpenProject: (projectId: string) => void;
 }) {
   const { t } = useTranslation();
 
@@ -83,8 +83,12 @@ function Month({
                 <span>{entry.clientName}</span>
                 <span className="u-text-faint">{subjectOf(entry, t)}</span>
                 <span className="u-grow" />
-                {entry.taskId ? (
-                  <Button small tone="quiet" onClick={() => onOpenTask(entry.taskId as string)}>
+                {entry.projectId ? (
+                  <Button
+                    small
+                    tone="quiet"
+                    onClick={() => onOpenProject(entry.projectId as string)}
+                  >
                     {t('calendar.open')}
                   </Button>
                 ) : null}
@@ -114,7 +118,7 @@ function Month({
               {day.holiday ? <HolidayName holiday={day.holiday} /> : null}
             </div>
             {day.entries.map((entry) => (
-              <Entry key={entry.id} entry={entry} onOpen={onOpenTask} />
+              <Entry key={entry.id} entry={entry} onOpen={onOpenProject} />
             ))}
           </div>
         ))}
@@ -136,7 +140,7 @@ function HolidayName({ holiday }: { holiday: { nameEn: string; nameAr: string } 
   );
 }
 
-function Entry({ entry, onOpen }: { entry: CalendarEntry; onOpen: (taskId: string) => void }) {
+function Entry({ entry, onOpen }: { entry: CalendarEntry; onOpen: (projectId: string) => void }) {
   const { t } = useTranslation();
 
   const tone = entry.kind === 'document_expiry' ? 'warning' : entry.isOverdue ? 'danger' : 'accent';
@@ -158,7 +162,7 @@ function Entry({ entry, onOpen }: { entry: CalendarEntry; onOpen: (taskId: strin
   // title where a person can still reach it.
   const full = `${entry.clientName} — ${subject}`;
 
-  if (!entry.taskId) {
+  if (!entry.projectId) {
     return (
       <div className="calendar__entry" title={full}>
         {body}
@@ -171,7 +175,7 @@ function Entry({ entry, onOpen }: { entry: CalendarEntry; onOpen: (taskId: strin
       type="button"
       className="calendar__entry calendar__entry--link"
       title={full}
-      onClick={() => onOpen(entry.taskId as string)}
+      onClick={() => onOpen(entry.projectId as string)}
     >
       {body}
     </button>

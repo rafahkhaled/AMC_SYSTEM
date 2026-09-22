@@ -16,8 +16,8 @@ function message(over: Partial<NotificationView> = {}): NotificationView {
   return {
     id: 'n-1',
     kind: 'escalation',
-    subjectType: 'task',
-    subjectId: 'task-1:client_reminder',
+    subjectType: 'project',
+    subjectId: 'project-1:client_reminder',
     clientId: 'c-1',
     titleEn: 'Gulf Trading LLC: chase the documents',
     titleAr: 'الخليج للتجارة: متابعة المستندات',
@@ -32,7 +32,7 @@ function message(over: Partial<NotificationView> = {}): NotificationView {
 const DEFAULTS: NotificationPreference[] = [
   { kind: 'document_expiring', inApp: true, email: false },
   { kind: 'deadline_near', inApp: true, email: true },
-  { kind: 'task_assigned', inApp: true, email: false },
+  { kind: 'project_assigned', inApp: true, email: false },
   { kind: 'escalation', inApp: true, email: true },
   { kind: 'time_needs_review', inApp: true, email: false },
 ];

@@ -24,7 +24,7 @@
     "@amc/identity": "workspace:*",
     "@amc/kernel": "workspace:*",
     "@amc/notifications": "workspace:*",
-    "@amc/services": "workspace:*",
+    "@amc/projects": "workspace:*",
     "@amc/storage": "workspace:*",
     "@amc/time-tracking": "workspace:*",
     "@amc/vault": "workspace:*",

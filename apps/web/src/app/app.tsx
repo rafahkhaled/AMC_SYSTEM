@@ -9,8 +9,8 @@ import { CalendarPage } from '../features/calendar/calendar-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
 import { InboxPage } from '../features/inbox/inbox-page.js';
-import { TaskPage } from '../features/tasks/task-page.js';
-import { TasksPage } from '../features/tasks/tasks-page.js';
+import { ProjectPage } from '../features/projects/project-page.js';
+import { ProjectsPage } from '../features/projects/projects-page.js';
 import { TimerPage } from '../features/timer/timer-page.js';
 import { WhatsAppPage } from '../features/whatsapp/whatsapp-page.js';
 import { AppShell } from './app-shell.js';
@@ -28,8 +28,8 @@ import { HomePage } from './home-page.js';
 type View =
   | { name: 'home' }
   | { name: 'clients' }
-  | { name: 'tasks' }
-  | { name: 'task'; id: string }
+  | { name: 'projects' }
+  | { name: 'project'; id: string }
   | { name: 'calendar' }
   | { name: 'timer' }
   | { name: 'billing' }
@@ -45,9 +45,9 @@ type View =
  */
 function activeNav(
   view: View,
-): 'clients' | 'tasks' | 'calendar' | 'timer' | 'billing' | 'whatsapp' | 'inbox' | 'home' {
+): 'clients' | 'projects' | 'calendar' | 'timer' | 'billing' | 'whatsapp' | 'inbox' | 'home' {
   if (view.name === 'client') return 'clients';
-  if (view.name === 'task') return 'tasks';
+  if (view.name === 'project') return 'projects';
   return view.name;
 }
 
@@ -103,12 +103,12 @@ function Screen({
       return <ClientsPage onOpen={(id) => go({ name: 'client', id })} />;
     case 'client':
       return <ClientPage id={view.id} onBack={() => go({ name: 'clients' })} />;
-    case 'tasks':
-      return <TasksPage onOpen={(id) => go({ name: 'task', id })} />;
-    case 'task':
-      return <TaskPage id={view.id} onBack={() => go({ name: 'tasks' })} />;
+    case 'projects':
+      return <ProjectsPage onOpen={(id) => go({ name: 'project', id })} />;
+    case 'project':
+      return <ProjectPage id={view.id} onBack={() => go({ name: 'projects' })} />;
     case 'calendar':
-      return <CalendarPage onOpenTask={(id) => go({ name: 'task', id })} />;
+      return <CalendarPage onOpenProject={(id) => go({ name: 'project', id })} />;
     case 'timer':
       return <TimerPage />;
     case 'billing':

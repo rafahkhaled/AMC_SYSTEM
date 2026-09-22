@@ -44,7 +44,7 @@ async function world(db: Db): Promise<void> {
     ['r-t-delta', 'r-cs-delta', 'r-delta'],
   ] as const) {
     await db.execute(
-      `INSERT INTO tasks (id, client_service_id, client_id, service, state)
+      `INSERT INTO projects (id, client_service_id, client_id, service, state)
        VALUES ('${id}', '${cs}', '${client}', 'vat_return', 'in_progress')`,
     );
   }
@@ -52,7 +52,7 @@ async function world(db: Db): Promise<void> {
 
 const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   id: 'r-l1',
-  taskId: 'r-t-gulf',
+  projectId: 'r-t-gulf',
   service: 'vat_return',
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'r-hana',
@@ -114,7 +114,7 @@ describe('the billing screens, against a real database', () => {
         ]),
       );
       await repository.save(
-        statementOf('r-s2', 'r-delta', [line({ id: 'r-l3', taskId: 'r-t-delta' })]),
+        statementOf('r-s2', 'r-delta', [line({ id: 'r-l3', projectId: 'r-t-delta' })]),
       );
 
       const reader = new DrizzleBillingReader(db);
@@ -176,7 +176,7 @@ describe('the billing screens, against a real database', () => {
       const repository = new DrizzleStatementRepository(db);
       await repository.save(statementOf('r-s1', 'r-gulf', [line()]));
       await repository.save(
-        statementOf('r-s2', 'r-delta', [line({ id: 'r-l3', taskId: 'r-t-delta' })]),
+        statementOf('r-s2', 'r-delta', [line({ id: 'r-l3', projectId: 'r-t-delta' })]),
       );
 
       const reader = new DrizzleBillingReader(db);
@@ -268,11 +268,11 @@ describe('the billing screens, against a real database', () => {
         new CountingIds(),
       );
 
-      for (const [id, client, task] of [
+      for (const [id, client, project] of [
         ['r-s1', 'r-gulf', 'r-t-gulf'],
         ['r-s2', 'r-delta', 'r-t-delta'],
       ] as const) {
-        const statement = statementOf(id, client, [line({ id: `${id}-l`, taskId: task })]);
+        const statement = statementOf(id, client, [line({ id: `${id}-l`, projectId: project })]);
         statement.approve('r-boss', NOW);
         await statements.save(statement);
         const raised = await raise.execute('r-boss', id);

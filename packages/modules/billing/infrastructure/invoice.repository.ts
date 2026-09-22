@@ -28,7 +28,7 @@ type InvoiceRow = {
 
 type LineRow = {
   id: string;
-  task_id: string;
+  project_id: string;
   service: string;
   description_en: string;
   description_ar: string;
@@ -85,7 +85,7 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
 
     const lines: InvoiceLine[] = lineRows.map((line) => ({
       id: line.id,
-      taskId: line.task_id,
+      projectId: line.project_id,
       service: line.service,
       descriptionEn: line.description_en,
       descriptionAr: line.description_ar,
@@ -155,10 +155,10 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
     for (const [position, line] of state.lines.entries()) {
       await this.db.execute(sql`
         INSERT INTO invoice_lines
-          (id, invoice_id, task_id, service, description_en, description_ar,
+          (id, invoice_id, project_id, service, description_en, description_ar,
            worked_seconds, amount_minor, position)
         VALUES (
-          ${line.id}, ${state.id}, ${line.taskId}, ${line.service},
+          ${line.id}, ${state.id}, ${line.projectId}, ${line.service},
           ${line.descriptionEn}, ${line.descriptionAr},
           ${line.worked.seconds}, ${line.amount.minorUnits}, ${position}
         )

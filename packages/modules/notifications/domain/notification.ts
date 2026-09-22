@@ -10,14 +10,14 @@ import { Conflict, type Result, err, ok } from '@amc/kernel';
 export type NotificationKind =
   | 'document_expiring'
   | 'deadline_near'
-  | 'task_assigned'
+  | 'project_assigned'
   | 'escalation'
   | 'time_needs_review';
 
 const KINDS: readonly NotificationKind[] = [
   'document_expiring',
   'deadline_near',
-  'task_assigned',
+  'project_assigned',
   'escalation',
   'time_needs_review',
 ];
@@ -44,7 +44,7 @@ export interface Delivery {
 const DEFAULTS: Readonly<Record<NotificationKind, Delivery>> = {
   document_expiring: { inApp: true, email: false },
   deadline_near: { inApp: true, email: true },
-  task_assigned: { inApp: true, email: false },
+  project_assigned: { inApp: true, email: false },
   escalation: { inApp: true, email: true },
   time_needs_review: { inApp: true, email: false },
 };

@@ -31,7 +31,7 @@ type StatementRow = {
 
 type LineRow = {
   id: string;
-  task_id: string;
+  project_id: string;
   service: string;
   performed_on: string;
   user_id: string | null;
@@ -76,7 +76,7 @@ export class DrizzleStatementRepository implements StatementRepository {
 
     const lines: StatementLine[] = lineRows.map((line) => ({
       id: line.id,
-      taskId: line.task_id,
+      projectId: line.project_id,
       service: line.service,
       performedOn: onDay(line.performed_on),
       userId: line.user_id,
@@ -140,11 +140,11 @@ export class DrizzleStatementRepository implements StatementRepository {
     for (const [position, line] of state.lines.entries()) {
       await this.db.execute(sql`
         INSERT INTO statement_lines
-          (id, statement_id, task_id, service, performed_on, user_id,
+          (id, statement_id, project_id, service, performed_on, user_id,
            worked_seconds, per_hour_minor, excluded, excluded_reason,
            adjusted_to_minor, adjusted_reason, position)
         VALUES (
-          ${line.id}, ${state.id}, ${line.taskId}, ${line.service},
+          ${line.id}, ${state.id}, ${line.projectId}, ${line.service},
           ${line.performedOn.toISOString().slice(0, 10)}, ${line.userId},
           ${line.worked.seconds}, ${line.perHour.minorUnits},
           ${line.excluded}, ${line.excludedReason},

@@ -38,7 +38,7 @@ describe('recorded time against a real database', () => {
     await database?.close();
   });
 
-  /** A client, a subscription, a task, and two people assigned to it. */
+  /** A client, a subscription, a project, and two people assigned to it. */
   async function scenario(tx: unknown) {
     const db = tx as ReturnType<typeof drizzle>;
 
@@ -57,15 +57,15 @@ describe('recorded time against a real database', () => {
        VALUES ('cs-1', 'c-1', 'monthly_accounting', '2026-01-01')`,
     );
     await db.execute(
-      `INSERT INTO tasks (id, client_service_id, client_id, service, state)
+      `INSERT INTO projects (id, client_service_id, client_id, service, state)
        VALUES ('t-1', 'cs-1', 'c-1', 'monthly_accounting', 'in_progress')`,
     );
     await db.execute(
-      `INSERT INTO task_assignments (id, task_id, user_id, role, assigned_at, assigned_by)
+      `INSERT INTO project_assignments (id, project_id, user_id, role, assigned_at, assigned_by)
        VALUES ('as-a', 't-1', 'user-a', 'responsible', '2026-01-01', 'manager')`,
     );
     await db.execute(
-      `INSERT INTO task_assignments (id, task_id, user_id, role, assigned_at, assigned_by)
+      `INSERT INTO project_assignments (id, project_id, user_id, role, assigned_at, assigned_by)
        VALUES ('as-b', 't-1', 'user-b', 'collaborator', '2026-01-01', 'manager')`,
     );
 
@@ -88,7 +88,7 @@ describe('recorded time against a real database', () => {
     );
     await db.execute(
       `INSERT INTO statement_lines
-         (id, statement_id, task_id, service, performed_on, user_id,
+         (id, statement_id, project_id, service, performed_on, user_id,
           worked_seconds, per_hour_minor, position)
        VALUES ('line-1', 'st-1', 't-1', 'monthly_accounting', '2026-04-01', 'user-a',
                5400, 30000, 0)`,
@@ -275,7 +275,7 @@ describe('recorded time against a real database', () => {
       const unbilled = await entries.unbilledForClient('c-1', at('2026-05-01T00:00:00Z'));
       expect(unbilled.map((row) => row.entryId)).toEqual(['e-ready']);
       expect(unbilled[0]?.userId).toBe('user-a');
-      expect(unbilled[0]?.taskId).toBe('t-1');
+      expect(unbilled[0]?.projectId).toBe('t-1');
     });
   });
 
@@ -284,9 +284,9 @@ describe('recorded time against a real database', () => {
       const { db, entries } = await scenario(tx);
       await entries.save(entry('e-1', 'as-a', '2026-04-01T09:00:00Z', '2026-04-01T10:00:00Z'));
 
-      // A hands the task over to B in May. March's hour stays A's.
+      // A hands the project over to B in May. March's hour stays A's.
       await db.execute(
-        "UPDATE task_assignments SET unassigned_at = '2026-05-01' WHERE id = 'as-a'",
+        "UPDATE project_assignments SET unassigned_at = '2026-05-01' WHERE id = 'as-a'",
       );
 
       const forA = await entries.forUserBetween(
@@ -321,17 +321,17 @@ describe('the running timer against a real database', () => {
       `INSERT INTO client_services (id, client_id, service, active_from)
        VALUES ('cs-1', 'c-1', 'monthly_accounting', '2026-01-01')`,
     );
-    for (const [taskId, assignmentId] of [
+    for (const [projectId, assignmentId] of [
       ['t-1', 'as-1'],
       ['t-2', 'as-2'],
     ] as const) {
       await db.execute(
-        `INSERT INTO tasks (id, client_service_id, client_id, service, state)
-         VALUES ('${taskId}', 'cs-1', 'c-1', 'monthly_accounting', 'in_progress')`,
+        `INSERT INTO projects (id, client_service_id, client_id, service, state)
+         VALUES ('${projectId}', 'cs-1', 'c-1', 'monthly_accounting', 'in_progress')`,
       );
       await db.execute(
-        `INSERT INTO task_assignments (id, task_id, user_id, role, assigned_at, assigned_by)
-         VALUES ('${assignmentId}', '${taskId}', 'user-a', 'responsible', '2026-01-01', 'manager')`,
+        `INSERT INTO project_assignments (id, project_id, user_id, role, assigned_at, assigned_by)
+         VALUES ('${assignmentId}', '${projectId}', 'user-a', 'responsible', '2026-01-01', 'manager')`,
       );
     }
     return { db, timers: new DrizzleRunningTimerRepository(db) };
@@ -414,7 +414,7 @@ describe('the running timer against a real database', () => {
     });
   });
 
-  it('survives a hold, keeping the task and counting nothing', async () => {
+  it('survives a hold, keeping the project and counting nothing', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const { timers } = await scenario(tx);
       const running = RunningTimer.start({
@@ -470,7 +470,7 @@ describe('the running timer against a real database', () => {
       await timers.save(running);
 
       // Long past any heartbeat deadline. A held timer still has nothing to
-      // trim, and sweeping it would only lose the task somebody paused.
+      // trim, and sweeping it would only lose the project somebody paused.
       const stale = await timers.stale(at('2026-04-09T00:00:00Z'));
       expect(stale.map((timer) => timer.userId)).not.toContain('user-a');
     });

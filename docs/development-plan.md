@@ -107,7 +107,7 @@ modules/billing/
 
 Revised after review on 2026-09-14. Four structural rules now drive the model:
 
-1. **The task is the hub between a client and their documents.** A task reaches exactly the documents that belong to its own client, never the whole repository.
+1. **The project is the hub between a client and their documents.** A task reaches exactly the documents that belong to its own client, never the whole repository.
 2. **Staff attach to tasks, not to timers.** The timer records against the task; who worked is resolved through the task's assignment.
 3. **One `users` table for every person who logs in**, staff and client contacts alike, discriminated by roles rather than a type column.
 4. **No invoice line exists without a task.** Billing is impossible until work exists.
@@ -115,7 +115,7 @@ Revised after review on 2026-09-14. Four structural rules now drive the model:
 ### 3.1 The spine
 
 ```
-client ──< client_service ──< task ──< task_documents >── client_document
+client ──< client_service ──< task ──< project_documents >── client_document
                                │
                                ├──< task_assignment (staff) ──< time_entry
                                │
@@ -184,23 +184,23 @@ One refinement worth stating plainly: **the client organisation is not a user.**
 |---|---|
 | `document_types` | trade licence, Emirates ID, passport, VAT certificate…; `has_expiry` flag |
 | `client_documents` | client_id, document_type_id, storage_key, issued_at, expires_at, status (required / received / expired / renewing). The client owns the document (FR-04) |
-| `task_documents` | **task_id, client_document_id, template_requirement_id (nullable), role (input / output / evidence), attached_by, attached_at.** UNIQUE(task_id, client_document_id) |
-| `generated_documents` | FR-15 letters and declarations, linked to task_id and client_id |
+| `project_documents` | **project_id, client_document_id, template_requirement_id (nullable), role (input / output / evidence), attached_by, attached_at.** UNIQUE(project_id, client_document_id) |
+| `generated_documents` | FR-15 letters and declarations, linked to project_id and client_id |
 
-The task's checklist comes from `template_required_documents`; each requirement is satisfied by attaching one of that client's documents through `task_documents`. The gate in FR-12, no move to "in progress" before mandatory documents are present, is a query over that join and nothing else. A document renewed once is reused by every later task without being re-uploaded.
+The task's checklist comes from `template_required_documents`; each requirement is satisfied by attaching one of that client's documents through `project_documents`. The gate in FR-12, no move to "in progress" before mandatory documents are present, is a query over that join and nothing else. A document renewed once is reused by every later task without being re-uploaded.
 
-Integrity rule: a `task_documents` row is only valid when the document's client matches the task's client. Enforced by a composite foreign key, not a trigger — `client_documents` carries UNIQUE(id, client_id), and `task_documents` holds `client_id` referencing `(client_document_id, client_id)` and `(task_id, client_id)` together. Cross-client leakage becomes impossible at the database level.
+Integrity rule: a `project_documents` row is only valid when the document's client matches the task's client. Enforced by a composite foreign key, not a trigger — `client_documents` carries UNIQUE(id, client_id), and `project_documents` holds `client_id` referencing `(client_document_id, client_id)` and `(project_id, client_id)` together. Cross-client leakage becomes impossible at the database level.
 
 ### 3.4 Staff on tasks, timer on the task
 
 | Table | Notes |
 |---|---|
-| `task_assignments` | task_id, user_id, role (responsible / collaborator), assigned_at, unassigned_at, assigned_by. **Append-only history** — reassignment closes one row and opens the next (FR-13) |
+| `project_assignments` | project_id, user_id, role (responsible / collaborator), assigned_at, unassigned_at, assigned_by. **Append-only history** — reassignment closes one row and opens the next (FR-13) |
 | `running_timer` | user_id PK, task_assignment_id, started_at, device_id, last_heartbeat_at |
 | `time_entries` | **task_assignment_id NOT NULL**, started_at, ended_at, duration_seconds (generated), source (timer / manual), manual_reason, billable, approved_at, approved_by, statement_line_entry back-reference |
 | `timer_events` | append-only start / stop / heartbeat stream from the device, for NFR-03 recovery |
 
-A time entry carries no client column and no staff column. Both are reached through `task_assignment → task → client_service → client`. A reporting view, `v_time_entries_resolved`, exposes client_id, user_id and task_id so that hour reports and timesheets stay one-line queries.
+A time entry carries no client column and no staff column. Both are reached through `task_assignment → task → client_service → client`. A reporting view, `v_time_entries_resolved`, exposes client_id, user_id and project_id so that hour reports and timesheets stay one-line queries.
 
 Why the entry points at the *assignment* rather than the task directly: if it pointed at the task alone, reassigning a task would silently re-attribute last month's hours to the new accountant, and two people working the same task would be indistinguishable. Because assignments are append-only, the assignment row is a permanent record of "this person, on this task, during this period". Staff is still not duplicated onto the time record, and FR-31's breakdown by staff member and FR-24's per-person timesheet both survive reassignment intact.
 
@@ -216,11 +216,11 @@ FR-20 still holds: client, task and staff are all mandatory and all derivable, s
 | `template_steps`, `template_required_documents` | steps and the document checklist, with a `mandatory` flag |
 | `client_services` | client_id, service_template_id, pricing model, rate override, tax period (start month + length), active_from / active_to |
 | `tasks` | client_service_id, client_id, state, period_key, due_at, assignee resolved via assignments, completed_at, billable_from |
-| `task_steps`, `task_state_transitions` | checklist progress and an explicit record of every state move |
+| `tasks`, `task_state_transitions` | checklist progress and an explicit record of every state move |
 | `deadline_rules` | basis: period_end + N days, or fiscal_year_end + 9 months; weekend and holiday handling |
-| `deadlines` | client_service_id, period_key, due_at, task_id, status |
+| `deadlines` | client_service_id, period_key, due_at, project_id, status |
 | `business_holidays` | UAE calendar, so a 28th falling on a weekend or public holiday shifts to the next business day |
-| `escalations` | deadline_id or task_id, stage (7 days client / 14 days accountant / 5 days manager), fired_at |
+| `escalations` | deadline_id or project_id, stage (7 days client / 14 days accountant / 5 days manager), fired_at |
 
 `tasks` carries `client_id` even though it is reachable through `client_service`. That is deliberate: scoping queries and document access hit it constantly. It cannot drift, because `client_services` carries UNIQUE(id, client_id) and `tasks` holds a composite foreign key on `(client_service_id, client_id)`.
 
@@ -232,18 +232,18 @@ Idempotency for recurrence: UNIQUE(client_service_id, period_key) on both `tasks
 |---|---|
 | `quotations`, `quotation_lines` | may exist before any task — a quote is a promise, not billing (FR-30) |
 | `billing_statements` | client_id, period, state (draft / reviewed / issued) |
-| `statement_lines` | statement_id, **task_id NOT NULL**, hours, rate, amount, excluded flag, adjustment and reason |
+| `statement_lines` | statement_id, **project_id NOT NULL**, hours, rate, amount, excluded flag, adjustment and reason |
 | `statement_line_entries` | statement_line_id, time_entry_id — exactly which hours rolled into the line |
 | `invoices` | client_id, number, issued_at, due_at, state, totals, statement_id (nullable) |
-| `invoice_lines` | invoice_id, **task_id NOT NULL**, line_type (hourly / fixed_fee / retainer / recharge), quantity, unit_rate, amount |
+| `invoice_lines` | invoice_id, **project_id NOT NULL**, line_type (hourly / fixed_fee / retainer / recharge), quantity, unit_rate, amount |
 | `payments` | invoice_id, amount, paid_at, method |
 | `ai_usage` | batch_id, client_id, pages, unit_cost, total_cost — rechargeable per client (FR-90) |
 
-`invoice_lines.task_id` is NOT NULL, so an invoice cannot exist without work behind it. The billing use case additionally refuses a task that is not in a billable state, and `tasks.billable_from` marks when that opened. Which states qualify is configuration, because monthly accounting bills at period close while a one-off registration bills on completion.
+`invoice_lines.project_id` is NOT NULL, so an invoice cannot exist without work behind it. The billing use case additionally refuses a task that is not in a billable state, and `tasks.billable_from` marks when that opened. Which states qualify is configuration, because monthly accounting bills at period close while a one-off registration bills on completion.
 
 Two consequences you should decide on deliberately:
 
-- **A pure advance payment or deposit has no task**, so under this rule it cannot be invoiced. If the firm ever needs one, the clean answer is a lightweight task of type `advance` on the client's service, not a nullable task_id. Keeping the column NOT NULL is the stronger position and I recommend holding it.
+- **A pure advance payment or deposit has no task**, so under this rule it cannot be invoiced. If the firm ever needs one, the clean answer is a lightweight task of type `advance` on the client's service, not a nullable project_id. Keeping the column NOT NULL is the stronger position and I recommend holding it.
 - **FR-34 is unaffected.** Work may still start before payment; the invoice simply shows as collection pending.
 
 Locking (FR-26) comes from the join: a `time_entry` referenced by a `statement_line_entry` whose statement has been issued is read-only. Unlinking is a Manager action that writes to the audit log.

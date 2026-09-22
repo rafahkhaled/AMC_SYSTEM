@@ -4,6 +4,6 @@ export * from './clients.js';
 export * from './errors.js';
 export * from './identity.js';
 export * from './notifications.js';
-export * from './tasks.js';
+export * from './projects.js';
 export * from './time.js';
 export * from './whatsapp.js';

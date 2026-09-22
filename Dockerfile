@@ -34,7 +34,7 @@ COPY packages/modules/clients/package.json packages/modules/clients/
 COPY packages/modules/deadlines/package.json packages/modules/deadlines/
 COPY packages/modules/identity/package.json packages/modules/identity/
 COPY packages/modules/notifications/package.json packages/modules/notifications/
-COPY packages/modules/services/package.json packages/modules/services/
+COPY packages/modules/projects/package.json packages/modules/projects/
 COPY packages/modules/time-tracking/package.json packages/modules/time-tracking/
 COPY packages/modules/whatsapp/package.json packages/modules/whatsapp/
 

@@ -1,4 +1,4 @@
-import type { ClientDetail, ClientSummary, DocumentSummary, TaskSummary } from '@amc/contracts';
+import type { ClientDetail, ClientSummary, DocumentSummary, ProjectSummary } from '@amc/contracts';
 import { type Clock } from '@amc/kernel';
 import { scopeFor } from '../domain/index.js';
 import type { CallerLike, ClientRepository, DocumentRepository } from './ports.js';
@@ -11,9 +11,9 @@ import type { CallerLike, ClientRepository, DocumentRepository } from './ports.j
  * write take the whole `CallerLike`.
  */
 type Viewer = Pick<CallerLike, 'userId' | 'permissions'>;
-/** Supplied by the composition root, because tasks belong to another module. */
-export interface TaskSummaryReader {
-  forClient(clientId: string, scope: ReturnType<typeof scopeFor>): Promise<TaskSummary[]>;
+/** Supplied by the composition root, because projects belong to another module. */
+export interface ProjectSummaryReader {
+  forClient(clientId: string, scope: ReturnType<typeof scopeFor>): Promise<ProjectSummary[]>;
   openCountsByClient(scope: ReturnType<typeof scopeFor>): Promise<Map<string, number>>;
 }
 
@@ -28,14 +28,14 @@ export class ReadClients {
   constructor(
     private readonly clients: ClientRepository,
     private readonly documents: DocumentRepository,
-    private readonly tasks: TaskSummaryReader,
+    private readonly projects: ProjectSummaryReader,
     private readonly clock: Clock,
   ) {}
 
   async list(caller: Viewer, limit?: number): Promise<ClientSummary[]> {
     const scope = scopeFor(caller);
     const summaries = await this.clients.list(scope, limit ? { limit } : {});
-    const openTasks = await this.tasks.openCountsByClient(scope);
+    const openProjects = await this.projects.openCountsByClient(scope);
     const today = this.clock.now();
 
     return Promise.all(
@@ -54,7 +54,7 @@ export class ReadClients {
           documentsExpiring: documents.filter((document) =>
             ['expiring', 'expired'].includes(document.expiryStateOn(today)),
           ).length,
-          openTasks: openTasks.get(summary.id) ?? 0,
+          openProjects: openProjects.get(summary.id) ?? 0,
         };
       }),
     );
@@ -68,7 +68,7 @@ export class ReadClients {
     const today = this.clock.now();
     const state = client.snapshot();
     const documents = await this.documents.currentFor(clientId, scope);
-    const tasks = await this.tasks.forClient(clientId, scope);
+    const projects = await this.projects.forClient(clientId, scope);
 
     const documentSummaries: DocumentSummary[] = documents.map((document) => {
       const detail = document.snapshot();
@@ -107,11 +107,13 @@ export class ReadClients {
         note: change.note ?? null,
       })),
       documents: documentSummaries,
-      tasks,
+      projects,
       documentsExpiring: documentSummaries.filter((document) =>
         ['expiring', 'expired'].includes(document.expiryState),
       ).length,
-      openTasks: tasks.filter((task) => !['completed', 'cancelled'].includes(task.state)).length,
+      openProjects: projects.filter(
+        (project) => !['completed', 'cancelled'].includes(project.state),
+      ).length,
     };
   }
 }

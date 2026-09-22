@@ -109,7 +109,7 @@ async function main(): Promise<void> {
     }
 
     process.stdout.write(
-      `Seeded ${CLIENTS.length} clients on three different VAT cycles.\nRun the worker once to create the tasks their closed periods call for.\n`,
+      `Seeded ${CLIENTS.length} clients on three different VAT cycles.\nRun the worker once to create the projects their closed periods call for.\n`,
     );
   } finally {
     await close();

@@ -18,7 +18,7 @@ import {
  * between, hours are recorded against it, and what is eventually billed is the
  * statement of that work. A quotation that turned into an invoice would let a
  * firm bill for work nobody did, which is the exact thing the ERD's "no invoice
- * without a task" rule exists to prevent.
+ * without a project" rule exists to prevent.
  *
  * So this aggregate has one job: say what was offered, to whom, for how much,
  * and whether they said yes.

@@ -24,14 +24,14 @@ async function world(db: Db): Promise<void> {
     VALUES ('b-cs1', 'b-c1', 'vat_return', '2026-01-01')
   `);
   await db.execute(`
-    INSERT INTO tasks (id, client_service_id, client_id, service, state)
+    INSERT INTO projects (id, client_service_id, client_id, service, state)
     VALUES ('b-t1', 'b-cs1', 'b-c1', 'vat_return', 'in_progress')
   `);
 }
 
 const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   id: 'b-sl1',
-  taskId: 'b-t1',
+  projectId: 'b-t1',
   service: 'vat_return',
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'b-u1',
@@ -119,7 +119,7 @@ describe('statements, against a real database', () => {
       await expect(
         db.execute(`
           INSERT INTO statement_lines
-            (id, statement_id, task_id, service, performed_on, worked_seconds,
+            (id, statement_id, project_id, service, performed_on, worked_seconds,
              per_hour_minor, excluded, position)
           VALUES ('b-sl9', 'b-s9', 'b-t1', 'vat_return', '2026-09-03', 7200, 30000, true, 0)
         `),
@@ -143,7 +143,7 @@ describe('statements, against a real database', () => {
        * to a client who has already paid for them.
        */
       await db.execute(`
-        INSERT INTO task_assignments (id, task_id, user_id, role, assigned_at, assigned_by)
+        INSERT INTO project_assignments (id, project_id, user_id, role, assigned_at, assigned_by)
         VALUES ('b-as1', 'b-t1', 'b-u1', 'responsible', '2026-01-01', 'b-u1')
       `);
       await db.execute(`
@@ -210,7 +210,7 @@ describe('invoices, against a real database', () => {
       expect(invoice?.vat().minorUnits).toBe(3_000);
       expect(invoice?.total().minorUnits).toBe(63_000);
       expect(invoice?.snapshot().number).toBe('INV-2026-0001');
-      expect(invoice?.snapshot().lines[0]?.taskId).toBe('b-t1');
+      expect(invoice?.snapshot().lines[0]?.projectId).toBe('b-t1');
     });
   });
 

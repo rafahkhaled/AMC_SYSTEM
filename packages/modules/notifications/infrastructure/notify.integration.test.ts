@@ -61,8 +61,8 @@ describe('telling people things, against a real database', () => {
   const escalation = (over: Record<string, unknown> = {}) => ({
     userId: 'ntf-u1',
     kind: 'escalation' as const,
-    subjectType: 'task',
-    subjectId: 'task-1:client_reminder',
+    subjectType: 'project',
+    subjectId: 'project-1:client_reminder',
     wording: WORDING,
     ...over,
   });
@@ -163,8 +163,8 @@ describe('telling people things, against a real database', () => {
     await database.inRollbackTransaction(async (tx) => {
       const { notify, inbox } = await scenario(tx);
 
-      await notify.send(escalation({ subjectId: 'task-1:client_reminder' }));
-      await notify.send(escalation({ subjectId: 'task-1:accountant_alert' }));
+      await notify.send(escalation({ subjectId: 'project-1:client_reminder' }));
+      await notify.send(escalation({ subjectId: 'project-1:accountant_alert' }));
 
       expect((await inbox.forCaller({ userId: 'ntf-u1' })).entries).toHaveLength(2);
     });

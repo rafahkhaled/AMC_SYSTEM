@@ -15,11 +15,11 @@ import {
  *
  * Raised from an approved statement and frozen at that moment. Its lines are
  * copies, not references: the statement can be reopened, a rate can change, a
- * task can be renamed, and none of it may alter a document the client has
+ * project can be renamed, and none of it may alter a document the client has
  * already been sent. What was billed must stay what was billed.
  *
- * Every line carries a `taskId` and there is no way to add one without it.
- * That is ERD rule 4 — nothing bills without a task — and it is the column
+ * Every line carries a `projectId` and there is no way to add one without it.
+ * That is ERD rule 4 — nothing bills without a project — and it is the column
  * that makes a line defensible three years later when somebody asks what it
  * was for.
  */
@@ -37,8 +37,8 @@ export type Settlement = 'issued' | 'part_paid' | 'paid' | 'cancelled';
 
 export interface InvoiceLine {
   readonly id: string;
-  /** Never null. Nothing bills without a task. */
-  readonly taskId: string;
+  /** Never null. Nothing bills without a project. */
+  readonly projectId: string;
   readonly service: string;
   readonly descriptionEn: string;
   readonly descriptionAr: string;
@@ -119,9 +119,9 @@ export class Invoice extends AggregateRoot {
     }
 
     for (const line of params.lines) {
-      if (line.taskId.trim().length === 0) {
+      if (line.projectId.trim().length === 0) {
         // The ERD's rule, enforced where it cannot be skipped.
-        return err(new Conflict('Every invoice line has to name the task it is for'));
+        return err(new Conflict('Every invoice line has to name the project it is for'));
       }
       if (line.amount.currency !== params.currency) {
         return err(new Conflict('Every line has to be in the invoice’s own currency'));

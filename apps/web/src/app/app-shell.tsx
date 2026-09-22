@@ -8,7 +8,7 @@ import { useUnreadCount } from '../features/inbox/inbox-page.js';
 
 type NavView =
   | 'clients'
-  | 'tasks'
+  | 'projects'
   | 'calendar'
   | 'timer'
   | 'billing'
@@ -18,7 +18,7 @@ type NavView =
 
 const VIEWS = [
   'clients',
-  'tasks',
+  'projects',
   'calendar',
   'timer',
   'billing',

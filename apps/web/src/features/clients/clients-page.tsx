@@ -67,7 +67,7 @@ function ClientList({ onOpen }: { onOpen: (id: string) => void }) {
 
       if (!matches) return false;
       if (filter === 'documents') return client.documentsExpiring > 0;
-      if (filter === 'work') return client.openTasks > 0;
+      if (filter === 'work') return client.openProjects > 0;
       return true;
     });
   }, [clients.data, search, filter]);
@@ -162,7 +162,7 @@ function ClientRow({
           <span className="u-text-faint">—</span>
         )}
       </td>
-      <td className="u-numeric">{client.openTasks > 0 ? client.openTasks : '—'}</td>
+      <td className="u-numeric">{client.openProjects > 0 ? client.openProjects : '—'}</td>
     </tr>
   );
 }

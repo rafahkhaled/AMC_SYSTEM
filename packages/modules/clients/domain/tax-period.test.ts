@@ -67,7 +67,7 @@ describe('VAT periods', () => {
   });
 
   it('labels a period so the same one is never created twice', () => {
-    // The key is what stops the scheduler producing a second return task for
+    // The key is what stops the scheduler producing a second return project for
     // a quarter it already handled.
     expect(quarterly(3).periodContaining(new Date('2026-05-14T00:00:00Z')).key).toBe('2026-Q2-06');
     const monthly = VatPeriods.of('monthly', 1);

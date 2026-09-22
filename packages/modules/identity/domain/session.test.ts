@@ -55,7 +55,7 @@ describe('Session', () => {
   it('starts half authenticated when a second factor is due', () => {
     const session = start(at('2026-09-15T06:00:00Z'), false);
     expect(session.twoFactorPassed).toBe(false);
-    // Still a valid session: it exists to carry the verification step.
+    // Still a valid session: it exists to carry the verification task.
     expect(session.isValidAt(at('2026-09-15T06:01:00Z'))).toBe(true);
   });
 

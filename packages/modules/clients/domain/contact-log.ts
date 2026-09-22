@@ -35,7 +35,7 @@ export interface ContactLogState {
   readonly direction: ContactDirection;
   readonly happenedAt: Date;
   readonly summary: string;
-  readonly taskId: string | null;
+  readonly projectId: string | null;
   readonly attachments: readonly ContactAttachment[];
   readonly createdAt: Date;
 }
@@ -63,7 +63,7 @@ export class ContactLogEntry {
     direction: string;
     happenedAt: Date;
     summary: string;
-    taskId?: string | null;
+    projectId?: string | null;
     now: Date;
   }): Result<ContactLogEntry, Conflict> {
     if (!isContactChannel(params.channel)) {
@@ -97,7 +97,7 @@ export class ContactLogEntry {
         direction: params.direction,
         happenedAt: params.happenedAt,
         summary,
-        taskId: params.taskId ?? null,
+        projectId: params.projectId ?? null,
         attachments: [],
         createdAt: params.now,
       }),

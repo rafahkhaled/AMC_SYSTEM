@@ -19,7 +19,7 @@ import { TimerService } from '../application/timer-service.js';
 /**
  * The timer.
  *
- * Guarded on `time.record`, which every role that works on client tasks holds
+ * Guarded on `time.record`, which every role that works on client projects holds
  * and the portal client does not. Unlike the client screens there is no scope
  * to fall back on: a timer belongs to the person using it, so the permission
  * is the whole check.
@@ -88,11 +88,11 @@ export class TimerController {
   @RequirePermissions('time.record')
   async start(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<TimerState> {
     const parsed = startTimerSchema.safeParse(body);
-    if (!parsed.success) throw new BadRequestException('Which task?');
+    if (!parsed.success) throw new BadRequestException('Which project?');
 
     const outcome = await this.timer.start({
       userId: caller.userId,
-      taskId: parsed.data.taskId,
+      projectId: parsed.data.projectId,
       ...replayed(parsed.data.at),
     });
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
@@ -112,7 +112,7 @@ export class TimerController {
   }
 
   /**
-   * Hold. The interruption is not billed and the task is not lost.
+   * Hold. The interruption is not billed and the project is not lost.
    *
    * Separate from stop because the two mean different things to the person
    * using it, even though both write the same entry: stopping says the work
@@ -158,7 +158,7 @@ export class TimerController {
 
     const outcome = await this.timer.recordManual({
       userId: caller.userId,
-      taskId: parsed.data.taskId,
+      projectId: parsed.data.projectId,
       startedAt: inDubai(parsed.data.startedAt),
       endedAt: inDubai(parsed.data.endedAt),
       reason: parsed.data.reason,

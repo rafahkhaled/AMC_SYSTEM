@@ -69,7 +69,7 @@ export function documentFileStore(storage: FileStorage): DocumentFileStore {
  *
  * Under the client, beside their documents but not among them: a WhatsApp
  * screenshot is evidence that somebody was asked, not a trade licence, and a
- * task's document checklist must never be able to pick one up.
+ * project's document checklist must never be able to pick one up.
  */
 export function contactFileStore(storage: FileStorage): ContactFileStore {
   return {

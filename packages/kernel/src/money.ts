@@ -160,10 +160,10 @@ export class Money {
     }
 
     let remainder = BigInt(this.minorUnits) - distributed;
-    const step = remainder < 0n ? -1 : 1;
+    const task = remainder < 0n ? -1 : 1;
     for (let index = 0; remainder !== 0n; index = (index + 1) % shares.length) {
-      shares[index] = (shares[index] ?? 0) + step;
-      remainder -= BigInt(step);
+      shares[index] = (shares[index] ?? 0) + task;
+      remainder -= BigInt(task);
     }
 
     return shares.map((minor) => new Money(minor, this.currency));

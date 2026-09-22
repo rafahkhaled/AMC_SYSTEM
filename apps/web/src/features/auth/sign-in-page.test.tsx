@@ -63,7 +63,7 @@ describe('the sign-in screen', () => {
     });
   });
 
-  it('goes to the code step instead of the application when a second factor is due', async () => {
+  it('goes to the code task instead of the application when a second factor is due', async () => {
     signIn.mockResolvedValue({
       caller: { userId: 'u1', displayName: 'Wael', roles: ['manager'], permissions: [] },
       expiresAt: new Date().toISOString(),

@@ -119,16 +119,18 @@ describe('the audit log against a real database', () => {
   });
 
   it('turns every recorded domain event into an entry and an outbox row', async () => {
-    const aggregateId = `task-${Date.now()}`;
+    const aggregateId = `project-${Date.now()}`;
     await unitOfWork.run(ACTOR, async (context) => {
       context.collect([
-        domainEvent('services.task.completed', aggregateId, new Date(), { taskId: aggregateId }),
+        domainEvent('services.project.completed', aggregateId, new Date(), {
+          projectId: aggregateId,
+        }),
       ]);
     });
 
     const found = await reader.search({ entityId: aggregateId, limit: 10 });
-    expect(found.entries[0]?.action).toBe('services.task.completed');
-    expect(found.entries[0]?.entityType).toBe('services.task');
+    expect(found.entries[0]?.action).toBe('services.project.completed');
+    expect(found.entries[0]?.entityType).toBe('services.project');
 
     const pending = await new DrizzleOutboxReader(pool.db).pending(100);
     expect(pending.some((record) => record.event.aggregateId === aggregateId)).toBe(true);
@@ -157,7 +159,7 @@ describe('the audit log against a real database', () => {
     const entityId = `paged-${Date.now()}`;
     for (let index = 0; index < 5; index += 1) {
       await unitOfWork.run(ACTOR, async (context) => {
-        context.audit({ action: `step.${index}`, entityType: 'paged', entityId });
+        context.audit({ action: `task.${index}`, entityType: 'paged', entityId });
       });
     }
 

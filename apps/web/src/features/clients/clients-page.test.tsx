@@ -26,7 +26,7 @@ function client(over: Partial<ClientSummary> = {}): ClientSummary {
     vatTrn: '100123456700003',
     ctState: 'not_registered',
     documentsExpiring: 0,
-    openTasks: 0,
+    openProjects: 0,
     ...over,
   };
 }
@@ -50,7 +50,7 @@ const THREE = [
     id: 'c-3',
     legalName: 'Noor Medical Supplies FZE',
     vatTrn: '100345678900003',
-    openTasks: 2,
+    openProjects: 2,
   }),
 ];
 

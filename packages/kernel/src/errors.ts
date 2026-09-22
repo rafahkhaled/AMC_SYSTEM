@@ -2,7 +2,7 @@
  * The error vocabulary every module shares.
  *
  * A DomainError is an expected, meaningful outcome — "this invoice is already
- * paid", "this task still needs documents" — not a crash. Use cases return them
+ * paid", "this project still needs documents" — not a crash. Use cases return them
  * inside a Result so the HTTP layer can map them to a status code without
  * catching exceptions.
  */

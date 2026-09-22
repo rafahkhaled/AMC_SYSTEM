@@ -25,7 +25,7 @@
     { "path": "../../packages/modules/billing" },
     { "path": "../../packages/modules/clients" },
     { "path": "../../packages/modules/deadlines" },
-    { "path": "../../packages/modules/services" },
+    { "path": "../../packages/modules/projects" },
     { "path": "../../packages/modules/time-tracking" },
     { "path": "../../packages/modules/identity" },
     { "path": "../../packages/modules/notifications" },

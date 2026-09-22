@@ -15,6 +15,6 @@
     { "path": "../../packages/modules/clients" },
     { "path": "../../packages/modules/deadlines" },
     { "path": "../../packages/modules/notifications" },
-    { "path": "../../packages/modules/services" }
+    { "path": "../../packages/modules/projects" }
   ]
 }

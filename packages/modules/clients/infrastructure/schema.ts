@@ -178,7 +178,7 @@ export const clientContactLog = pgTable('client_contact_log', {
   direction: text('direction').notNull(),
   happenedAt: timestamp('happened_at', { withTimezone: true }).notNull(),
   summary: text('summary').notNull(),
-  taskId: text('task_id'),
+  projectId: text('project_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -210,7 +210,7 @@ export const generatedDocuments = pgTable('generated_documents', {
   id: text('id').primaryKey(),
   clientId: text('client_id').notNull(),
   templateId: text('template_id').notNull(),
-  taskId: text('task_id'),
+  projectId: text('project_id'),
   language: text('language').notNull(),
   title: text('title').notNull(),
   body: text('body').notNull(),

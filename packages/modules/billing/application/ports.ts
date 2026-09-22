@@ -48,11 +48,11 @@ export interface StatementRepository {
  * Flat rather than an aggregate, because billing does not own time entries and
  * should not learn their shape. The composition root joins time-tracking's
  * tables to services' and hands over what billing actually needs: whose work,
- * on what task, on which day, for how long.
+ * on what project, on which day, for how long.
  */
 export interface BillableWork {
   readonly entryId: string;
-  readonly taskId: string;
+  readonly projectId: string;
   readonly service: string;
   /** The calendar day in the firm's timezone, which is what chooses the rate. */
   readonly performedOn: Date;

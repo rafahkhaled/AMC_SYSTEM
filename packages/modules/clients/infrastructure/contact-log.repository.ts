@@ -66,7 +66,7 @@ export class DrizzleContactLogRepository implements ContactLogRepository {
         direction: row.direction as ContactDirection,
         happenedAt: row.happenedAt,
         summary: row.summary,
-        taskId: row.taskId,
+        projectId: row.projectId,
         attachments: byEntry.get(row.id) ?? [],
         createdAt: row.createdAt,
       }),
@@ -84,7 +84,7 @@ export class DrizzleContactLogRepository implements ContactLogRepository {
       direction: state.direction,
       happenedAt: state.happenedAt,
       summary: state.summary,
-      taskId: state.taskId,
+      projectId: state.projectId,
     };
     await this.db
       .insert(clientContactLog)

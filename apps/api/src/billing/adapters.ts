@@ -9,7 +9,7 @@ import { sql } from 'drizzle-orm';
  *
  * Every function here spans two modules, so none of them may live in either:
  * billing declares what it needs and the composition root supplies it. The
- * same arrangement `task-summaries.ts` uses for the client screens.
+ * same arrangement `project-summaries.ts` uses for the client screens.
  */
 
 /**
@@ -30,21 +30,21 @@ export function unbilledWork(db: Database, timeZone: string): UnbilledWorkReader
     async forClient({ clientId, from, to }) {
       const rows = await db.execute<{
         entry_id: string;
-        task_id: string;
+        project_id: string;
         service: string;
         performed_on: string;
         user_id: string | null;
         seconds: number;
       }>(sql`
         SELECT e.id            AS entry_id,
-               t.id            AS task_id,
+               t.id            AS project_id,
                t.service       AS service,
                (e.started_at AT TIME ZONE ${timeZone})::date AS performed_on,
                a.user_id       AS user_id,
                e.duration_seconds AS seconds
         FROM time_entries e
-        JOIN task_assignments a ON a.id = e.assignment_id
-        JOIN tasks t            ON t.id = a.task_id
+        JOIN project_assignments a ON a.id = e.assignment_id
+        JOIN projects t            ON t.id = a.project_id
         WHERE t.client_id = ${clientId}
           AND e.statement_line_id IS NULL
           AND e.billable
@@ -60,7 +60,7 @@ export function unbilledWork(db: Database, timeZone: string): UnbilledWorkReader
       return rows.map(
         (row): BillableWork => ({
           entryId: row.entry_id,
-          taskId: row.task_id,
+          projectId: row.project_id,
           service: row.service,
           // A date column: read as UTC midnight, which is how every calendar
           // day in this system is keyed.

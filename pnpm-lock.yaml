@@ -77,9 +77,9 @@ importers:
       '@amc/notifications':
         specifier: workspace:*
         version: link:../../packages/modules/notifications
-      '@amc/services':
+      '@amc/projects':
         specifier: workspace:*
-        version: link:../../packages/modules/services
+        version: link:../../packages/modules/projects
       '@amc/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -229,12 +229,12 @@ importers:
       '@amc/notifications':
         specifier: workspace:*
         version: link:../../packages/modules/notifications
+      '@amc/projects':
+        specifier: workspace:*
+        version: link:../../packages/modules/projects
       '@amc/queue':
         specifier: workspace:*
         version: link:../../packages/queue
-      '@amc/services':
-        specifier: workspace:*
-        version: link:../../packages/modules/services
       '@aws-sdk/client-sesv2':
         specifier: ^3.1134.0
         version: 3.1134.0
@@ -553,7 +553,7 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
-  packages/modules/services:
+  packages/modules/projects:
     dependencies:
       '@amc/contracts':
         specifier: workspace:*

@@ -17,7 +17,7 @@ import { sql } from 'drizzle-orm';
  *
  * Every function here is a join between two modules, so none of them may live
  * in either — the WhatsApp module declares what it needs and the composition
- * root supplies it. This is the same arrangement `task-summaries.ts` uses for
+ * root supplies it. This is the same arrangement `project-summaries.ts` uses for
  * the clients screen and for the same reason.
  */
 
@@ -118,7 +118,7 @@ export function deadlineReader(db: Database): DeadlineReader {
         due_at: string;
       }>(sql`
         SELECT t.service, t.period_key, t.due_at
-        FROM tasks t
+        FROM projects t
         WHERE t.client_id = ${clientId}
           AND t.state NOT IN ('completed', 'cancelled')
           AND t.due_at IS NOT NULL

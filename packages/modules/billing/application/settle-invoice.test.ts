@@ -11,7 +11,7 @@ const actor = { userId: 'u-1', roles: ['manager'], label: 'Wael' };
 
 const line: InvoiceLine = {
   id: 'il-1',
-  taskId: 't-1',
+  projectId: 't-1',
   service: 'vat_return',
   descriptionEn: 'VAT return',
   descriptionAr: 'الإقرار الضريبي',

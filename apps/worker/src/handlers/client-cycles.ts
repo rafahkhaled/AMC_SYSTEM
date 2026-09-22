@@ -1,6 +1,6 @@
 import { FinancialYear, type VatFrequency, VatPeriods } from '@amc/clients/domain';
 import type { Database } from '@amc/database';
-import type { ClientCycle } from '@amc/services';
+import type { ClientCycle } from '@amc/projects';
 import { sql } from 'drizzle-orm';
 
 /**

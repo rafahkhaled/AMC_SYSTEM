@@ -22,7 +22,7 @@ const accountant = {
 
 const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   id: 'sl-1',
-  taskId: 't-1',
+  projectId: 't-1',
   service: 'vat_return',
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'u-1',

@@ -17,17 +17,17 @@ describe('the queue that survives a tunnel (NFR-03)', () => {
 
     const queued = await pending();
     expect(queued).toHaveLength(1);
-    expect(queued[0]).toMatchObject({ action: 'stop', taskId: null, at: at.toISOString() });
+    expect(queued[0]).toMatchObject({ action: 'stop', projectId: null, at: at.toISOString() });
   });
 
   it('replays in the order things happened, not the order they are read', async () => {
     /*
      * A start after a stop is a different piece of work. Replayed the other
-     * way round, the gap between them is booked to whichever task happened to
+     * way round, the gap between them is booked to whichever project happened to
      * be running when the connection came back.
      */
     await enqueue('stop', null, new Date('2026-09-16T10:00:00.000Z'));
-    await enqueue('start', 'task-2', new Date('2026-09-16T10:05:00.000Z'));
+    await enqueue('start', 'project-2', new Date('2026-09-16T10:05:00.000Z'));
     await enqueue('hold', null, new Date('2026-09-16T11:00:00.000Z'));
 
     expect((await pending()).map((item) => item.action)).toEqual(['stop', 'start', 'hold']);
@@ -35,7 +35,7 @@ describe('the queue that survives a tunnel (NFR-03)', () => {
 
   it('forgets one action without disturbing the rest', async () => {
     await enqueue('stop', null);
-    await enqueue('start', 'task-2');
+    await enqueue('start', 'project-2');
 
     const [first] = await pending();
     await forget(first?.id ?? 0);
@@ -53,8 +53,8 @@ describe('the queue that survives a tunnel (NFR-03)', () => {
     expect(found[0]?.at).toBe('2026-09-16T17:00:00.000Z');
   });
 
-  it('keeps the task a start was for, because a start without one records nothing', async () => {
-    await enqueue('start', 'task-9');
-    expect((await pending())[0]?.taskId).toBe('task-9');
+  it('keeps the project a start was for, because a start without one records nothing', async () => {
+    await enqueue('start', 'project-9');
+    expect((await pending())[0]?.projectId).toBe('project-9');
   });
 });

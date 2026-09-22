@@ -45,7 +45,7 @@ export class SendMessage {
   /**
    * A member of staff writes to the client.
    *
-   * Taking over the conversation is part of sending, not a separate step
+   * Taking over the conversation is part of sending, not a separate task
    * somebody has to remember: having typed to the client, they own the
    * conversation, and leaving the bot to answer the reply would undo what they
    * just did.

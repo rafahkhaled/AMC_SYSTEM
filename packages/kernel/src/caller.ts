@@ -7,7 +7,7 @@ import type { Actor } from './unit-of-work.js';
  * ports files and drifted immediately: two of them wanted only a user id and
  * a permission set, and the two that also wrote audit rows needed the display
  * name — which meant an `Actor` could be built without one, and for a while
- * every task change was logged against nobody.
+ * every project change was logged against nobody.
  *
  * The display name is therefore not optional. A module that only makes an
  * authorisation decision takes `Pick<CallerLike, 'userId' | 'permissions'>`

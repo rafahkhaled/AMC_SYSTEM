@@ -225,7 +225,7 @@ describe('two-factor over HTTP', () => {
     const signedIn = await signIn().expect(200);
     const cookie = cookiesFrom(signedIn);
 
-    // The password alone buys nothing but the verification step.
+    // The password alone buys nothing but the verification task.
     await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', cookie).expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/two-factor/enrol')

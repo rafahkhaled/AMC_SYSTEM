@@ -26,7 +26,7 @@ export interface SecretAccessRecorder {
  *
  * Reading is only possible through a method that records the reading. There is
  * no way to get a credential out of here quietly, because the recording is not
- * a step a caller performs afterwards and might forget: it is part of the only
+ * a task a caller performs afterwards and might forget: it is part of the only
  * route in.
  *
  * The recording happens before the plaintext is returned. If the log cannot be

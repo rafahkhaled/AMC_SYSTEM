@@ -12,7 +12,7 @@ import type { EscalationNotifier } from './notify-escalation.js';
 export const ESCALATION_JOB = 'deadlines.escalate';
 
 export interface EscalationPayload extends Record<string, unknown> {
-  readonly taskId: string;
+  readonly projectId: string;
   readonly clientId: string;
   readonly stage: EscalationStage;
 }
@@ -41,16 +41,16 @@ export async function scheduleEscalations(params: {
     due_at: string | Date | null;
   }>(sql`
     SELECT id, client_id, created_at, due_at
-    FROM tasks
+    FROM projects
     WHERE state IN ('awaiting_documents', 'waiting_for_client')
   `);
 
   let scheduled = 0;
 
-  for (const task of waiting) {
+  for (const project of waiting) {
     const ladder = escalationSchedule({
-      requestedOn: new Date(task.created_at),
-      deadline: task.due_at ? new Date(task.due_at) : null,
+      requestedOn: new Date(project.created_at),
+      deadline: project.due_at ? new Date(project.due_at) : null,
       policy: DEFAULT_ESCALATION,
     });
 
@@ -62,10 +62,10 @@ export async function scheduleEscalations(params: {
       const queued = await params.queue.enqueue({
         name: ESCALATION_JOB,
         runAt: rung.dueOn,
-        uniqueKey: `${ESCALATION_JOB}:${task.id}:${rung.stage}`,
+        uniqueKey: `${ESCALATION_JOB}:${project.id}:${rung.stage}`,
         payload: {
-          taskId: task.id,
-          clientId: task.client_id,
+          projectId: project.id,
+          clientId: project.client_id,
           stage: rung.stage,
         } satisfies EscalationPayload,
       });
@@ -79,7 +79,7 @@ export async function scheduleEscalations(params: {
 /**
  * Fires one rung.
  *
- * It re-reads the task first, because the job was queued days or weeks ago and
+ * It re-reads the project first, because the job was queued days or weeks ago and
  * the documents may well have arrived since. Chasing a client for paperwork
  * they already sent is the fastest way to teach them to ignore the reminders.
  */
@@ -89,20 +89,20 @@ export async function fireEscalation(params: {
   notifier?: EscalationNotifier | undefined;
   payload: EscalationPayload;
 }): Promise<'raised' | 'no_longer_needed' | 'already_raised'> {
-  const [task] = await params.db.execute<{ state: string }>(sql`
-    SELECT state FROM tasks WHERE id = ${params.payload.taskId}
+  const [project] = await params.db.execute<{ state: string }>(sql`
+    SELECT state FROM projects WHERE id = ${params.payload.projectId}
   `);
 
-  if (!task || !['awaiting_documents', 'waiting_for_client'].includes(task.state)) {
+  if (!project || !['awaiting_documents', 'waiting_for_client'].includes(project.state)) {
     return 'no_longer_needed';
   }
 
   const raised = await params.alerts.raise({
-    subjectType: 'task',
-    subjectId: params.payload.taskId,
+    subjectType: 'project',
+    subjectId: params.payload.projectId,
     stage: params.payload.stage,
     clientId: params.payload.clientId,
-    detail: { state: task.state },
+    detail: { state: project.state },
   });
 
   /*
@@ -113,7 +113,7 @@ export async function fireEscalation(params: {
    */
   if (raised && params.notifier) {
     await params.notifier.tell({
-      taskId: params.payload.taskId,
+      projectId: params.payload.projectId,
       clientId: params.payload.clientId,
       stage: params.payload.stage,
     });

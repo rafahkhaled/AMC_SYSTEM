@@ -1,4 +1,4 @@
-import type { ClientDetail, DocumentSummary, TaskSummary } from '@amc/contracts';
+import type { ClientDetail, DocumentSummary, ProjectSummary } from '@amc/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -138,12 +138,12 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
       <VaultPanel clientId={id} />
 
       <Card title={t('clients.work')}>
-        {detail.tasks.length === 0 ? (
+        {detail.projects.length === 0 ? (
           <Empty title={t('clients.noWork')} />
         ) : (
           <div className="u-stack-tight">
-            {detail.tasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
+            {detail.projects.map((project) => (
+              <ProjectRow key={project.id} project={project} />
             ))}
           </div>
         )}
@@ -218,36 +218,36 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
   );
 }
 
-function TaskRow({ task }: { task: TaskSummary }) {
+function ProjectRow({ project }: { project: ProjectSummary }) {
   const { t } = useTranslation();
 
   return (
     <div className="line">
-      <span>{t(`services.${task.service}`)}</span>
-      {task.periodKey ? <span className="u-text-faint u-ltr">{task.periodKey}</span> : null}
+      <span>{t(`services.${project.service}`)}</span>
+      {project.periodKey ? <span className="u-text-faint u-ltr">{project.periodKey}</span> : null}
       <span className="u-grow" />
-      {task.missingDocuments.length > 0 ? (
+      {project.missingDocuments.length > 0 ? (
         <Badge tone="warning">
-          {t('clients.missingDocuments', { count: task.missingDocuments.length })}
+          {t('clients.missingDocuments', { count: project.missingDocuments.length })}
         </Badge>
       ) : null}
-      {task.dueAt ? (
-        <span className={`u-ltr u-numeric ${task.isOverdue ? 'u-danger' : 'u-text-faint'}`}>
-          {task.dueAt.slice(0, 10)}
+      {project.dueAt ? (
+        <span className={`u-ltr u-numeric ${project.isOverdue ? 'u-danger' : 'u-text-faint'}`}>
+          {project.dueAt.slice(0, 10)}
         </span>
       ) : null}
-      <Badge>{t(`taskStates.${task.state}`)}</Badge>
-      {OPEN_STATES.has(task.state) ? <StartTimerButton taskId={task.id} /> : null}
+      <Badge>{t(`projectStates.${project.state}`)}</Badge>
+      {OPEN_STATES.has(project.state) ? <StartTimerButton projectId={project.id} /> : null}
     </div>
   );
 }
 
 /*
- * Time is recordable against any task that has not been closed. A task waiting
+ * Time is recordable against any project that has not been closed. A project waiting
  * on the client or on the authority still costs the person chasing it, and
  * that hour is as billable as any other.
  */
-const OPEN_STATES: ReadonlySet<TaskSummary['state']> = new Set([
+const OPEN_STATES: ReadonlySet<ProjectSummary['state']> = new Set([
   'awaiting_documents',
   'ready',
   'in_progress',

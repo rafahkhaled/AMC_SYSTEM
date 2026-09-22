@@ -8,7 +8,7 @@ export type EventSubscriber = (event: DomainEvent) => Promise<void>;
  *
  * Delivery is at-least-once, never exactly-once, because the alternative does
  * not exist over a network. A subscriber may therefore see the same event
- * twice and must be written to tolerate it; the natural keys on tasks and jobs
+ * twice and must be written to tolerate it; the natural keys on projects and jobs
  * are how that is achieved elsewhere in this system.
  *
  * One subscriber failing does not hold up the rest: the event is left

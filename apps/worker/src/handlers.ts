@@ -35,7 +35,7 @@ export function registerJobHandlers(
       const result = await runDailySweep(context);
       context.log('daily sweep finished', {
         expiryWarnings: result.expiryWarnings,
-        tasksCreated: result.tasksCreated,
+        projectsCreated: result.projectsCreated,
         escalationsScheduled: result.escalationsScheduled,
       });
     })
@@ -47,7 +47,7 @@ export function registerJobHandlers(
         payload: job.payload,
       });
       context.log('escalation', {
-        task: job.payload.taskId,
+        project: job.payload.projectId,
         stage: job.payload.stage,
         outcome,
       });

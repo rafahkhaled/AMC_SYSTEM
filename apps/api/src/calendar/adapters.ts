@@ -7,7 +7,7 @@ import { type SQL, sql } from 'drizzle-orm';
 /**
  * Everything with a date on it, gathered from the modules that own those dates.
  *
- * Tasks belong to services and documents to clients. The calendar owns neither
+ * Projects belong to services and documents to clients. The calendar owns neither
  * and should not learn their tables, so the join lives here — the only place
  * permitted to know about both.
  */
@@ -24,7 +24,7 @@ export function deadlineSource(db: Database): DeadlineSource {
     period_key: string | null;
     due_on: string;
     is_done: boolean;
-    task_id: string | null;
+    project_id: string | null;
   }
 
   const toDueThing = (row: Row): DueThing => ({
@@ -38,27 +38,27 @@ export function deadlineSource(db: Database): DeadlineSource {
     // every stored calendar day in this system is keyed.
     dueOn: new Date(`${row.due_on.slice(0, 10)}T00:00:00.000Z`),
     isDone: row.is_done,
-    taskId: row.task_id,
+    projectId: row.project_id,
   });
 
   /*
-   * A task carries the service it is for, and the service says whether the
+   * A project carries the service it is for, and the service says whether the
    * date on it is a statutory filing or ordinary work. That distinction is
    * what lets the screen show a VAT return differently from a bookkeeping job
    * falling due the same week.
    */
-  const taskKind = sql`CASE
+  const projectKind = sql`CASE
     WHEN t.service = 'vat_return' THEN 'vat_return'
     WHEN t.service = 'ct_return'  THEN 'ct_return'
-    ELSE 'task'
+    ELSE 'project'
   END`;
 
-  const tasksBetween = (scope: CalendarScope, where: SQL) => sql`
-    SELECT t.id, ${taskKind} AS kind, t.client_id, c.legal_name AS client_name,
+  const projectsBetween = (scope: CalendarScope, where: SQL) => sql`
+    SELECT t.id, ${projectKind} AS kind, t.client_id, c.legal_name AS client_name,
            t.service AS subject, t.period_key, t.due_at::date::text AS due_on,
            (t.state IN ('completed', 'cancelled')) AS is_done,
-           t.id AS task_id
-    FROM tasks t
+           t.id AS project_id
+    FROM projects t
     JOIN clients c ON c.id = t.client_id
     WHERE t.due_at IS NOT NULL AND ${where} AND ${visible(scope, sql`t.client_id`)}
   `;
@@ -66,7 +66,7 @@ export function deadlineSource(db: Database): DeadlineSource {
   const documentsBetween = (scope: CalendarScope, where: SQL) => sql`
     SELECT d.id, 'document_expiry' AS kind, d.client_id, c.legal_name AS client_name,
            d.type AS subject, NULL AS period_key, d.expires_on::text AS due_on,
-           false AS is_done, NULL AS task_id
+           false AS is_done, NULL AS project_id
     FROM client_documents d
     JOIN clients c ON c.id = d.client_id
     WHERE d.expires_on IS NOT NULL
@@ -79,7 +79,7 @@ export function deadlineSource(db: Database): DeadlineSource {
     async between(scope, from, to) {
       if (scope.kind === 'none') return [];
       const rows = await db.execute<Row>(sql`
-        ${tasksBetween(
+        ${projectsBetween(
           scope,
           sql`t.due_at >= ${at(from)}::timestamptz AND t.due_at < ${at(to)}::timestamptz`,
         )}
@@ -101,7 +101,7 @@ export function deadlineSource(db: Database): DeadlineSource {
        * belongs here is what somebody still has to do something about.
        */
       const rows = await db.execute<Row>(sql`
-        ${tasksBetween(
+        ${projectsBetween(
           scope,
           sql`t.due_at < ${today}::date AND t.state NOT IN ('completed', 'cancelled')`,
         )}

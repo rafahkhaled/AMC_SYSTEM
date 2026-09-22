@@ -41,7 +41,7 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
   async forUserBetween(userId: string, from: Date, to: Date): Promise<TimeEntry[]> {
     const rows = await this.db.execute<typeof timeEntries.$inferSelect>(sql`
       SELECT e.* FROM time_entries e
-      JOIN task_assignments a ON a.id = e.assignment_id
+      JOIN project_assignments a ON a.id = e.assignment_id
       WHERE a.user_id = ${userId}
         AND e.started_at >= ${from.toISOString()}::timestamptz
         AND e.started_at < ${to.toISOString()}::timestamptz
@@ -68,7 +68,7 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
         sum(e.duration_seconds)::text AS seconds,
         sum(e.duration_seconds) FILTER (WHERE e.billable)::text AS billable_seconds
       FROM time_entries e
-      JOIN task_assignments a ON a.id = e.assignment_id
+      JOIN project_assignments a ON a.id = e.assignment_id
       WHERE a.user_id = ${userId}
         AND e.started_at >= ${from.toISOString()}::timestamptz
         AND e.started_at < ${to.toISOString()}::timestamptz
@@ -97,16 +97,16 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
       entry_id: string;
       assignment_id: string;
       client_id: string;
-      task_id: string;
+      project_id: string;
       user_id: string;
       started_at: Date;
       duration_seconds: number;
     }>(sql`
-      SELECT e.id AS entry_id, e.assignment_id, t.client_id, t.id AS task_id,
+      SELECT e.id AS entry_id, e.assignment_id, t.client_id, t.id AS project_id,
              a.user_id, e.started_at, e.duration_seconds
       FROM time_entries e
-      JOIN task_assignments a ON a.id = e.assignment_id
-      JOIN tasks t ON t.id = a.task_id
+      JOIN project_assignments a ON a.id = e.assignment_id
+      JOIN projects t ON t.id = a.project_id
       WHERE t.client_id = ${clientId}
         AND e.statement_line_id IS NULL
         AND e.billable
@@ -120,7 +120,7 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
       entryId: row.entry_id,
       assignmentId: row.assignment_id,
       clientId: row.client_id,
-      taskId: row.task_id,
+      projectId: row.project_id,
       userId: row.user_id,
       startedAt: row.started_at,
       seconds: row.duration_seconds,
@@ -135,14 +135,14 @@ export class DrizzleTimeEntryRepository implements TimeEntryRepository {
    */
   async awaitingReview(userId: string): Promise<TimeEntry[]> {
     /*
-     * Raw SQL, because the join reaches `task_assignments`, which belongs to
+     * Raw SQL, because the join reaches `project_assignments`, which belongs to
      * the services module. Importing its schema here would tie two modules
      * together at compile time for one query; naming the table does not.
      */
     const rows = await this.db.execute<{ id: string }>(sql`
       SELECT e.id
       FROM time_entries e
-      JOIN task_assignments a ON a.id = e.assignment_id
+      JOIN project_assignments a ON a.id = e.assignment_id
       WHERE a.user_id = ${userId}
         AND e.review_reason IS NOT NULL
         AND e.reviewed_at IS NULL
@@ -219,7 +219,7 @@ export class DrizzleRunningTimerRepository implements RunningTimerRepository {
       .select()
       .from(runningTimers)
       // A held timer has no open span, so there is nothing for the sweep to
-      // trim and no reason to forget which task somebody paused.
+      // trim and no reason to forget which project somebody paused.
       .where(and(lt(runningTimers.lastSeenAt, before), isNull(runningTimers.heldAt)));
 
     return rows.map((row) =>

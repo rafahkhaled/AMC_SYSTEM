@@ -22,7 +22,7 @@ export interface RecordContactCommand {
   readonly direction: string;
   readonly happenedAt: Date;
   readonly summary: string;
-  readonly taskId?: string | undefined;
+  readonly projectId?: string | undefined;
   readonly contactId?: string | undefined;
   readonly files: readonly { filename: string; contentType: string; body: Buffer }[];
 }
@@ -53,7 +53,7 @@ export class ContactLog {
         direction: state.direction,
         happenedAt: state.happenedAt.toISOString(),
         summary: state.summary,
-        taskId: state.taskId,
+        projectId: state.projectId,
         attachments: state.attachments.map((file) => ({
           id: file.id,
           name: file.originalName,
@@ -78,7 +78,7 @@ export class ContactLog {
       direction: command.direction,
       happenedAt: command.happenedAt,
       summary: command.summary,
-      ...(command.taskId === undefined ? {} : { taskId: command.taskId }),
+      ...(command.projectId === undefined ? {} : { projectId: command.projectId }),
       now: new Date(),
     });
     if (!entry.ok) return err(entry.error);

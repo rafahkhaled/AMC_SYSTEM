@@ -21,7 +21,7 @@ describe('integration test harness', () => {
     });
 
     // The table never existed as far as the database is concerned, which is
-    // what lets the suite be re-run without any cleanup step.
+    // what lets the suite be re-run without any cleanup task.
     const survived = await database.sql<{ count: string }[]>`
       SELECT count(*)::text AS count FROM information_schema.tables WHERE table_name = 'scratch'
     `;

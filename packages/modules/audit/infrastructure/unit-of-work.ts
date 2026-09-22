@@ -120,7 +120,7 @@ export class DrizzleUnitOfWork implements UnitOfWork {
 
 /**
  * "identity.session.revoked" describes a session. The middle segment names the
- * thing, which keeps event names and audit entity types in step without a
+ * thing, which keeps event names and audit entity types in task without a
  * second list to maintain.
  */
 export function entityTypeOf(eventName: string): string {

@@ -9,7 +9,7 @@ export type CalendarScope =
 /** A dated obligation, before the business calendar has been applied to it. */
 export interface DueThing {
   readonly id: string;
-  readonly kind: 'vat_return' | 'ct_return' | 'document_expiry' | 'task' | 'custom';
+  readonly kind: 'vat_return' | 'ct_return' | 'document_expiry' | 'project' | 'custom';
   readonly clientId: string;
   readonly clientName: string;
   readonly subject: string;
@@ -17,13 +17,13 @@ export interface DueThing {
   /** The date as recorded: a statutory date, or an expiry printed on a licence. */
   readonly dueOn: Date;
   readonly isDone: boolean;
-  readonly taskId: string | null;
+  readonly projectId: string | null;
 }
 
 /**
  * Everything with a date on it, from the modules that own those dates.
  *
- * Supplied by the composition root. Tasks belong to services and documents to
+ * Supplied by the composition root. Projects belong to services and documents to
  * clients; this module owns neither, and knows only how to place a date on a
  * calendar and move it off a day nobody is open.
  */

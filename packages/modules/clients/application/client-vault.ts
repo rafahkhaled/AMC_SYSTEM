@@ -18,7 +18,7 @@ import type { CallerLike, CredentialRepository } from './ports.js';
  *
  * Declared here rather than imported so the clients module never depends on
  * the vault package. What matters is the shape: `open` takes the access it is
- * about to record, because recording is not a step the caller performs
+ * about to record, because recording is not a task the caller performs
  * afterwards and might forget.
  */
 export interface SecretVault {

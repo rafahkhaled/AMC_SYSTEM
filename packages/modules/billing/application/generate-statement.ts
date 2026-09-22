@@ -25,7 +25,7 @@ export interface GenerateStatementCommand {
 /**
  * Turning a period of recorded work into a document (FR-31).
  *
- * The grouping is one line per task, per day, per person. That is not an
+ * The grouping is one line per project, per day, per person. That is not an
  * arbitrary choice: it is the grouping a client can check against their own
  * diary, and the one that lets a dispute be about a single afternoon rather
  * than about a month.
@@ -83,7 +83,7 @@ export class GenerateStatement {
 
       lines.push({
         id: this.ids.next(),
-        taskId: first.taskId,
+        projectId: first.projectId,
         service: first.service,
         performedOn: first.performedOn,
         userId: first.userId,
@@ -125,7 +125,7 @@ export class GenerateStatement {
   }
 
   /**
-   * Task, day and person.
+   * Project, day and person.
    *
    * The day is taken as the calendar date already decided by the reader, which
    * resolved it in the firm's timezone. Grouping on a timestamp here would put
@@ -136,7 +136,7 @@ export class GenerateStatement {
     const groups = new Map<string, BillableWork[]>();
     for (const item of work) {
       const day = item.performedOn.toISOString().slice(0, 10);
-      const key = `${item.taskId}|${day}|${item.userId ?? ''}`;
+      const key = `${item.projectId}|${day}|${item.userId ?? ''}`;
       const existing = groups.get(key);
       if (existing) existing.push(item);
       else groups.set(key, [item]);

@@ -76,7 +76,7 @@ export class GenerateLetter {
       clientId: string;
       templateCode: string;
       language: 'en' | 'ar';
-      taskId?: string | undefined;
+      projectId?: string | undefined;
     },
   ): Promise<Result<Letter, Conflict>> {
     const client = await this.clients.findById(params.clientId, scopeFor(caller));
@@ -107,7 +107,7 @@ export class GenerateLetter {
       id: this.ids.next(),
       clientId: params.clientId,
       templateId: template.id,
-      taskId: params.taskId ?? null,
+      projectId: params.projectId ?? null,
       language: params.language,
       title: rendered.title,
       body: rendered.body,

@@ -33,7 +33,7 @@ export interface AuditDraft {
 }
 
 /**
- * Actions the system performs for itself: a recurring task created overnight,
+ * Actions the system performs for itself: a recurring project created overnight,
  * an escalation fired by the clock. They have no human actor, and pretending
  * otherwise would put a person's name against something they never did.
  */

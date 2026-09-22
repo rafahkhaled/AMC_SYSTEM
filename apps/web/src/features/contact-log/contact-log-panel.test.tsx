@@ -18,7 +18,7 @@ function entry(over: Partial<ContactLogEntryView> = {}): ContactLogEntryView {
     // 10:00 UTC is two in the afternoon in Dubai.
     happenedAt: '2026-09-14T10:00:00.000Z',
     summary: 'Asked Ahmed for the renewed trade licence. Said Sunday.',
-    taskId: null,
+    projectId: null,
     attachments: [],
     ...over,
   };

@@ -19,7 +19,7 @@
     "@amc/kernel": "workspace:*",
     "@amc/notifications": "workspace:*",
     "@amc/queue": "workspace:*",
-    "@amc/services": "workspace:*",
+    "@amc/projects": "workspace:*",
     "@aws-sdk/client-sesv2": "^3.1134.0",
     "drizzle-orm": "^0.45.2",
     "pino": "^9.5.0",

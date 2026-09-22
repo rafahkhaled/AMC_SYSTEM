@@ -21,9 +21,9 @@ export type ReviewReason = 'after_hours' | 'abandoned' | 'implausible';
 export interface TimeEntryState {
   readonly id: TimeEntryId;
   /**
-   * The assignment, not the task and not the person.
+   * The assignment, not the project and not the person.
    *
-   * Client, task and staff member are all reached through it, which is what
+   * Client, project and staff member are all reached through it, which is what
    * keeps reassignment from rewriting who did last month's work. FR-20 is
    * still satisfied: all three are mandatory and all three are derivable.
    */
@@ -87,7 +87,7 @@ export class TimeEntry extends AggregateRoot<TimeEntryId> {
       endedAt: params.endedAt,
       source: 'timer',
       reason: null,
-      // Work on a client task is billable unless somebody says otherwise
+      // Work on a client project is billable unless somebody says otherwise
       // (FR-23). The default matters: the opposite one loses revenue quietly.
       billable: params.billable ?? true,
       note: params.note?.trim() || null,

@@ -50,9 +50,9 @@ import {
   DrizzleNotificationRepository,
   DrizzlePreferenceRepository,
 } from '@amc/notifications/infrastructure';
-import { ReadTasks, ReadWorkload, TaskWorkflow } from '@amc/services';
-import { TasksModule } from '@amc/services/http';
-import { DrizzleTaskRepository } from '@amc/services/infrastructure';
+import { ProjectWorkflow, ReadProjects, ReadWorkload } from '@amc/projects';
+import { ProjectsModule } from '@amc/projects/http';
+import { DrizzleProjectRepository } from '@amc/projects/infrastructure';
 import type { FileStorage } from '@amc/storage';
 import { ReadTimer, TimerService } from '@amc/time-tracking';
 import { TimerModule } from '@amc/time-tracking/http';
@@ -77,7 +77,7 @@ import type { Logger } from 'pino';
 import { ulid } from 'ulid';
 import { rateReader, unbilledWork, workAttachment } from './billing/adapters.js';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
-import { taskSummaries } from './clients/task-summaries.js';
+import { projectSummaries } from './clients/project-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
 import { contactFileStore, documentFileStore } from './documents/adapters.js';
@@ -87,9 +87,9 @@ import { LOGGER } from './observability/logger.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
+import { projectContext } from './projects/adapters.js';
+import { workloadReader } from './projects/workload.js';
 import { FILE_STORAGE, StorageModule } from './storage/storage.module.js';
-import { taskContext } from './tasks/adapters.js';
-import { workloadReader } from './tasks/workload.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
 import { secretAccessRecorder } from './vault/adapters.js';
 import {
@@ -119,7 +119,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
         read: new ReadClients(
           new DrizzleClientRepository(db),
           new DrizzleDocumentRepository(db),
-          taskSummaries(db),
+          projectSummaries(db),
           new SystemClock(),
         ),
         documents: new ReceiveDocument(
@@ -183,16 +183,20 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
       useFactory: (db: Database) =>
         new ReadCalendar(deadlineSource(db), holidaySource(db), new SystemClock()),
     }),
-    TasksModule.forRootAsync({
+    ProjectsModule.forRootAsync({
       inject: [DATABASE],
       useFactory: (db: Database) => ({
-        read: new ReadTasks(new DrizzleTaskRepository(db), taskContext(db), new SystemClock()),
+        read: new ReadProjects(
+          new DrizzleProjectRepository(db),
+          projectContext(db),
+          new SystemClock(),
+        ),
         workload: new ReadWorkload(workloadReader(db)),
-        workflow: new TaskWorkflow(
+        workflow: new ProjectWorkflow(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
           {
             forTransaction: (transaction: unknown, collector: EventCollector) =>
-              new DrizzleTaskRepository(transaction as Database, collector),
+              new DrizzleProjectRepository(transaction as Database, collector),
           },
         ),
       }),

@@ -19,7 +19,7 @@ const period = { from: day('01'), to: day('30') };
 
 const work = (over: Partial<BillableWork> = {}): BillableWork => ({
   entryId: 'e-1',
-  taskId: 't-1',
+  projectId: 't-1',
   service: 'vat_return',
   performedOn: day('03'),
   userId: 'u-1',
@@ -61,18 +61,18 @@ describe('generating a statement', () => {
     expect(statement.currentState).toBe('draft');
   });
 
-  it('puts one line per task, day and person', async () => {
+  it('puts one line per project, day and person', async () => {
     const h = harness(({ unbilled }) => {
       unbilled.returning([
-        work({ entryId: 'e-1', taskId: 't-1', performedOn: day('03'), userId: 'u-1' }),
-        // Same task, same day, same person: one line, added together.
-        work({ entryId: 'e-2', taskId: 't-1', performedOn: day('03'), userId: 'u-1' }),
-        // Same task and day, different person.
-        work({ entryId: 'e-3', taskId: 't-1', performedOn: day('03'), userId: 'u-2' }),
-        // Same task and person, different day.
-        work({ entryId: 'e-4', taskId: 't-1', performedOn: day('04'), userId: 'u-1' }),
-        // Different task.
-        work({ entryId: 'e-5', taskId: 't-2', performedOn: day('03'), userId: 'u-1' }),
+        work({ entryId: 'e-1', projectId: 't-1', performedOn: day('03'), userId: 'u-1' }),
+        // Same project, same day, same person: one line, added together.
+        work({ entryId: 'e-2', projectId: 't-1', performedOn: day('03'), userId: 'u-1' }),
+        // Same project and day, different person.
+        work({ entryId: 'e-3', projectId: 't-1', performedOn: day('03'), userId: 'u-2' }),
+        // Same project and person, different day.
+        work({ entryId: 'e-4', projectId: 't-1', performedOn: day('04'), userId: 'u-1' }),
+        // Different project.
+        work({ entryId: 'e-5', projectId: 't-2', performedOn: day('03'), userId: 'u-1' }),
       ]);
     });
 
@@ -93,8 +93,8 @@ describe('generating a statement', () => {
         { from: day('15'), perHour: aed(40_000) },
       ]);
       unbilled.returning([
-        work({ entryId: 'e-1', performedOn: day('03'), taskId: 't-1' }),
-        work({ entryId: 'e-2', performedOn: day('20'), taskId: 't-2' }),
+        work({ entryId: 'e-1', performedOn: day('03'), projectId: 't-1' }),
+        work({ entryId: 'e-2', performedOn: day('20'), projectId: 't-2' }),
       ]);
     });
 
@@ -112,7 +112,7 @@ describe('generating a statement', () => {
 
   it('attaches every entry, so the same hour is not billed twice', async () => {
     const h = harness(({ unbilled }) => {
-      unbilled.returning([work({ entryId: 'e-1' }), work({ entryId: 'e-2', taskId: 't-2' })]);
+      unbilled.returning([work({ entryId: 'e-1' }), work({ entryId: 'e-2', projectId: 't-2' })]);
     });
 
     await h.generate.execute('u-9', { clientId: 'c-1', ...period });
@@ -199,7 +199,7 @@ describe('generating a statement', () => {
 
     expect(line?.userId).toBe('u-7');
     expect(line?.service).toBe('bookkeeping');
-    expect(line?.taskId).toBe('t-1');
+    expect(line?.projectId).toBe('t-1');
   });
 
   it('handles work with nobody attached to it', async () => {

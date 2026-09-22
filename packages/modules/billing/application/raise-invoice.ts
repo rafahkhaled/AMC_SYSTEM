@@ -61,7 +61,7 @@ export class RaiseInvoice {
         id: this.ids.next(),
         // Copied, not referenced. The statement can be reopened and a rate can
         // change; a document the client holds may not.
-        taskId: line.taskId,
+        projectId: line.projectId,
         service: line.service,
         descriptionEn: describe(line.service, line.performedOn, 'en'),
         descriptionAr: describe(line.service, line.performedOn, 'ar'),
@@ -114,8 +114,8 @@ export class RaiseInvoice {
 /**
  * What a line says on the client's document.
  *
- * The service and the month, not the task id: a client reads "VAT return,
- * September 2026" and cannot do anything with `t-01M2N0...`. The task is still
+ * The service and the month, not the project id: a client reads "VAT return,
+ * September 2026" and cannot do anything with `t-01M2N0...`. The project is still
  * on the line, where the firm and an auditor can find it.
  */
 function describe(service: string, performedOn: Date, language: 'en' | 'ar'): string {

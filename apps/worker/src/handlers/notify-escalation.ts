@@ -4,14 +4,14 @@ import type { Notify } from '@amc/notifications';
 import { sql } from 'drizzle-orm';
 
 export interface EscalationNotifier {
-  tell(params: { taskId: string; clientId: string; stage: EscalationStage }): Promise<void>;
+  tell(params: { projectId: string; clientId: string; stage: EscalationStage }): Promise<void>;
 }
 
 /**
  * Who each rung of the ladder is for (FR-43).
  *
  * The client reminder and the accountant alert both go to whoever is on the
- * task, because it is the accountant who chases the client — the system does
+ * project, because it is the accountant who chases the client — the system does
  * not email clients directly, and should not start doing so without somebody
  * deciding that deliberately. The manager alert goes to the managers.
  */
@@ -65,13 +65,13 @@ function wordingFor(stage: EscalationStage, client: string, service: string) {
  */
 export function escalationNotifier(db: Database, notify: Notify): EscalationNotifier {
   return {
-    async tell({ taskId, clientId, stage }) {
-      const [task] = await db.execute<{ service: string; client_name: string }>(sql`
+    async tell({ projectId, clientId, stage }) {
+      const [project] = await db.execute<{ service: string; client_name: string }>(sql`
         SELECT t.service, c.legal_name AS client_name
-        FROM tasks t JOIN clients c ON c.id = t.client_id
-        WHERE t.id = ${taskId}
+        FROM projects t JOIN clients c ON c.id = t.client_id
+        WHERE t.id = ${projectId}
       `);
-      if (!task) return;
+      if (!project) return;
 
       const recipients =
         AUDIENCE[stage] === 'managers'
@@ -81,20 +81,20 @@ export function escalationNotifier(db: Database, notify: Notify): EscalationNoti
               WHERE r.role = 'manager' AND u.status = 'active'
             `)
           : await db.execute<{ user_id: string }>(sql`
-              SELECT a.user_id FROM task_assignments a
+              SELECT a.user_id FROM project_assignments a
               JOIN users u ON u.id = a.user_id
-              WHERE a.task_id = ${taskId} AND a.unassigned_at IS NULL AND u.status = 'active'
+              WHERE a.project_id = ${projectId} AND a.unassigned_at IS NULL AND u.status = 'active'
             `);
 
-      const wording = wordingFor(stage, task.client_name, task.service);
+      const wording = wordingFor(stage, project.client_name, project.service);
       for (const recipient of recipients) {
         await notify.send({
           userId: recipient.user_id,
           kind: 'escalation',
-          subjectType: 'task',
+          subjectType: 'project',
           // The stage is part of what this is about, so a later rung is a
           // different notification rather than a duplicate of the first.
-          subjectId: `${taskId}:${stage}`,
+          subjectId: `${projectId}:${stage}`,
           clientId,
           wording,
         });

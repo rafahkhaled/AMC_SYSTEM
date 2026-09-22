@@ -4,7 +4,7 @@ import { Conflict, Duration, type Result, err, ok } from '@amc/kernel';
  * The timer that is running right now, for one person.
  *
  * One per person is the rule (FR-21), so this is keyed by the person rather
- * than by the task. Starting a second timer stops the first and records it,
+ * than by the project. Starting a second timer stops the first and records it,
  * because the alternative, refusing, means somebody moving between jobs loses
  * the minutes while they work out what to click.
  */
@@ -115,7 +115,7 @@ export class RunningTimer {
    * Nothing has been heard for long enough that the time is in doubt.
    *
    * A held timer is never abandoned. There is no open span to trim, so the
-   * only thing a sweep could do is forget which task somebody had paused.
+   * only thing a sweep could do is forget which project somebody had paused.
    */
   isAbandonedAt(now: Date): boolean {
     if (this.state.heldAt) return false;

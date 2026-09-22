@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Loading } from '../../design/index.js';
 import { clockFace, duration, hoursAndMinutes } from '../../lib/duration.js';
-import { taskBoard } from '../tasks/api.js';
+import { projectBoard } from '../projects/api.js';
 import {
   PendingSync,
   beat,
@@ -25,11 +25,11 @@ export function TimerPage() {
   const queries = useQueryClient();
   const state = useQuery({ queryKey: ['timer'], queryFn: timerState });
   /*
-   * The open work, so time can be booked against a task without going to find
+   * The open work, so time can be booked against a project without going to find
    * it first. The board is already fetched elsewhere and shares its cache, so
    * this usually costs nothing.
    */
-  const board = useQuery({ queryKey: ['tasks'], queryFn: taskBoard });
+  const board = useQuery({ queryKey: ['projects'], queryFn: projectBoard });
 
   const settle = (next: TimerState) => queries.setQueryData(['timer'], next);
   const stop = useMutation({ mutationFn: stopTimer, onSuccess: settle });
@@ -95,10 +95,10 @@ export function TimerPage() {
       </Card>
 
       <ManualEntry
-        tasks={(board.data?.columns ?? []).flatMap((column) =>
-          column.tasks.map((task) => ({
-            taskId: task.id,
-            label: `${task.clientName} — ${t(`services.${task.service}`)}`,
+        projects={(board.data?.columns ?? []).flatMap((column) =>
+          column.projects.map((project) => ({
+            projectId: project.id,
+            label: `${project.clientName} — ${t(`services.${project.service}`)}`,
           })),
         )}
         onRecorded={(next) => {
@@ -220,10 +220,10 @@ function RunningPanel({
         <span className="u-grow" />
         <div className="u-stack-tight running__reading">
           <span className={`running__clock u-ltr u-numeric${held ? ' running__clock--held' : ''}`}>
-            {held ? hoursAndMinutes(state.running.todayOnTaskSeconds) : clockFace(elapsed)}
+            {held ? hoursAndMinutes(state.running.todayOnProjectSeconds) : clockFace(elapsed)}
           </span>
           <span className="u-text-faint">
-            {held ? t('timer.todayOnTask') : t('timer.thisSitting')}
+            {held ? t('timer.todayOnProject') : t('timer.thisSitting')}
           </span>
         </div>
         {held ? (
@@ -281,13 +281,13 @@ function EntryRow({
   );
 }
 
-/** Start button for a task, used from the client file. */
-export function StartTimerButton({ taskId }: { taskId: string }) {
+/** Start button for a project, used from the client file. */
+export function StartTimerButton({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const queries = useQueryClient();
 
   const start = useMutation({
-    mutationFn: () => startTimer(taskId),
+    mutationFn: () => startTimer(projectId),
     onSuccess: (next) => queries.setQueryData(['timer'], next),
   });
 

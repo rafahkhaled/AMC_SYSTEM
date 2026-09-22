@@ -28,7 +28,7 @@ export const map = <T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<
 export const mapErr = <T, E, F>(result: Result<T, E>, fn: (error: E) => F): Result<T, F> =>
   result.ok ? result : err(fn(result.error));
 
-/** Chain another fallible step. The first failure short-circuits. */
+/** Chain another fallible task. The first failure short-circuits. */
 export const andThen = <T, U, E, F>(
   result: Result<T, E>,
   fn: (value: T) => Result<U, F>,

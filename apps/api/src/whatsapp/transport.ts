@@ -7,7 +7,7 @@ import type { Logger } from 'pino';
  * Talking to WhatsApp without a WhatsApp account.
  *
  * The same arrangement email had before SES: the whole path runs — the message
- * is composed, stored, queued, given an id and marked sent — and the last step
+ * is composed, stored, queued, given an id and marked sent — and the last task
  * writes to the log instead of to somebody's phone. What is left untested when
  * the real credentials arrive is one HTTP call, not the bot.
  *
@@ -57,7 +57,7 @@ export interface CloudApiSettings {
  *
  * Deliberately `fetch` and not Meta's SDK: three endpoints are used, the SDK
  * carries its own auth and retry opinions, and a dependency that has to be
- * upgraded in step with a vendor is a dependency in the critical path of
+ * upgraded in task with a vendor is a dependency in the critical path of
  * somebody's tax deadline.
  *
  * Every failure comes back as a Conflict carrying whatever Meta said, because

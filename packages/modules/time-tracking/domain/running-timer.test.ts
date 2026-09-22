@@ -103,7 +103,7 @@ describe('holding a timer (FR-21)', () => {
 
   it('is never abandoned while held, because nothing is at risk', () => {
     // A held timer has no open span to trim. Sweeping it would only lose the
-    // task somebody paused, which is the one thing holding exists to keep.
+    // project somebody paused, which is the one thing holding exists to keep.
     const running = timer('2026-04-01T09:00:00Z');
     running.hold(at('2026-04-01T09:40:00Z'));
 

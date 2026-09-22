@@ -44,7 +44,7 @@ describe('moving to an open day', () => {
     );
   });
 
-  it('steps over a run of holidays and a weekend together', () => {
+  it('tasks over a run of holidays and a weekend together', () => {
     // 1 to 3 December are holidays; the 4th is a Friday and a working day.
     expect(calendar.nextBusinessDay(at('2026-12-01')).toISOString().slice(0, 10)).toBe(
       '2026-12-04',

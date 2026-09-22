@@ -65,9 +65,9 @@ describe('the enquiry pipeline (FR-01)', () => {
     ]);
   });
 
-  it('offers only the steps the pipeline allows', async () => {
+  it('offers only the tasks the pipeline allows', async () => {
     // Read from the domain's own transition table, so a screen cannot offer a
-    // step that would be refused.
+    // task that would be refused.
     show(board({ new: [lead()] }));
 
     expect(await screen.findByRole('button', { name: 'Contacted' })).toBeInTheDocument();

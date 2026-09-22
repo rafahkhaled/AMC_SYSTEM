@@ -35,8 +35,8 @@ describe('recording time from the timer', () => {
     ).toBe(false);
   });
 
-  it('belongs to an assignment, not to a task and a person separately', () => {
-    // Client, task and staff member are all reached through it, which is what
+  it('belongs to an assignment, not to a project and a person separately', () => {
+    // Client, project and staff member are all reached through it, which is what
     // stops reassignment rewriting who did last month's work.
     expect(fromTimer().assignmentId).toBe('assign-1');
   });

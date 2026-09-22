@@ -10,15 +10,15 @@ import type {
  * Finds or creates the assignment a person should book time against.
  *
  * Supplied by the composition root, because assignments belong to the services
- * module. Starting a timer on a task you are not assigned to adds you as a
+ * module. Starting a timer on a project you are not assigned to adds you as a
  * collaborator rather than refusing: people do help with each other's work,
  * and the alternative is either refusing the timer or recording time against
  * nobody, and FR-20 rules out the second.
  */
 export interface AssignmentResolver {
-  forUserOnTask(params: {
+  forUserOnProject(params: {
     userId: string;
-    taskId: string;
+    projectId: string;
     assignedBy: string;
   }): Promise<{ assignmentId: string } | null>;
 }
@@ -39,7 +39,7 @@ export class TimerService {
   ) {}
 
   /**
-   * Start timing a task.
+   * Start timing a project.
    *
    * Any timer already running is stopped and recorded first (FR-21). Refusing
    * instead would lose the minutes somebody spends working out what to click
@@ -48,7 +48,7 @@ export class TimerService {
    */
   async start(params: {
     userId: string;
-    taskId: string;
+    projectId: string;
     deviceId?: string | null;
     /**
      * When the person actually started, replayed from a browser that was
@@ -60,16 +60,16 @@ export class TimerService {
     const server = this.clock.now();
     const now = params.at && params.at.getTime() < server.getTime() ? params.at : server;
 
-    const assignment = await this.assignments.forUserOnTask({
+    const assignment = await this.assignments.forUserOnProject({
       userId: params.userId,
-      taskId: params.taskId,
+      projectId: params.projectId,
       assignedBy: params.userId,
     });
-    if (!assignment) return err(new Conflict('No such task'));
+    if (!assignment) return err(new Conflict('No such project'));
 
     // Whatever was running stops at the moment the new one began, not now.
     // Replaying an afternoon of switches otherwise books every gap to
-    // whichever task happened to be running when the connection returned.
+    // whichever project happened to be running when the connection returned.
     const stopped = await this.stop({ userId: params.userId, at: now });
 
     await this.timers.start(
@@ -156,9 +156,9 @@ export class TimerService {
    * Hold the timer, recording the span so far.
    *
    * The work is interrupted, not finished: a call comes in, a colleague asks
-   * something, the client is on the other line. Stopping would lose which task
+   * something, the client is on the other line. Stopping would lose which project
    * was in hand and make resuming a search through the client file. Holding
-   * keeps the task and bills none of the interruption.
+   * keeps the project and bills none of the interruption.
    */
   async hold(params: {
     userId: string;
@@ -200,19 +200,19 @@ export class TimerService {
    */
   async recordManual(params: {
     userId: string;
-    taskId: string;
+    projectId: string;
     startedAt: Date;
     endedAt: Date;
     reason: string;
     billable?: boolean;
     note?: string | null;
   }): Promise<Result<StoppedEntry, Conflict>> {
-    const assignment = await this.assignments.forUserOnTask({
+    const assignment = await this.assignments.forUserOnProject({
       userId: params.userId,
-      taskId: params.taskId,
+      projectId: params.projectId,
       assignedBy: params.userId,
     });
-    if (!assignment) return err(new Conflict('No such task'));
+    if (!assignment) return err(new Conflict('No such project'));
 
     if (params.endedAt.getTime() > this.clock.now().getTime()) {
       return err(new Conflict('Time cannot be recorded for work not yet done'));

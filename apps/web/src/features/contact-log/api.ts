@@ -14,7 +14,7 @@ export interface ContactFields {
   readonly direction: string;
   readonly happenedAt: string;
   readonly summary: string;
-  readonly taskId?: string;
+  readonly projectId?: string;
 }
 
 /**

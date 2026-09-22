@@ -29,7 +29,7 @@ const aed = (minorUnits: number) => ({ minorUnits, currency: 'AED' });
 function line(over: Partial<StatementView['lines'][number]> = {}): StatementView['lines'][number] {
   return {
     id: 'sl-1',
-    taskId: 't-1',
+    projectId: 't-1',
     service: 'vat_return',
     performedOn: '2026-09-03',
     userId: 'u-1',
@@ -80,7 +80,7 @@ function invoiceOf(over: Partial<InvoiceView> = {}): InvoiceView {
     lines: [
       {
         id: 'il-1',
-        taskId: 't-1',
+        projectId: 't-1',
         service: 'vat_return',
         descriptionEn: 'VAT return — September 2026',
         descriptionAr: 'الإقرار الضريبي — سبتمبر ٢٠٢٦',

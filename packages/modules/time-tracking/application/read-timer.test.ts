@@ -8,7 +8,7 @@ const NOW = at('2026-09-16T06:00:00Z');
 function entry(over: Partial<TimeEntryView> = {}): TimeEntryView {
   return {
     id: 'e-1',
-    taskId: 't-1',
+    projectId: 't-1',
     clientName: 'Gulf Trading LLC',
     service: 'vat_return',
     startedAt: '2026-09-14T06:00:00.000Z',

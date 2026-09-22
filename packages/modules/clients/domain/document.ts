@@ -93,7 +93,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
    * Note that a document is needed before it arrives.
    *
    * This is what makes a checklist possible: the row exists as soon as the
-   * service is subscribed to, so a task can see what is missing rather than
+   * service is subscribed to, so a project can see what is missing rather than
    * inferring it from the absence of something.
    */
   static require(params: {
@@ -223,7 +223,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
   /**
    * Replace this document with a newer version.
    *
-   * The old one is kept rather than overwritten, because a task completed in
+   * The old one is kept rather than overwritten, because a project completed in
    * March used the licence that was valid in March, and the file behind that
    * work must still be the file that was used.
    */

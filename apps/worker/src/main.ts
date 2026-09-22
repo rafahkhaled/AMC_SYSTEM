@@ -95,7 +95,7 @@ async function bootstrap(): Promise<void> {
        * Telling people is composed here, where the escalation ladder and the
        * notifications module can be joined without either knowing the other.
        * Email goes to the log until a mail transport is configured, so the
-       * whole path runs for real and only the last step differs.
+       * whole path runs for real and only the last task differs.
        */
       notifier: escalationNotifier(
         db,

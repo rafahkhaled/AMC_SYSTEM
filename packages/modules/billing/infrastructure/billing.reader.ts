@@ -28,7 +28,7 @@ type StatementRow = {
 type LineRow = {
   id: string;
   statement_id: string;
-  task_id: string;
+  project_id: string;
   service: string;
   performed_on: string;
   user_id: string | null;
@@ -145,7 +145,7 @@ export class DrizzleBillingReader implements BillingReader {
       currency,
       lines: lines.map((line) => ({
         id: line.id,
-        taskId: line.task_id,
+        projectId: line.project_id,
         service: line.service,
         performedOn: line.performed_on.slice(0, 10),
         userId: line.user_id,
@@ -240,7 +240,7 @@ export class DrizzleBillingReader implements BillingReader {
         currency,
         lines: lines.map((line) => ({
           id: line.id,
-          taskId: line.task_id,
+          projectId: line.project_id,
           service: line.service,
           descriptionEn: line.description_en,
           descriptionAr: line.description_ar,
@@ -307,7 +307,7 @@ type InvoiceRow = {
 type InvoiceLineRow = {
   id: string;
   invoice_id: string;
-  task_id: string;
+  project_id: string;
   service: string;
   description_en: string;
   description_ar: string;

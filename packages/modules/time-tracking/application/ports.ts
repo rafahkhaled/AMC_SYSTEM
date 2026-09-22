@@ -13,7 +13,7 @@ export interface UnbilledTime {
   readonly entryId: string;
   readonly assignmentId: string;
   readonly clientId: string;
-  readonly taskId: string;
+  readonly projectId: string;
   readonly userId: string;
   readonly startedAt: Date;
   readonly seconds: number;

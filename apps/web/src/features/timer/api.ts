@@ -12,8 +12,8 @@ export async function timerState(): Promise<TimerState> {
   return timerStateSchema.parse(await request('/timer'));
 }
 
-export async function startTimer(taskId: string): Promise<TimerState> {
-  return act('start', taskId);
+export async function startTimer(projectId: string): Promise<TimerState> {
+  return act('start', projectId);
 }
 
 export async function stopTimer(): Promise<TimerState> {
@@ -37,16 +37,16 @@ export async function resumeTimer(): Promise<TimerState> {
  * the device, and the hour is not lost. Doing it the other way round would
  * mean the only copy of the intent lived in a request that never arrived.
  */
-async function act(action: TimerAction, taskId: string | null): Promise<TimerState> {
+async function act(action: TimerAction, projectId: string | null): Promise<TimerState> {
   const at = new Date();
 
   if (!available()) {
     // No queue to write to, so there is nothing to lose by sending directly
     // and nothing to promise if it fails.
-    return timerStateSchema.parse(await sendAction(action, taskId, at.toISOString()));
+    return timerStateSchema.parse(await sendAction(action, projectId, at.toISOString()));
   }
 
-  await enqueue(action, taskId, at);
+  await enqueue(action, projectId, at);
 
   /*
    * Everything goes out through the queue, including what was just added, so
@@ -58,8 +58,8 @@ async function act(action: TimerAction, taskId: string | null): Promise<TimerSta
   return timerStateSchema.parse(drained.state);
 }
 
-function sendAction(action: TimerAction, taskId: string | null, at: string): Promise<unknown> {
-  return send(`/timer/${action}`, { at, ...(taskId ? { taskId } : {}) });
+function sendAction(action: TimerAction, projectId: string | null, at: string): Promise<unknown> {
+  return send(`/timer/${action}`, { at, ...(projectId ? { projectId } : {}) });
 }
 
 /**
@@ -96,12 +96,12 @@ export async function replayPending(): Promise<{
 
   for (const [index, queued] of queue.entries()) {
     try {
-      state = await sendAction(queued.action, queued.taskId, queued.at);
+      state = await sendAction(queued.action, queued.projectId, queued.at);
       await forget(queued.id);
       sent += 1;
     } catch (failure) {
       /*
-       * A refusal is not a connection problem. "No such task" will be refused
+       * A refusal is not a connection problem. "No such project" will be refused
        * again every time, and a queue that retries it forever never drains —
        * so a refused action is dropped and the rest go on. Anything else
        * stays queued, which is the case this whole mechanism exists for.

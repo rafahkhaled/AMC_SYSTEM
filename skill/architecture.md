@@ -23,7 +23,7 @@ packages/
     identity/       users, roles, sessions, two-factor
     audit/          the append-only log, the outbox, the unit of work
     clients/        clients, leads, contacts, documents, access scoping
-    services/       service templates, subscriptions, tasks, recurrence
+    projects/       service templates, subscriptions, projects, recurrence
     time-tracking/  time entries, the running timer, timesheets
     deadlines/      the UAE calendar, statutory filing dates, the month view
     notifications/  the inbox, delivery preferences
@@ -127,7 +127,15 @@ and fail CI. An architecture that depends on discipline is a wish.
 
 ## The data model rules that are not obvious
 
-- **The task is the hub.** A task links a client to their documents, to the
+- **The project is the hub.** Named for what the practice calls it: one piece
+  of work for one client, "Gulf Trading, VAT return Q3 2026". Migration 0028
+  renamed it from `tasks`, and `task_steps` took the freed name because a Task
+  here is something to be done *inside* a project. The words on the whiteboard
+  and the words in the schema are now the same words, which is worth a day of
+  renaming: every conversation that needs translating on the way in is a
+  requirement waiting to be built against the wrong entity.
+
+  A project links a client to their documents, to the
   staff assigned, and to the invoice lines. Nothing bills without one.
 - **Time entries point at an assignment**, not at a task and a person
   separately. Assignments are append-only, so reassigning a task in April

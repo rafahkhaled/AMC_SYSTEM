@@ -4,7 +4,7 @@ export const deadlineKindSchema = z.enum([
   'vat_return',
   'ct_return',
   'document_expiry',
-  'task',
+  'project',
   'custom',
 ]);
 export type DeadlineKind = z.infer<typeof deadlineKindSchema>;
@@ -24,8 +24,8 @@ export const calendarEntrySchema = z.object({
   movedBecause: z.enum(['weekend', 'holiday']).nullable(),
   isOverdue: z.boolean(),
   isDone: z.boolean(),
-  /** Set for a task, so the entry can be opened. */
-  taskId: z.string().nullable(),
+  /** Set for a project, so the entry can be opened. */
+  projectId: z.string().nullable(),
 });
 export type CalendarEntry = z.infer<typeof calendarEntrySchema>;
 

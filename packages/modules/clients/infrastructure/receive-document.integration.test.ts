@@ -124,7 +124,7 @@ describe('receiving a document, against a real database', () => {
   });
 
   it('keeps the superseded version rather than overwriting it', async () => {
-    // A task completed in March used the licence valid in March. The old copy
+    // A project completed in March used the licence valid in March. The old copy
     // is what makes that provable a year later.
     await database.inRollbackTransaction(async (tx) => {
       const { db, receive } = await scenario(tx);

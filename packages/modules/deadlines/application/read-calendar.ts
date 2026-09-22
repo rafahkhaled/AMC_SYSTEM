@@ -39,7 +39,7 @@ export class ReadCalendar {
 
   private scope(caller: Viewer): CalendarScope {
     const held = heldBy(caller);
-    if (held.has('clients.view.all') || held.has('tasks.view.all')) return { kind: 'all' };
+    if (held.has('clients.view.all') || held.has('projects.view.all')) return { kind: 'all' };
     if (held.has('clients.view.assigned')) return { kind: 'assigned', userId: caller.userId };
     return { kind: 'none' };
   }
@@ -122,12 +122,12 @@ function toEntry(thing: DueThing, calendar: BusinessCalendar, now: Date): Calend
     movedBecause: computed.movedBecause,
     isOverdue: !thing.isDone && computed.effective.getTime() < startOfDay(now).getTime(),
     isDone: thing.isDone,
-    taskId: thing.taskId,
+    projectId: thing.projectId,
   };
 }
 
 /** Same client's obligations together, and the statutory ones first. */
-const ORDER = ['vat_return', 'ct_return', 'task', 'document_expiry', 'custom'];
+const ORDER = ['vat_return', 'ct_return', 'project', 'document_expiry', 'custom'];
 function byClientThenKind(a: CalendarEntry, b: CalendarEntry): number {
   return a.clientName.localeCompare(b.clientName) || ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind);
 }

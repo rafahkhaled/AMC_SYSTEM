@@ -21,7 +21,7 @@ export interface QueuedAction {
   /** Monotonic within this browser, which is what keeps replay in order. */
   readonly id: number;
   readonly action: TimerAction;
-  readonly taskId: string | null;
+  readonly projectId: string | null;
   /** When the person did it, not when it was sent. */
   readonly at: string;
 }
@@ -61,9 +61,9 @@ function run<T>(
 }
 
 /** Writes the action down. Called before the network, never after. */
-export async function enqueue(action: TimerAction, taskId: string | null, at = new Date()) {
+export async function enqueue(action: TimerAction, projectId: string | null, at = new Date()) {
   await run('readwrite', (store) =>
-    store.add({ action, taskId, at: at.toISOString() } as Omit<QueuedAction, 'id'>),
+    store.add({ action, projectId, at: at.toISOString() } as Omit<QueuedAction, 'id'>),
   );
 }
 

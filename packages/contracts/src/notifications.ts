@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const notificationKinds = [
   'document_expiring',
   'deadline_near',
-  'task_assigned',
+  'project_assigned',
   'escalation',
   'time_needs_review',
 ] as const;

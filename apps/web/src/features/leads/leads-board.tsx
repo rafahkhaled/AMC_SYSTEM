@@ -44,7 +44,7 @@ export function LeadsBoard({ onOpenClient }: { onOpenClient: (clientId: string) 
                 <span className="u-text-faint u-numeric">{column.leads.length}</span>
               </header>
               {column.leads.length === 0 ? (
-                <p className="board__quiet">{t('tasks.columnEmpty')}</p>
+                <p className="board__quiet">{t('projects.columnEmpty')}</p>
               ) : (
                 column.leads.map((lead) => (
                   <LeadCard
@@ -96,12 +96,12 @@ function LeadCard({
     lead.waitingDays === 0 ? t('leads.today') : t('leads.waiting', { count: lead.waitingDays });
 
   return (
-    <div className="task-card lead-card">
-      <strong className="task-card__client">{lead.name}</strong>
+    <div className="project-card lead-card">
+      <strong className="project-card__client">{lead.name}</strong>
       {lead.requestedService ? <span className="u-text-soft">{lead.requestedService}</span> : null}
       <span className="u-text-faint u-ltr">{lead.phone ?? lead.email}</span>
 
-      <div className="task-card__marks">
+      <div className="project-card__marks">
         <Badge>{t(`leads.sources.${lead.source}`)}</Badge>
         <span className={lead.waitingDays >= 7 ? 'u-danger' : 'u-text-faint'}>{waiting}</span>
       </div>

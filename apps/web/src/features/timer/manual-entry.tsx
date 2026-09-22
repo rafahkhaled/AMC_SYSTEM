@@ -6,7 +6,7 @@ import { Alert, Button, Card, Field } from '../../design/index.js';
 import { recordManual } from './api.js';
 
 interface Option {
-  readonly taskId: string;
+  readonly projectId: string;
   readonly label: string;
 }
 
@@ -19,14 +19,14 @@ interface Option {
  * to defend without evidence.
  */
 export function ManualEntry({
-  tasks,
+  projects,
   onRecorded,
 }: {
-  tasks: readonly Option[];
+  projects: readonly Option[];
   onRecorded: (state: TimerState) => void;
 }) {
   const { t } = useTranslation();
-  const [taskId, setTaskId] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [startedAt, setStartedAt] = useState('');
   const [endedAt, setEndedAt] = useState('');
   const [reason, setReason] = useState('');
@@ -34,7 +34,8 @@ export function ManualEntry({
   const [done, setDone] = useState<string | null>(null);
 
   const record = useMutation({
-    mutationFn: () => recordManual({ taskId, startedAt, endedAt, reason: reason.trim(), billable }),
+    mutationFn: () =>
+      recordManual({ projectId, startedAt, endedAt, reason: reason.trim(), billable }),
     onSuccess: (state) => {
       onRecorded(state);
       // The entry may be for a past day, so today's list will not show it. The
@@ -50,7 +51,7 @@ export function ManualEntry({
   });
 
   const ready =
-    taskId !== '' &&
+    projectId !== '' &&
     startedAt !== '' &&
     endedAt !== '' &&
     reason.trim().length >= 3 &&
@@ -67,18 +68,18 @@ export function ManualEntry({
         }}
       >
         <Field
-          label={t('timer.whichTask')}
+          label={t('timer.whichProject')}
           control={(props) => (
             <select
               {...props}
               className="input"
-              value={taskId}
-              onChange={(event) => setTaskId(event.target.value)}
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
             >
-              <option value="">{t('timer.chooseTask')}</option>
-              {tasks.map((task) => (
-                <option key={task.taskId} value={task.taskId}>
-                  {task.label}
+              <option value="">{t('timer.chooseProject')}</option>
+              {projects.map((project) => (
+                <option key={project.projectId} value={project.projectId}>
+                  {project.label}
                 </option>
               ))}
             </select>

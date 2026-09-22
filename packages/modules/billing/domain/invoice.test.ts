@@ -10,7 +10,7 @@ const aed = (minor: number) => Money.ofMinor(minor, 'AED');
 
 const line = (over: Partial<InvoiceLine> = {}): InvoiceLine => ({
   id: 'il-1',
-  taskId: 't-1',
+  projectId: 't-1',
   service: 'vat_return',
   descriptionEn: 'VAT return, Q3',
   descriptionAr: 'الإقرار الضريبي، الربع الثالث',
@@ -63,22 +63,22 @@ describe('raising an invoice', () => {
     expect(invoice.total().minorUnits).toBe(60_000);
   });
 
-  it('refuses a line with no task against it', () => {
-    // Nothing bills without a task (ERD rule 4).
+  it('refuses a line with no project against it', () => {
+    // Nothing bills without a project (ERD rule 4).
     const made = Invoice.raise({
       id: 'inv-2',
       clientId: 'c-1',
       statementId: 's-1',
       number: 'INV-2',
       currency: 'AED',
-      lines: [line({ taskId: '  ' })],
+      lines: [line({ projectId: '  ' })],
       vatBasisPoints: 500,
       issuedOn: issued,
       dueOn: due,
       issuedBy: 'u-1',
     });
     expect(made.ok).toBe(false);
-    if (!made.ok) expect(made.error.message).toContain('name the task');
+    if (!made.ok) expect(made.error.message).toContain('name the project');
   });
 
   it('refuses an invoice with no lines, no number, or a due date before it was issued', () => {

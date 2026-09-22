@@ -2,8 +2,8 @@ import { type Clock, Conflict, type Result, err, ok } from '@amc/kernel';
 import type { SessionRepository, TwoFactorService, UserRepository } from './ports.js';
 
 /**
- * Enrolment is two steps on purpose. The first hands out a secret; the second
- * proves the authenticator app actually holds it. Activating on the first step
+ * Enrolment is two tasks on purpose. The first hands out a secret; the second
+ * proves the authenticator app actually holds it. Activating on the first task
  * would lock people out of their own account whenever a QR code was mis-scanned
  * or the page closed halfway.
  */
@@ -68,7 +68,7 @@ export class ConfirmTwoFactorEnrolment {
 }
 
 /**
- * The verification step of a sign-in. A wrong code counts against the same
+ * The verification task of a sign-in. A wrong code counts against the same
  * lockout as a wrong password, so a second factor cannot be brute forced while
  * the password stays untouched.
  */

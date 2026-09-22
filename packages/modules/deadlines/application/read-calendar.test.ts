@@ -31,7 +31,7 @@ function thing(over: Partial<DueThing> = {}): DueThing {
     periodKey: '2026-Q3',
     dueOn: at('2026-09-28T00:00:00Z'),
     isDone: false,
-    taskId: 't-1',
+    projectId: 't-1',
     ...over,
   };
 }

@@ -28,7 +28,7 @@ export interface SessionState {
   readonly idleMinutes: number;
   /**
    * A session that has shown the password but not yet the second factor is
-   * real, and deliberately so: it exists only to carry the verification step.
+   * real, and deliberately so: it exists only to carry the verification task.
    * Until this is true it may reach nothing else.
    */
   readonly twoFactorPassed: boolean;

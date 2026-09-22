@@ -69,7 +69,7 @@ export interface GeneratedLetter {
   readonly id: string;
   readonly clientId: string;
   readonly templateId: string;
-  readonly taskId: string | null;
+  readonly projectId: string | null;
   readonly language: 'en' | 'ar';
   readonly title: string;
   readonly body: string;

@@ -80,11 +80,11 @@ describe('a conversation with a client (FR-06)', () => {
     expect(recorded.value.snapshot().attachments).toEqual([]);
   });
 
-  it('remembers which task was being chased, when one was', () => {
-    // That is what lets a task show its own chasing history rather than the
+  it('remembers which project was being chased, when one was', () => {
+    // That is what lets a project show its own chasing history rather than the
     // client's whole log.
-    const recorded = entry({ taskId: 'task-9' });
+    const recorded = entry({ projectId: 'project-9' });
     if (!recorded.ok) throw new Error('fixture');
-    expect(recorded.value.snapshot().taskId).toBe('task-9');
+    expect(recorded.value.snapshot().projectId).toBe('project-9');
   });
 });

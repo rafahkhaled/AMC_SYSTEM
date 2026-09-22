@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const runningTimerSchema = z.object({
-  taskId: z.string(),
+  projectId: z.string(),
   assignmentId: z.string(),
   clientId: z.string(),
   clientName: z.string(),
@@ -9,19 +9,19 @@ export const runningTimerSchema = z.object({
   startedAt: z.string(),
   /** Seconds so far, from the server, so a stale tab cannot drift. Zero while held. */
   elapsedSeconds: z.number().int().nonnegative(),
-  /** Held: the work is interrupted, the task is remembered, nothing is counting. */
+  /** Held: the work is interrupted, the project is remembered, nothing is counting. */
   held: z.boolean(),
   /**
-   * Everything recorded against this task today, held or running. It is what
+   * Everything recorded against this project today, held or running. It is what
    * somebody actually wants to know when they come back to a paused job.
    */
-  todayOnTaskSeconds: z.number().int().nonnegative(),
+  todayOnProjectSeconds: z.number().int().nonnegative(),
 });
 export type RunningTimerView = z.infer<typeof runningTimerSchema>;
 
 export const timeEntrySchema = z.object({
   id: z.string(),
-  taskId: z.string(),
+  projectId: z.string(),
   clientName: z.string(),
   service: z.string(),
   startedAt: z.string(),
@@ -56,7 +56,7 @@ export type TimerState = z.infer<typeof timerStateSchema>;
  */
 const replayedAt = z.string().datetime().optional();
 
-export const startTimerSchema = z.object({ taskId: z.string().min(1), at: replayedAt });
+export const startTimerSchema = z.object({ projectId: z.string().min(1), at: replayedAt });
 export const timerActionSchema = z.object({ at: replayedAt });
 
 /** An instant the person typed, as the browser's datetime-local produces it. */
@@ -64,7 +64,7 @@ const localInstant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use a 
 
 export const manualEntrySchema = z
   .object({
-    taskId: z.string().min(1),
+    projectId: z.string().min(1),
     startedAt: localInstant,
     endedAt: localInstant,
     /**

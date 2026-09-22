@@ -113,7 +113,7 @@ export class Lead extends AggregateRoot<LeadId> {
    * What this enquiry may move to next.
    *
    * Read from the same table the move itself checks, so a screen can never
-   * offer a step the domain would refuse. One account of the pipeline, not
+   * offer a task the domain would refuse. One account of the pipeline, not
    * one for the rules and another for the buttons.
    */
   allowedNext(): readonly LeadStatus[] {

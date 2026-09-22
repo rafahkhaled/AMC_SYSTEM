@@ -8,7 +8,7 @@ const moneySchema = z.object({
 
 export const statementLineSchema = z.object({
   id: z.string(),
-  taskId: z.string(),
+  projectId: z.string(),
   service: z.string(),
   /** The day the work was done, which is what chose the rate. */
   performedOn: z.string(),
@@ -51,7 +51,7 @@ export type Statements = z.infer<typeof statementsSchema>;
 
 export const invoiceLineSchema = z.object({
   id: z.string(),
-  taskId: z.string(),
+  projectId: z.string(),
   service: z.string(),
   descriptionEn: z.string(),
   descriptionAr: z.string(),

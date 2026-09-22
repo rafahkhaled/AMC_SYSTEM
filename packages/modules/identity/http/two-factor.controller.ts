@@ -24,7 +24,7 @@ export class TwoFactorController {
   constructor(@Inject(IdentityOperations) private readonly identity: IdentityOperations) {}
 
   /**
-   * The second step of signing in. Reachable by a session that has shown a
+   * The second task of signing in. Reachable by a session that has shown a
    * password and nothing else, which is the only thing such a session can do.
    */
   @AllowPendingTwoFactor()

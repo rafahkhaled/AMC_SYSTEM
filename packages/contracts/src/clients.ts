@@ -15,7 +15,7 @@ export const clientSummarySchema = z.object({
   ctState: registrationStateSchema,
   /** How many of this client's documents need attention, for the list. */
   documentsExpiring: z.number().int().nonnegative(),
-  openTasks: z.number().int().nonnegative(),
+  openProjects: z.number().int().nonnegative(),
 });
 export type ClientSummary = z.infer<typeof clientSummarySchema>;
 
@@ -44,7 +44,7 @@ export const documentUploadSchema = z.object({
 });
 export type DocumentUploadRequest = z.infer<typeof documentUploadSchema>;
 
-export const taskSummarySchema = z.object({
+export const projectSummarySchema = z.object({
   id: z.string(),
   service: z.string(),
   periodKey: z.string().nullable(),
@@ -53,7 +53,7 @@ export const taskSummarySchema = z.object({
   missingDocuments: z.array(z.string()),
   isOverdue: z.boolean(),
 });
-export type TaskSummary = z.infer<typeof taskSummarySchema>;
+export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 
 export const rateChangeSchema = z.object({
   perHour: z.string(),
@@ -71,7 +71,7 @@ export const clientDetailSchema = clientSummarySchema.extend({
   currentRate: z.string().nullable(),
   rateHistory: z.array(rateChangeSchema),
   documents: z.array(documentSummarySchema),
-  tasks: z.array(taskSummarySchema),
+  projects: z.array(projectSummarySchema),
 });
 export type ClientDetail = z.infer<typeof clientDetailSchema>;
 
@@ -121,7 +121,7 @@ export const contactLogEntrySchema = z.object({
   direction: z.enum(['inbound', 'outbound']),
   happenedAt: z.string(),
   summary: z.string(),
-  taskId: z.string().nullable(),
+  projectId: z.string().nullable(),
   attachments: z.array(
     z.object({
       id: z.string(),
@@ -143,7 +143,7 @@ export const recordContactSchema = z.object({
    */
   happenedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use a date and a time'),
   summary: z.string().trim().min(3, 'Say what the conversation was about'),
-  taskId: z.string().optional(),
+  projectId: z.string().optional(),
   contactId: z.string().optional(),
 });
 
@@ -232,5 +232,5 @@ export type Letter = z.infer<typeof letterSchema>;
 export const generateLetterSchema = z.object({
   templateCode: z.string().min(1),
   language: z.enum(['en', 'ar']),
-  taskId: z.string().optional(),
+  projectId: z.string().optional(),
 });
