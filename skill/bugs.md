@@ -597,6 +597,34 @@ number, which is why nobody noticed it was being used for both. And a clamp —
 `Math.max(0, …)`, `GREATEST(0, …)` — will swallow the evidence of a sign
 error; pick the test case where the clamp is not reached.
 
+### Arabic could not count past one
+
+Every counted string in the app — "3 documents need attention", "5 jobs open
+without an owner" — rendered in Arabic as its own key: `clients.needsAttention`
+printed on the screen where the sentence should be.
+
+**Cause:** Arabic has six plural categories (zero, one, two, few for 3–10, many
+for 11–99, other for 100+) and every string had been written with the two
+English ones, `_one` and `_other`. i18next does not fall back from a missing
+category to `_other`; it returns the key. So `_one` covered exactly the count 1
+and `_other` covered 100, 101, … — and every ordinary number in between showed
+a key.
+
+**Why nothing caught it:** the key-parity test compared Arabic against English
+and both sides had `_one` and `_other`, so the bundles matched perfectly. The
+screens were only ever exercised with one document or one message. It surfaced
+the first time a fixture happened to hold two of something.
+
+**Fix:** all six forms for all seven strings, and a test that renders every
+counted string at ten counts in both languages and fails if the key appears in
+its own output. The parity test now compares base names, because English having
+two forms and Arabic six is correct, not a mismatch.
+
+**Lesson:** a translation file that looks complete is not evidence, and neither
+is a test comparing two bundles that are wrong in the same way. Render the
+string. This is also an argument for fixtures with two of something: one is the
+number at which a plural bug is invisible.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
