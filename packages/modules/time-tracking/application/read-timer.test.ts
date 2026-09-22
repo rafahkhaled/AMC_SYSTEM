@@ -28,6 +28,7 @@ function reader(entries: TimeEntryView[]) {
       running: async () => null,
       entriesOn: async () => entries,
       entriesBetween: async () => entries,
+      awaitingApproval: async () => [],
     },
     { now: () => NOW },
   );

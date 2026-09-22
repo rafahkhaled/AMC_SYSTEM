@@ -57,7 +57,7 @@ import { ProjectWorkflow, ReadProjects, ReadWorkload } from '@amc/projects';
 import { ProjectsModule } from '@amc/projects/http';
 import { DrizzleProjectRepository } from '@amc/projects/infrastructure';
 import type { FileStorage } from '@amc/storage';
-import { ReadTimer, TimerService } from '@amc/time-tracking';
+import { ApproveTime, ReadTimer, TimerService } from '@amc/time-tracking';
 import { TimerModule } from '@amc/time-tracking/http';
 import {
   DrizzleRunningTimerRepository,
@@ -219,6 +219,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             ids,
           ),
           read: new ReadTimer(timerViewReader(db), clock),
+          approvals: new ApproveTime(new DrizzleTimeEntryRepository(db), clock),
         };
       },
     }),

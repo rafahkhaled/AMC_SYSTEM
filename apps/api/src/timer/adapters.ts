@@ -163,5 +163,65 @@ export function timerViewReader(db: Database): TimerViewReader {
         sql`e.started_at >= ${at(from)}::timestamptz AND e.started_at < ${at(to)}::timestamptz`,
       );
     },
+
+    /**
+     * The manager's approval queue (FR-23).
+     *
+     * Finished, not approved, and not already on a statement. Everybody's,
+     * not one person's: a timesheet is deliberately your own, and approval is
+     * the one place somebody has to see other people's hours.
+     *
+     * Oldest first, because the work waiting longest is the work closest to
+     * being forgotten, and unapproved time is unbillable time.
+     */
+    async awaitingApproval(limit) {
+      const rows = await db.execute<{
+        id: string;
+        user_id: string;
+        user_name: string;
+        client_name: string;
+        service: string;
+        project_id: string;
+        day: string;
+        duration_seconds: number;
+        billable: boolean;
+        source: string;
+        reason: string | null;
+        review_reason: string | null;
+        reviewed_at: string | null;
+      }>(sql`
+        SELECT e.id, a.user_id, u.display_name AS user_name, c.legal_name AS client_name,
+               p.service, p.id AS project_id,
+               (e.started_at AT TIME ZONE 'Asia/Dubai')::date::text AS day,
+               e.duration_seconds, e.billable, e.source, e.reason,
+               e.review_reason, e.reviewed_at
+        FROM time_entries e
+        JOIN project_assignments a ON a.id = e.assignment_id
+        JOIN projects p ON p.id = a.project_id
+        JOIN clients c ON c.id = p.client_id
+        JOIN users u ON u.id = a.user_id
+        WHERE e.ended_at IS NOT NULL
+          AND e.approved_at IS NULL
+          AND e.statement_line_id IS NULL
+        ORDER BY e.started_at ASC
+        LIMIT ${limit}
+      `);
+
+      return rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        userName: row.user_name,
+        clientName: row.client_name,
+        service: row.service,
+        projectId: row.project_id,
+        day: row.day,
+        seconds: Number(row.duration_seconds),
+        billable: row.billable,
+        source: row.source === 'manual' ? ('manual' as const) : ('timer' as const),
+        reason: row.reason,
+        reviewReason: row.review_reason as 'after_hours' | 'abandoned' | 'implausible' | null,
+        reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+      }));
+    },
   };
 }

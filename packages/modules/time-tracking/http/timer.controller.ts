@@ -1,5 +1,10 @@
-import type { TimerState, Timesheet } from '@amc/contracts';
-import { manualEntrySchema, startTimerSchema, timerActionSchema } from '@amc/contracts';
+import type { PendingApprovals, TimerState, Timesheet } from '@amc/contracts';
+import {
+  approveEntriesSchema,
+  manualEntrySchema,
+  startTimerSchema,
+  timerActionSchema,
+} from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import {
   BadRequestException,
@@ -13,6 +18,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApproveTime } from '../application/approve-time.js';
 import { ReadTimer } from '../application/read-timer.js';
 import { TimerService } from '../application/timer-service.js';
 
@@ -76,6 +82,7 @@ export class TimerController {
   constructor(
     @Inject(TimerService) private readonly timer: TimerService,
     @Inject(ReadTimer) private readonly read: ReadTimer,
+    @Inject(ApproveTime) private readonly approvals: ApproveTime,
   ) {}
 
   @Get()
@@ -168,6 +175,46 @@ export class TimerController {
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
 
     return this.read.forUser(caller.userId);
+  }
+
+  /**
+   * A manager approves recorded time, so it can be billed (FR-23, FR-31).
+   *
+   * The step that was missing. `unbilledForClient` requires `approved_at` and
+   * nothing in the system could set it, so every statement would have come
+   * out empty — the hours were being recorded into a state they could never
+   * leave.
+   *
+   * `time.edit.any`, which is the manager's, rather than a new permission:
+   * the SRS names the permissions and inventing one here would put a word in
+   * its mouth.
+   */
+  /**
+   * What is waiting for a manager to approve it (FR-23).
+   *
+   * The other half of approval: approving by id needs somewhere the ids can
+   * be seen, and a timesheet is a person's own day totals.
+   */
+  @Get('approvals')
+  @RequirePermissions('time.edit.any')
+  async pending(): Promise<PendingApprovals> {
+    return { entries: await this.read.pendingApprovals() };
+  }
+
+  @Post('entries/approve')
+  @RequirePermissions('time.edit.any')
+  async approve(
+    @CurrentCaller() caller: Caller,
+    @Body() body: unknown,
+  ): Promise<{ approved: string[]; refused: { id: string; because: string }[] }> {
+    const parsed = approveEntriesSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Nothing to approve');
+    }
+
+    const outcome = await this.approvals.execute(caller.userId, parsed.data.entryIds);
+    if (!outcome.ok) throw new BadRequestException(outcome.error.message);
+    return outcome.value;
   }
 
   /**

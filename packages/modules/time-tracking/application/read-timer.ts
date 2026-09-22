@@ -1,4 +1,4 @@
-import type { TimeEntryView, TimerState, Timesheet } from '@amc/contracts';
+import type { PendingApproval, TimeEntryView, TimerState, Timesheet } from '@amc/contracts';
 import { type Clock } from '@amc/kernel';
 
 /**
@@ -13,6 +13,8 @@ export interface TimerViewReader {
   entriesOn(userId: string, day: Date): Promise<TimeEntryView[]>;
   /** Everything recorded between two instants, for the timesheet (FR-24). */
   entriesBetween(userId: string, from: Date, to: Date): Promise<TimeEntryView[]>;
+  /** Finished, unapproved, not yet billed: the manager's queue (FR-23). */
+  awaitingApproval(limit: number): Promise<PendingApproval[]>;
 }
 
 export class ReadTimer {
@@ -75,5 +77,16 @@ export class ReadTimer {
         .reduce((total, entry) => total + entry.seconds, 0),
       entries,
     };
+  }
+
+  /**
+   * What is waiting to be approved, across the practice.
+   *
+   * Not scoped to one person's clients: only `time.edit.any` reaches it, which
+   * is the manager, and a manager who can only approve some of the week's time
+   * would leave the rest unbillable with nobody able to say why.
+   */
+  async pendingApprovals(limit = 200): Promise<PendingApproval[]> {
+    return this.reader.awaitingApproval(limit);
   }
 }

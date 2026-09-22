@@ -101,3 +101,46 @@ export const timesheetSchema = z.object({
 export type Timesheet = z.infer<typeof timesheetSchema>;
 
 export const awaitingReviewSchema = z.object({ entries: z.array(timeEntrySchema) });
+
+/**
+ * Recorded time waiting for a manager to approve it (FR-23).
+ *
+ * The queue that makes approval possible at all: approving by id needs
+ * somewhere the ids can be seen, and a timesheet shows day totals.
+ *
+ * Only what has finished, is not approved, and is not already on a statement.
+ * `reviewReason` comes along because an entry the person who worked it has
+ * not yet confirmed is exactly the one a manager should look at hardest.
+ */
+export const pendingApprovalSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  userName: z.string(),
+  clientName: z.string(),
+  service: z.string(),
+  projectId: z.string(),
+  day: z.string(),
+  seconds: z.number().int().nonnegative(),
+  billable: z.boolean(),
+  source: z.enum(['timer', 'manual']),
+  /** Required on a manual entry, so a manager can see why it was typed in. */
+  reason: z.string().nullable(),
+  reviewReason: z.enum(['after_hours', 'abandoned', 'implausible']).nullable(),
+  reviewedAt: z.string().nullable(),
+});
+export type PendingApproval = z.infer<typeof pendingApprovalSchema>;
+
+export const pendingApprovalsSchema = z.object({ entries: z.array(pendingApprovalSchema) });
+export type PendingApprovals = z.infer<typeof pendingApprovalsSchema>;
+
+/**
+ * Which recorded hours a manager is approving (FR-23).
+ *
+ * By id, not by date range: the audit row should name exactly what was
+ * approved, and a range approves whatever happens to fall inside it —
+ * including a row somebody added while the screen was open.
+ */
+export const approveEntriesSchema = z.object({
+  entryIds: z.array(z.string().min(1)).min(1, { message: 'Nothing was selected to approve' }),
+});
+export type ApproveEntriesRequest = z.infer<typeof approveEntriesSchema>;
