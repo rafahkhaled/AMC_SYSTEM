@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { applyLanguage, storedLanguage } from './index.js';
+import { applyLanguage, setUpI18n, storedLanguage } from './index.js';
 import { translations } from './translations.js';
 
 describe('language and direction', () => {
@@ -56,9 +56,57 @@ describe('language and direction', () => {
       Object.entries(value).flatMap(([key, entry]) =>
         typeof entry === 'object' && entry !== null
           ? flatten(entry, `${prefix}${key}.`)
-          : [`${prefix}${key}`],
+          : // Counted strings compared by their base name: English has two
+            // plural categories and Arabic six, so the two bundles legitimately
+            // hold a different number of keys for the same piece of text.
+            [`${prefix}${key}`.replace(/_(zero|one|two|few|many|other)$/, '')],
       );
 
-    expect(flatten(translations.ar).sort()).toEqual(flatten(translations.en).sort());
+    const ar = [...new Set(flatten(translations.ar))].sort();
+    const en = [...new Set(flatten(translations.en))].sort();
+    expect(ar).toEqual(en);
+  });
+});
+
+describe('counting, in a language that counts differently', () => {
+  /*
+   * Arabic has six plural categories — zero, one, two, few (3–10),
+   * many (11–99), other (100+) — and i18next does not fall back from a
+   * missing one to `_other`. It returns the key, so the screen reads
+   * "clients.needsAttention" where it should read "3 documents need
+   * attention". With only `_one` and `_other` defined, that was every count
+   * except one, in the language the firm actually works in.
+   */
+  const COUNTS = [0, 1, 2, 3, 7, 11, 42, 99, 100, 101];
+
+  function pluralKeys(bundle: Record<string, unknown>, path: string[] = []): string[] {
+    const found: string[] = [];
+    for (const [name, value] of Object.entries(bundle)) {
+      if (value && typeof value === 'object') {
+        found.push(...pluralKeys(value as Record<string, unknown>, [...path, name]));
+      } else if (/_(zero|one|two|few|many|other)$/.test(name)) {
+        found.push([...path, name.replace(/_(zero|one|two|few|many|other)$/, '')].join('.'));
+      }
+    }
+    return found;
+  }
+
+  it('renders every counted string at every count, in both languages', async () => {
+    const i18n = await setUpI18n();
+
+    for (const language of ['ar', 'en'] as const) {
+      await i18n.changeLanguage(language);
+      const keys = [...new Set(pluralKeys(translations[language]))];
+      expect(keys.length).toBeGreaterThan(0);
+
+      for (const key of keys) {
+        for (const count of COUNTS) {
+          const rendered = i18n.t(key, { count });
+          // The failure is not an exception: it is the key itself, printed.
+          expect(rendered, `${language} ${key} at ${count}`).not.toBe(key);
+          expect(rendered, `${language} ${key} at ${count}`).not.toContain(key);
+        }
+      }
+    }
   });
 });

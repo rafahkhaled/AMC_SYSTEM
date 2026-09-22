@@ -110,6 +110,8 @@ function invoiceOf(over: Partial<InvoiceView> = {}): InvoiceView {
     issuedOn: '2026-10-01T08:00:00.000Z',
     dueOn: '2026-10-31T08:00:00.000Z',
     overdueSince: null,
+    collectionPending: false,
+    openProjects: 0,
     ...over,
   };
 }
@@ -120,6 +122,23 @@ beforeEach(async () => {
   statements.mockResolvedValue([statementOf()]);
   statement.mockResolvedValue(statementOf());
   invoices.mockResolvedValue([invoiceOf()]);
+});
+
+describe('an invoice the firm is still working against', () => {
+  it('says so, and how much work is riding on it', async () => {
+    invoices.mockResolvedValue([invoiceOf({ collectionPending: true, openProjects: 3 })]);
+    await showTab('Invoices');
+
+    // The count is what makes it a decision rather than a label.
+    expect(await screen.findByText(/Collection pending · 3 jobs open/)).toBeInTheDocument();
+  });
+
+  it('says nothing when the invoice is merely unpaid', async () => {
+    await showTab('Invoices');
+
+    expect(await screen.findByText('INV-2026-0001')).toBeInTheDocument();
+    expect(screen.queryByText(/Collection pending/)).not.toBeInTheDocument();
+  });
 });
 
 describe('the statement list', () => {

@@ -354,6 +354,8 @@ export class DrizzleBillingReader implements BillingReader {
         issuedOn: new Date(row.issued_on).toISOString(),
         dueOn: new Date(row.due_on).toISOString(),
         overdueSince: row.overdue_since ? new Date(row.overdue_since).toISOString() : null,
+        collectionPending: pendingCollection(row),
+        openProjects: pendingCollection(row) ? Number(row.open_projects) : 0,
       };
     });
   }
@@ -365,6 +367,19 @@ export class DrizzleBillingReader implements BillingReader {
  * The same collapse the aggregate makes: lateness beats part payment, because
  * the reason anybody opens this list is to decide who to chase.
  */
+/**
+ * The existing-client exception being exercised (FR-34).
+ *
+ * Money owed, and the firm still working. An overdue invoice is deliberately
+ * not included: once it is late it belongs to collections, and calling it
+ * "collection pending" there would hide the harder fact behind a softer word.
+ */
+function pendingCollection(row: InvoiceRow): boolean {
+  if (row.settlement !== 'issued' && row.settlement !== 'part_paid') return false;
+  if (row.overdue_since) return false;
+  return Number(row.open_projects) > 0;
+}
+
 function statusOf(row: InvoiceRow): InvoiceView['status'] {
   if (row.settlement === 'cancelled') return 'cancelled';
   if (row.settlement === 'paid') return 'paid';
@@ -375,7 +390,18 @@ function statusOf(row: InvoiceRow): InvoiceView['status'] {
 const INVOICE_SELECT = sql`
   SELECT i.id, i.client_id, c.legal_name AS client_name, i.statement_id, i.number,
          i.settlement, i.currency, i.vat_basis_points,
-         i.issued_on, i.due_on, i.overdue_since
+         i.issued_on, i.due_on, i.overdue_since,
+         /*
+          * Work still open for this client (FR-34).
+          *
+          * Counted per client rather than per invoice because that is the
+          * question: the firm is carrying on for somebody who has not paid,
+          * and which of their projects happens to be behind which invoice
+          * does not change the decision.
+          */
+         (SELECT count(*) FROM projects p
+           WHERE p.client_id = i.client_id
+             AND p.state NOT IN ('completed', 'cancelled'))::text AS open_projects
   FROM invoices i
   JOIN clients c ON c.id = i.client_id
 `;
@@ -392,6 +418,7 @@ type InvoiceRow = {
   issued_on: string;
   due_on: string;
   overdue_since: string | null;
+  open_projects: string;
 };
 
 type InvoiceLineRow = {

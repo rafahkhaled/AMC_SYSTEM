@@ -102,6 +102,19 @@ export const invoiceSchema = z.object({
   issuedOn: z.string(),
   dueOn: z.string(),
   overdueSince: z.string().nullable(),
+  /**
+   * The existing-client exception, in the open (FR-34).
+   *
+   * True when money is owed on this invoice and the firm is still working for
+   * the client anyway. Neither half is remarkable alone — an unpaid invoice is
+   * ordinary, and open work is the business — but together they are the
+   * decision somebody made to carry on before being paid, and the firm should
+   * be able to see every one of them at a glance rather than discover them
+   * one at a time.
+   */
+  collectionPending: z.boolean(),
+  /** How much work is riding on it. Zero unless `collectionPending`. */
+  openProjects: z.number().int().nonnegative(),
 });
 export type InvoiceView = z.infer<typeof invoiceSchema>;
 

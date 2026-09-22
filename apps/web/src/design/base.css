@@ -1308,7 +1308,11 @@ a {
  * on the wrong sides — and writing it with `inline-start` means Arabic mirrors
  * the whole thing without a second set of rules to keep in step.
  */
-.row--button {
+/* The box. `--static` for a row that only reports something, `--button` for
+   one that can be opened: same shape, and only the clickable one says so with
+   a cursor. */
+.row--button,
+.row--static {
   display: flex;
   inline-size: 100%;
   align-items: center;
@@ -1322,6 +1326,8 @@ a {
   color: inherit;
   font: inherit;
   text-align: start;
+}
+.row--button {
   cursor: pointer;
 }
 .row--button:hover {

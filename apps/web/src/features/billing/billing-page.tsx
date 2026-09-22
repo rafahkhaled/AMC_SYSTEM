@@ -440,6 +440,14 @@ function InvoiceList({
                     {t('billing.owing')} {formatMoney(invoice.balance, i18n.language)}
                   </span>
                 ) : null}
+                {/* FR-34: money owed while the firm keeps working. Beside the
+                    status rather than instead of it — the invoice is still
+                    issued or part paid, and that is what gets chased. */}
+                {invoice.collectionPending ? (
+                  <Badge tone="warning">
+                    {t('billing.collectionPending', { count: invoice.openProjects })}
+                  </Badge>
+                ) : null}
                 <Badge tone={statusTone(invoice.status)}>
                   {t(`billing.status.${invoice.status}`)}
                 </Badge>

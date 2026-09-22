@@ -303,3 +303,135 @@ describe('the billing screens, against a real database', () => {
     });
   });
 });
+
+describe('the existing-client exception, against a real database', () => {
+  let database: TestDatabase;
+
+  beforeAll(async () => {
+    database = await createTestDatabase();
+  });
+
+  afterAll(async () => {
+    await database?.close();
+  });
+
+  /** An issued, unpaid invoice for Gulf, who has one project in progress. */
+  async function unpaidInvoice(db: Db, over: Record<string, string> = {}): Promise<void> {
+    const settlement = over.settlement ?? 'issued';
+    const overdue = over.overdueSince ? `'${over.overdueSince}'` : 'NULL';
+    // The schema refuses a cancelled invoice with no reason, which is right:
+    // a cancellation nobody explained is the one somebody has to explain later.
+    const reason = settlement === 'cancelled' ? `'billed the wrong client'` : 'NULL';
+    await db.execute(`
+      INSERT INTO statements (id, client_id, period_start, period_end, state, created_by,
+                              approved_at, approved_by)
+      VALUES ('cp-s1', 'r-gulf', '2026-09-01', '2026-09-30', 'invoiced', 'r-boss',
+              now(), 'r-boss')
+    `);
+    await db.execute(`
+      INSERT INTO invoices (id, client_id, statement_id, number, settlement, currency,
+                            vat_basis_points, issued_on, due_on, issued_by, overdue_since,
+                            cancelled_reason)
+      VALUES ('cp-i1', 'r-gulf', 'cp-s1', '3001', '${settlement}', 'AED', 500,
+              '2026-09-20T08:00:00Z', '2026-10-20T08:00:00Z', 'r-boss', ${overdue},
+              ${reason})
+    `);
+    await db.execute(`
+      INSERT INTO invoice_lines (id, invoice_id, project_id, service, description_en,
+                                 description_ar, worked_seconds, amount_minor, position)
+      VALUES ('cp-il1', 'cp-i1', 'r-t-gulf', 'vat_return', 'VAT return', 'الإقرار',
+              7200, 130000, 0)
+    `);
+  }
+
+  const only = async (db: Db) =>
+    (await new DrizzleBillingReader(db).invoices(ALL, { outstandingOnly: false, asOf: NOW }))[0];
+
+  it('flags an unpaid invoice while the client still has work open', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      await unpaidInvoice(db);
+
+      const invoice = await only(db);
+      // Neither half is remarkable alone. Together they are a decision
+      // somebody made to carry on before being paid.
+      expect(invoice?.collectionPending).toBe(true);
+      expect(invoice?.openProjects).toBe(1);
+    });
+  });
+
+  it('flags a part-paid one too', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      await unpaidInvoice(db, { settlement: 'part_paid' });
+      expect((await only(db))?.collectionPending).toBe(true);
+    });
+  });
+
+  it('does not flag one that is merely unpaid, with nothing open', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      // The schema refuses a completed project with no completion date.
+      await db.execute(`
+        UPDATE projects SET state = 'completed', completed_at = '2026-09-19T08:00:00Z'
+        WHERE client_id = 'r-gulf'
+      `);
+      await unpaidInvoice(db);
+
+      const invoice = await only(db);
+      // An unpaid invoice on its own is ordinary, and saying so about every
+      // one of them would make the flag mean nothing.
+      expect(invoice?.collectionPending).toBe(false);
+      expect(invoice?.openProjects).toBe(0);
+    });
+  });
+
+  it('does not flag a late one: that is collections, not an exception', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      await unpaidInvoice(db, { overdueSince: '2026-10-21T00:00:00Z' });
+
+      const invoice = await only(db);
+      expect(invoice?.status).toBe('overdue');
+      // Calling it "collection pending" once it is late would hide the harder
+      // fact behind the softer word.
+      expect(invoice?.collectionPending).toBe(false);
+    });
+  });
+
+  it('does not flag one that has been paid, or cancelled', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      await unpaidInvoice(db, { settlement: 'paid' });
+      expect((await only(db))?.collectionPending).toBe(false);
+    });
+
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      await unpaidInvoice(db, { settlement: 'cancelled' });
+      expect((await only(db))?.collectionPending).toBe(false);
+    });
+  });
+
+  it('counts only that client’s open work, not the whole practice', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+      await db.execute(`
+        INSERT INTO projects (id, client_service_id, client_id, service, state)
+        VALUES ('cp-p2', 'r-cs-gulf', 'r-gulf', 'vat_return', 'in_progress'),
+               ('cp-p3', 'r-cs-delta', 'r-delta', 'vat_return', 'in_progress')
+      `);
+      await unpaidInvoice(db);
+
+      // Delta has work open too, and it has nothing to do with this invoice.
+      expect((await only(db))?.openProjects).toBe(2);
+    });
+  });
+});
