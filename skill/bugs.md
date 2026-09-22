@@ -565,6 +565,38 @@ are not the same value and only one of them is what compose actually sends.
 end. Create without destroy does not fail safe — it leaves something running
 that nobody is looking at, on somebody's bill.
 
+## The ones only real money showed
+
+### A client who had paid in full looked like they had overpaid
+
+The profitability report put `invoiced` beside `paid` and subtracted one from
+the other. Against the dev database the row read 1,300.00 invoiced, 1,365.00
+paid, nothing outstanding.
+
+**Cause:** `invoiced` summed `invoice_lines.amount_minor`, which is net, while
+`payments.amount_minor` is what the client actually transferred, which
+includes VAT. 1,300.00 at 5 per cent is 1,365.00, so the two columns were
+measuring different things and the difference was exactly the VAT.
+
+**Why the tests missed it:** every fixture used `vat_basis_points` of 0, where
+net and gross are the same number and the bug cannot appear. Worse, the first
+test written for it — an invoice paid in full — still passed against the
+broken code, because `Math.max(0, …)` clamps both the right answer and the
+wrong one to zero. Only a *partly* paid invoice carrying VAT separates them.
+
+**Fix:** VAT is computed per invoice (rounded once on the invoice's net total,
+the way the document itself is drawn up) and the row now names the two figures
+apart: `netInvoiced` is what the firm earned, `grossInvoiced` what the client
+was asked to pay. Outstanding is gross against gross. The effective hourly
+rate stays on the net — VAT is collected for the FTA, and dividing it into
+hours credits the practice with money it is only holding.
+
+**Lesson:** two money columns in one row must be on the same basis, and the
+names have to say which basis that is. `invoiced` was a true word for either
+number, which is why nobody noticed it was being used for both. And a clamp —
+`Math.max(0, …)`, `GREATEST(0, …)` — will swallow the evidence of a sign
+error; pick the test case where the clamp is not reached.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
