@@ -34,7 +34,9 @@ type LineRow = {
   user_id: string | null;
   user_name: string | null;
   worked_seconds: number;
-  per_hour_minor: string;
+  pricing: string;
+  per_hour_minor: string | null;
+  fee_minor: string | null;
   excluded: boolean;
   excluded_reason: string | null;
   adjusted_to_minor: string | null;
@@ -56,7 +58,11 @@ function amountOf(line: LineRow): number {
 }
 
 function asWorked(line: LineRow): number {
-  const product = BigInt(line.worked_seconds) * BigInt(line.per_hour_minor);
+  // A fee is the amount. There is no rate to multiply by, and inventing one
+  // from the hours would move every time somebody recorded more time.
+  if (line.pricing === 'fixed') return Number(line.fee_minor ?? 0);
+
+  const product = BigInt(line.worked_seconds) * BigInt(line.per_hour_minor ?? 0);
   const hour = 3600n;
   const whole = product / hour;
   const remainder = product % hour;
@@ -234,7 +240,8 @@ export class DrizzleBillingReader implements BillingReader {
         userId: line.user_id,
         userName: line.user_name,
         workedSeconds: line.worked_seconds,
-        perHour: money(line.per_hour_minor, currency),
+        pricing: line.pricing === 'fixed' ? 'fixed' : 'hourly',
+        perHour: line.per_hour_minor === null ? null : money(line.per_hour_minor, currency),
         asWorked: money(asWorked(line), currency),
         amount: money(amountOf(line), currency),
         excluded: line.excluded,

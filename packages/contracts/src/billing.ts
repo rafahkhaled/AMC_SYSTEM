@@ -15,7 +15,14 @@ export const statementLineSchema = z.object({
   userId: z.string().nullable(),
   userName: z.string().nullable(),
   workedSeconds: z.number().int().nonnegative(),
-  perHour: moneySchema,
+  /**
+   * How the line is charged.
+   *
+   * A fixed fee has no rate. Showing one derived from the hours would put a
+   * number on screen that moves every time somebody records more time.
+   */
+  pricing: z.enum(['hourly', 'fixed']),
+  perHour: moneySchema.nullable(),
   /** What the clock said, before anybody excluded or adjusted it. */
   asWorked: moneySchema,
   /** What will be billed. */

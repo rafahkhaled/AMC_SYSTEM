@@ -56,11 +56,23 @@ export interface StatementRepository {
 export interface BillableWork {
   readonly entryId: string;
   readonly projectId: string;
+  /** The subscription the project belongs to, which is what a retainer covers. */
+  readonly clientServiceId: string;
   readonly service: string;
   /** The calendar day in the firm's timezone, which is what chooses the rate. */
   readonly performedOn: Date;
   readonly userId: string | null;
   readonly seconds: number;
+  /**
+   * How this work is charged, from the subscription it belongs to.
+   *
+   * Carried with the work rather than looked up per line, because it decides
+   * how the lines are grouped at all: hourly groups by day and person, a fixed
+   * fee by project, and a retainer by month.
+   */
+  readonly pricing: 'hourly' | 'fixed' | 'retainer';
+  /** The agreed fee, in minor units. Null when the work is hourly. */
+  readonly feeMinor: number | null;
 }
 
 /**

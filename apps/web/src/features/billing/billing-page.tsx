@@ -280,7 +280,12 @@ function StatementLineRow({
           <span className="u-text-faint">
             <span className="u-ltr">{line.performedOn}</span>
             {line.userName ? ` · ${line.userName}` : null}
-            {` · ${formatHours(line.workedSeconds)} · ${formatMoney(line.perHour, i18n.language)}`}
+            {` · ${formatHours(line.workedSeconds)}`}
+            {/* A fixed fee has no rate. Deriving one from the hours would
+                show a number that moves whenever somebody records more. */}
+            {line.perHour
+              ? ` · ${formatMoney(line.perHour, i18n.language)}`
+              : ` · ${t('billing.fixedFee')}`}
           </span>
         </span>
 

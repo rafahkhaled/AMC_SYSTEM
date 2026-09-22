@@ -46,6 +46,7 @@ function line(over: Partial<StatementView['lines'][number]> = {}): StatementView
     userId: 'u-1',
     userName: 'Hana Saeed',
     workedSeconds: 7200,
+    pricing: 'hourly',
     perHour: aed(30_000),
     asWorked: aed(60_000),
     amount: aed(60_000),
@@ -335,5 +336,33 @@ describe('in Arabic', () => {
     expect(await screen.findByRole('button', { name: 'عروض الأسعار' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'كشوف الأعمال' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'الفواتير' })).toBeInTheDocument();
+  });
+});
+
+describe('a fixed-fee line', () => {
+  it('shows the fee rather than a rate invented from the hours', async () => {
+    statement.mockResolvedValue(
+      statementOf({
+        lines: [
+          line({
+            pricing: 'fixed',
+            perHour: null,
+            asWorked: aed(175_000),
+            amount: aed(175_000),
+          }),
+        ],
+        total: aed(175_000),
+        totalAsWorked: aed(175_000),
+      }),
+    );
+
+    await showTab('Statements');
+    await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
+
+    // The hours stay on the line — they are what profitability is measured
+    // against — but there is no rate, because there is not one.
+    const detail = await screen.findByText(/Hana Saeed/);
+    expect(detail).toHaveTextContent('2.00h');
+    expect(detail).toHaveTextContent('Fixed fee');
   });
 });

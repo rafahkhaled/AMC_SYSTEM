@@ -20,10 +20,13 @@ const period = { from: day('01'), to: day('30') };
 const work = (over: Partial<BillableWork> = {}): BillableWork => ({
   entryId: 'e-1',
   projectId: 't-1',
+  clientServiceId: 'cs-1',
   service: 'vat_return',
   performedOn: day('03'),
   userId: 'u-1',
   seconds: 3600,
+  pricing: 'hourly',
+  feeMinor: null,
   ...over,
 });
 
@@ -105,7 +108,7 @@ describe('generating a statement', () => {
     expect(statement.total().minorUnits).toBe(70_000);
     const rates = statement
       .snapshot()
-      .lines.map((line) => line.perHour.minorUnits)
+      .lines.map((line) => (line.pricing.kind === 'hourly' ? line.pricing.perHour.minorUnits : 0))
       .sort();
     expect(rates).toEqual([30_000, 40_000]);
   });
@@ -211,5 +214,143 @@ describe('generating a statement', () => {
     const made = await h.generate.execute('u-9', { clientId: 'c-1', ...period });
     expect(made.ok).toBe(true);
     expect(h.statements.only().snapshot().lines[0]?.userId).toBeNull();
+  });
+});
+
+describe('a fixed fee, which is how this practice usually bills', () => {
+  it('bills the agreed fee once per project, however many days it took', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([
+        work({ entryId: 'e-1', performedOn: day('03'), pricing: 'fixed', feeMinor: 175_000 }),
+        work({ entryId: 'e-2', performedOn: day('04'), pricing: 'fixed', feeMinor: 175_000 }),
+        work({ entryId: 'e-3', performedOn: day('05'), pricing: 'fixed', feeMinor: 175_000 }),
+      ]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    const statement = h.statements.only();
+
+    // One line, one fee. Three days of work on one project is still one fee.
+    expect(statement.snapshot().lines).toHaveLength(1);
+    expect(statement.total().minorUnits).toBe(175_000);
+  });
+
+  it('keeps the hours on the line even though they do not decide the amount', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([
+        work({ entryId: 'e-1', seconds: 2 * 3600, pricing: 'fixed', feeMinor: 175_000 }),
+        work({ entryId: 'e-2', seconds: 3 * 3600, pricing: 'fixed', feeMinor: 175_000 }),
+      ]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    const statement = h.statements.only();
+
+    // This is what P2-11 measures the fee against. A firm that bills fixed
+    // fees and stops recording time cannot tell a good client from a bad one
+    // until it is losing money on both.
+    expect(statement.totalWorked().seconds).toBe(5 * 3600);
+    expect(statement.total().minorUnits).toBe(175_000);
+  });
+
+  it('carries no rate at all', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([work({ pricing: 'fixed', feeMinor: 175_000 })]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    const [line] = h.statements.only().snapshot().lines;
+
+    // Dividing the fee by the hours to show one would produce a number that
+    // moves every time somebody records more time, on a document the client
+    // reads.
+    expect(line?.pricing.kind).toBe('fixed');
+  });
+
+  it('bills each project its own fee', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([
+        work({ entryId: 'e-1', projectId: 't-1', pricing: 'fixed', feeMinor: 175_000 }),
+        work({ entryId: 'e-2', projectId: 't-2', pricing: 'fixed', feeMinor: 90_000 }),
+      ]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    expect(h.statements.only().total().minorUnits).toBe(265_000);
+  });
+
+  it('refuses when a fee is charged but no amount was agreed', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([work({ pricing: 'fixed', feeMinor: null })]);
+    });
+
+    // A subscription claiming to be fixed-fee with no fee bills the client
+    // nothing, and looks like the work was free.
+    const refused = await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('no amount was agreed');
+  });
+});
+
+describe('a monthly retainer', () => {
+  it('bills once a month, whatever projects fell in it', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([
+        work({
+          entryId: 'e-1',
+          projectId: 't-1',
+          performedOn: day('03'),
+          pricing: 'retainer',
+          feeMinor: 500_000,
+        }),
+        work({
+          entryId: 'e-2',
+          projectId: 't-2',
+          performedOn: day('20'),
+          pricing: 'retainer',
+          feeMinor: 500_000,
+        }),
+      ]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    const statement = h.statements.only();
+
+    // Two projects, one month, one fee.
+    expect(statement.snapshot().lines).toHaveLength(1);
+    expect(statement.total().minorUnits).toBe(500_000);
+    expect([...statement.entryIds()].sort()).toEqual(['e-1', 'e-2']);
+  });
+
+  it('bills each subscription separately', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([
+        work({ entryId: 'e-1', clientServiceId: 'cs-1', pricing: 'retainer', feeMinor: 500_000 }),
+        work({ entryId: 'e-2', clientServiceId: 'cs-2', pricing: 'retainer', feeMinor: 300_000 }),
+      ]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    expect(h.statements.only().snapshot().lines).toHaveLength(2);
+    expect(h.statements.only().total().minorUnits).toBe(800_000);
+  });
+});
+
+describe('a client billed both ways at once', () => {
+  it('prices each subscription the way it was agreed', async () => {
+    const h = harness(({ unbilled }) => {
+      unbilled.returning([
+        // Two hours hourly at 300.
+        work({ entryId: 'e-1', projectId: 't-1', seconds: 2 * 3600, pricing: 'hourly' }),
+        // A fixed fee for the VAT return.
+        work({ entryId: 'e-2', projectId: 't-2', pricing: 'fixed', feeMinor: 175_000 }),
+      ]);
+    });
+
+    await h.generate.execute('u-9', { clientId: 'c-1', ...period });
+    const statement = h.statements.only();
+
+    expect(statement.snapshot().lines).toHaveLength(2);
+    expect(statement.total().minorUnits).toBe(60_000 + 175_000);
   });
 });

@@ -57,7 +57,7 @@ const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'r-hana',
   worked: Duration.ofHours(2),
-  perHour: aed(30_000),
+  pricing: { kind: 'hourly', perHour: aed(30_000) },
   entryIds: [],
   excluded: false,
   excludedReason: null,
@@ -159,7 +159,7 @@ describe('the billing screens, against a real database', () => {
       // The reader works in plain integers and the domain in Money; they must
       // still agree to the fils.
       const statement = statementOf('r-s1', 'r-gulf', [
-        line({ worked: Duration.ofMinutes(90), perHour: aed(12_345) }),
+        line({ worked: Duration.ofMinutes(90), pricing: { kind: 'hourly', perHour: aed(12_345) } }),
       ]);
       await repository.save(statement);
 

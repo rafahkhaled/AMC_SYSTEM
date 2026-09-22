@@ -20,7 +20,7 @@ const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'u-1',
   worked: Duration.ofHours(2),
-  perHour: aed(30_000),
+  pricing: { kind: 'hourly', perHour: aed(30_000) },
   entryIds: ['e-1'],
   excluded: false,
   excludedReason: null,

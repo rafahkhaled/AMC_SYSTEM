@@ -36,7 +36,7 @@ const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'b-u1',
   worked: Duration.ofHours(2),
-  perHour: aed(30_000),
+  pricing: { kind: 'hourly', perHour: aed(30_000) },
   entryIds: [],
   excluded: false,
   excludedReason: null,
@@ -77,15 +77,23 @@ describe('statements, against a real database', () => {
       await world(db);
 
       const statement = statementOf([
-        line({ id: 'b-sl1', perHour: aed(30_000) }),
-        line({ id: 'b-sl2', perHour: aed(40_000), worked: Duration.ofMinutes(90) }),
+        line({ id: 'b-sl1', pricing: { kind: 'hourly', perHour: aed(30_000) } }),
+        line({
+          id: 'b-sl2',
+          pricing: { kind: 'hourly', perHour: aed(40_000) },
+          worked: Duration.ofMinutes(90),
+        }),
       ]);
       const repository = new DrizzleStatementRepository(db);
       await repository.save(statement);
 
       const back = await repository.findById('b-s1');
       expect(back?.total().minorUnits).toBe(120_000);
-      expect(back?.snapshot().lines.map((l) => l.perHour.minorUnits)).toEqual([30_000, 40_000]);
+      expect(
+        back
+          ?.snapshot()
+          .lines.map((l) => (l.pricing.kind === 'hourly' ? l.pricing.perHour.minorUnits : 0)),
+      ).toEqual([30_000, 40_000]);
       expect(back?.totalWorked().seconds).toBe(3.5 * 3600);
     });
   });

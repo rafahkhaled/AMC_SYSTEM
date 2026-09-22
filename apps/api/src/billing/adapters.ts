@@ -31,20 +31,29 @@ export function unbilledWork(db: Database, timeZone: string): UnbilledWorkReader
       const rows = await db.execute<{
         entry_id: string;
         project_id: string;
+        client_service_id: string;
         service: string;
         performed_on: string;
         user_id: string | null;
         seconds: number;
+        pricing: string;
+        fee_minor: string | null;
       }>(sql`
         SELECT e.id            AS entry_id,
                t.id            AS project_id,
+               t.client_service_id AS client_service_id,
                t.service       AS service,
                (e.started_at AT TIME ZONE ${timeZone})::date AS performed_on,
                a.user_id       AS user_id,
-               e.duration_seconds AS seconds
+               e.duration_seconds AS seconds,
+               -- How this work is charged comes from the subscription, which
+               -- is also what a retainer is billed against.
+               cs.pricing      AS pricing,
+               cs.fee_minor    AS fee_minor
         FROM time_entries e
         JOIN project_assignments a ON a.id = e.assignment_id
         JOIN projects t            ON t.id = a.project_id
+        JOIN client_services cs    ON cs.id = t.client_service_id
         WHERE t.client_id = ${clientId}
           AND e.statement_line_id IS NULL
           AND e.billable
@@ -61,12 +70,15 @@ export function unbilledWork(db: Database, timeZone: string): UnbilledWorkReader
         (row): BillableWork => ({
           entryId: row.entry_id,
           projectId: row.project_id,
+          clientServiceId: row.client_service_id,
           service: row.service,
           // A date column: read as UTC midnight, which is how every calendar
           // day in this system is keyed.
           performedOn: new Date(`${row.performed_on.slice(0, 10)}T00:00:00.000Z`),
           userId: row.user_id,
           seconds: Number(row.seconds),
+          pricing: row.pricing as BillableWork['pricing'],
+          feeMinor: row.fee_minor === null ? null : Number(row.fee_minor),
         }),
       );
     },

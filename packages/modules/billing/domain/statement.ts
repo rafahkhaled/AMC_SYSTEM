@@ -31,6 +31,24 @@ import {
 
 export type StatementState = 'draft' | 'approved' | 'invoiced' | 'cancelled';
 
+/**
+ * How a statement line is charged.
+ *
+ * Distinct from a quotation's `LinePricing`, which describes how an offer was
+ * *made* — an estimate of hours, or a fixed price. This describes how work
+ * already done is being *charged*, and the two diverge the moment an estimate
+ * turns out wrong.
+ *
+ * `hourly` is recorded time at the rate that applied the day it was worked.
+ * `fixed` is an agreed fee — for one project, or for a month under a retainer
+ * — and carries no rate at all. Deriving a rate by dividing the fee by the
+ * hours would produce a number that moves every time somebody records more
+ * time, on a document the client reads.
+ */
+export type StatementPricing =
+  | { readonly kind: 'hourly'; readonly perHour: Money }
+  | { readonly kind: 'fixed'; readonly fee: Money };
+
 export interface StatementLine {
   readonly id: string;
   /** Required, always. Nothing bills without a project (ERD rule 4). */
@@ -39,8 +57,16 @@ export interface StatementLine {
   /** The day the work was done, which decides the rate. */
   readonly performedOn: Date;
   readonly userId: string | null;
+  /**
+   * Always recorded, whatever the pricing.
+   *
+   * Under a fee the hours stop deciding what the client pays and start
+   * answering whether the fee was worth the work. A firm that bills fixed
+   * fees and stops recording time cannot tell a good client from a bad one
+   * until it is losing money on both.
+   */
   readonly worked: Duration;
-  readonly perHour: Money;
+  readonly pricing: StatementPricing;
   /** The time entries behind this line, frozen once it is invoiced. */
   readonly entryIds: readonly string[];
   readonly excluded: boolean;
@@ -73,9 +99,20 @@ export interface StatementSnapshot {
  * of the same decision.
  */
 export function lineAmount(line: StatementLine): Money {
-  if (line.excluded) return Money.zero(line.perHour.currency);
+  if (line.excluded) return Money.zero(lineCurrency(line));
   if (line.adjustedTo) return line.adjustedTo;
-  return Rate.perHour(line.perHour).amountFor(line.worked);
+  return asWorked(line);
+}
+
+/** What the line comes to before anybody excluded or adjusted it. */
+export function asWorked(line: StatementLine): Money {
+  return line.pricing.kind === 'fixed'
+    ? line.pricing.fee
+    : Rate.perHour(line.pricing.perHour).amountFor(line.worked);
+}
+
+function lineCurrency(line: StatementLine): CurrencyCode {
+  return line.pricing.kind === 'fixed' ? line.pricing.fee.currency : line.pricing.perHour.currency;
 }
 
 export class Statement extends AggregateRoot {
@@ -102,7 +139,7 @@ export class Statement extends AggregateRoot {
     }
 
     for (const line of params.lines) {
-      if (line.perHour.currency !== params.currency) {
+      if (lineCurrency(line) !== params.currency) {
         return err(new Conflict('Every line has to be in the statement’s own currency'));
       }
     }
@@ -152,10 +189,10 @@ export class Statement extends AggregateRoot {
     );
   }
 
-  /** What the clock said, before anybody excluded or adjusted anything. */
+  /** What the lines came to, before anybody excluded or adjusted anything. */
   totalAsWorked(): Money {
     return Money.sum(
-      this.state.lines.map((line) => Rate.perHour(line.perHour).amountFor(line.worked)),
+      this.state.lines.map((line) => asWorked(line)),
       this.state.currency,
     );
   }

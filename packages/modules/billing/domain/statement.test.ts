@@ -12,7 +12,7 @@ const line = (over: Partial<StatementLine> = {}): StatementLine => ({
   performedOn: new Date('2026-09-03T00:00:00.000Z'),
   userId: 'u-1',
   worked: Duration.ofHours(2),
-  perHour: aed(30_000),
+  pricing: { kind: 'hourly', perHour: aed(30_000) },
   entryIds: ['e-1'],
   excluded: false,
   excludedReason: null,
@@ -95,7 +95,7 @@ describe('drafting a statement', () => {
       periodStart: new Date('2026-09-01T00:00:00.000Z'),
       periodEnd: new Date('2026-09-30T00:00:00.000Z'),
       currency: 'AED',
-      lines: [line({ perHour: Money.ofMinor(100, 'USD') })],
+      lines: [line({ pricing: { kind: 'hourly', perHour: Money.ofMinor(100, 'USD') } })],
       createdBy: 'u-9',
       now,
     });
@@ -106,8 +106,12 @@ describe('drafting a statement', () => {
     // The firm raised its rate in the middle of the period. February's work
     // stays on February's rate, which is the point of effective dating.
     const s = statement([
-      line({ id: 'a', perHour: aed(30_000) }),
-      line({ id: 'b', perHour: aed(40_000), performedOn: new Date('2026-09-20T00:00:00.000Z') }),
+      line({ id: 'a', pricing: { kind: 'hourly', perHour: aed(30_000) } }),
+      line({
+        id: 'b',
+        pricing: { kind: 'hourly', perHour: aed(40_000) },
+        performedOn: new Date('2026-09-20T00:00:00.000Z'),
+      }),
     ]);
     expect(s.total().minorUnits).toBe(140_000);
   });

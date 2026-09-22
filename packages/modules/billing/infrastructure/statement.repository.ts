@@ -36,7 +36,9 @@ type LineRow = {
   performed_on: string;
   user_id: string | null;
   worked_seconds: number;
-  per_hour_minor: string;
+  pricing: string;
+  per_hour_minor: string | null;
+  fee_minor: string | null;
   excluded: boolean;
   excluded_reason: string | null;
   adjusted_to_minor: string | null;
@@ -81,7 +83,10 @@ export class DrizzleStatementRepository implements StatementRepository {
       performedOn: onDay(line.performed_on),
       userId: line.user_id,
       worked: Duration.ofSeconds(line.worked_seconds),
-      perHour: Money.ofMinor(Number(line.per_hour_minor), currency),
+      pricing:
+        line.pricing === 'fixed'
+          ? { kind: 'fixed', fee: Money.ofMinor(Number(line.fee_minor ?? 0), currency) }
+          : { kind: 'hourly', perHour: Money.ofMinor(Number(line.per_hour_minor ?? 0), currency) },
       entryIds: line.entry_ids ?? [],
       excluded: line.excluded,
       excludedReason: line.excluded_reason,
@@ -141,12 +146,14 @@ export class DrizzleStatementRepository implements StatementRepository {
       await this.db.execute(sql`
         INSERT INTO statement_lines
           (id, statement_id, project_id, service, performed_on, user_id,
-           worked_seconds, per_hour_minor, excluded, excluded_reason,
-           adjusted_to_minor, adjusted_reason, position)
+           worked_seconds, pricing, per_hour_minor, fee_minor, excluded,
+           excluded_reason, adjusted_to_minor, adjusted_reason, position)
         VALUES (
           ${line.id}, ${state.id}, ${line.projectId}, ${line.service},
           ${line.performedOn.toISOString().slice(0, 10)}, ${line.userId},
-          ${line.worked.seconds}, ${line.perHour.minorUnits},
+          ${line.worked.seconds}, ${line.pricing.kind},
+          ${line.pricing.kind === 'hourly' ? line.pricing.perHour.minorUnits : null},
+          ${line.pricing.kind === 'fixed' ? line.pricing.fee.minorUnits : null},
           ${line.excluded}, ${line.excludedReason},
           ${line.adjustedTo?.minorUnits ?? null}, ${line.adjustedReason},
           ${position}

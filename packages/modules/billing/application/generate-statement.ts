@@ -3,6 +3,7 @@ import {
   Conflict,
   Duration,
   type IdGenerator,
+  Money,
   type Result,
   err,
   ok,
@@ -76,6 +77,41 @@ export class GenerateStatement {
       const first = group[0];
       if (!first) continue;
 
+      const worked = Duration.ofSeconds(group.reduce((total, item) => total + item.seconds, 0));
+      const entryIds = group.map((item) => item.entryId);
+
+      /*
+       * A fee line carries no rate at all.
+       *
+       * Dividing the fee by the hours to show one would produce a number that
+       * moves every time somebody records more time, printed on a document
+       * the client reads. The hours stay on the line — they are what P2-11
+       * measures the fee against — they simply stop deciding the amount.
+       */
+      if (first.pricing !== 'hourly') {
+        if (first.feeMinor === null) {
+          return err(
+            new Conflict('A fixed fee or retainer is set for this work but no amount was agreed'),
+          );
+        }
+
+        lines.push({
+          id: this.ids.next(),
+          projectId: first.projectId,
+          service: first.service,
+          performedOn: first.performedOn,
+          userId: first.userId,
+          worked,
+          pricing: { kind: 'fixed', fee: Money.ofMinor(first.feeMinor, currency) },
+          entryIds,
+          excluded: false,
+          excludedReason: null,
+          adjustedTo: null,
+          adjustedReason: null,
+        });
+        continue;
+      }
+
       const perHour = await this.rates.perHourOn(command.clientId, first.performedOn);
       if (perHour.currency !== currency) {
         return err(new Conflict('This client has rates in more than one currency; fix that first'));
@@ -87,9 +123,9 @@ export class GenerateStatement {
         service: first.service,
         performedOn: first.performedOn,
         userId: first.userId,
-        worked: Duration.ofSeconds(group.reduce((total, item) => total + item.seconds, 0)),
-        perHour,
-        entryIds: group.map((item) => item.entryId),
+        worked,
+        pricing: { kind: 'hourly', perHour },
+        entryIds,
         excluded: false,
         excludedReason: null,
         adjustedTo: null,
@@ -125,18 +161,33 @@ export class GenerateStatement {
   }
 
   /**
-   * Project, day and person.
+   * How the lines are grouped, which depends on how the work is charged.
    *
-   * The day is taken as the calendar date already decided by the reader, which
-   * resolved it in the firm's timezone. Grouping on a timestamp here would put
-   * an evening's work on two lines whenever it crossed midnight UTC — which in
-   * Dubai is four in the afternoon.
+   * Hourly groups by project, day and person: the grouping a client can check
+   * against their own diary, and the one that makes a dispute about a single
+   * afternoon rather than about a month.
+   *
+   * A fixed fee groups by project, because the fee is for the project however
+   * many days it took. A retainer groups by subscription and month, because
+   * the fee is for the month however many projects fell in it.
+   *
+   * The day is the calendar date the reader already resolved in the firm's
+   * timezone. Grouping on a timestamp would split an evening's work across two
+   * lines whenever it crossed midnight UTC — which in Dubai is four in the
+   * afternoon.
    */
   private groupBy(work: readonly BillableWork[]): Map<string, BillableWork[]> {
     const groups = new Map<string, BillableWork[]>();
     for (const item of work) {
       const day = item.performedOn.toISOString().slice(0, 10);
-      const key = `${item.projectId}|${day}|${item.userId ?? ''}`;
+      const month = day.slice(0, 7);
+      const key =
+        item.pricing === 'retainer'
+          ? `retainer|${item.clientServiceId}|${month}`
+          : item.pricing === 'fixed'
+            ? `fixed|${item.projectId}`
+            : `hourly|${item.projectId}|${day}|${item.userId ?? ''}`;
+
       const existing = groups.get(key);
       if (existing) existing.push(item);
       else groups.set(key, [item]);
