@@ -110,7 +110,7 @@ function Screen({
     case 'calendar':
       return <CalendarPage onOpenProject={(id) => go({ name: 'project', id })} />;
     case 'timer':
-      return <TimerPage />;
+      return <TimerPage canApprove={caller.permissions.includes('time.edit.any')} />;
     case 'billing':
       return <BillingPage />;
     case 'whatsapp':

@@ -71,13 +71,13 @@ function running(over: Partial<NonNullable<TimerState['running']>> = {}) {
   };
 }
 
-function show(state: TimerState) {
+function show(state: TimerState, canApprove = false) {
   timerState.mockResolvedValue(state);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return render(<TimerPage />, { wrapper: Wrapper });
+  return render(<TimerPage canApprove={canApprove} />, { wrapper: Wrapper });
 }
 
 describe('the timer screen', () => {

@@ -1712,3 +1712,24 @@ a {
   display: flex;
   justify-content: space-between;
 }
+
+/* A row in the approval queue: a checkbox, what was worked, and how long.
+   A label rather than a button, so the whole row selects the checkbox and
+   the hit target is the row on a phone. */
+.approval {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.approval:hover {
+  border-color: var(--line-strong);
+}
+.approval--chosen {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}

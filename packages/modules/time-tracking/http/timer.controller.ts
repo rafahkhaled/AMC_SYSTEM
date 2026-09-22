@@ -1,4 +1,4 @@
-import type { PendingApprovals, TimerState, Timesheet } from '@amc/contracts';
+import type { ApprovalOutcome, PendingApprovals, TimerState, Timesheet } from '@amc/contracts';
 import {
   approveEntriesSchema,
   manualEntrySchema,
@@ -203,10 +203,7 @@ export class TimerController {
 
   @Post('entries/approve')
   @RequirePermissions('time.edit.any')
-  async approve(
-    @CurrentCaller() caller: Caller,
-    @Body() body: unknown,
-  ): Promise<{ approved: string[]; refused: { id: string; because: string }[] }> {
+  async approve(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<ApprovalOutcome> {
     const parsed = approveEntriesSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Nothing to approve');

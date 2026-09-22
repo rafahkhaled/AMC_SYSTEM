@@ -1,7 +1,10 @@
 import {
   type ManualEntryRequest,
+  type PendingApproval,
   type TimerState,
   type Timesheet,
+  approvalOutcomeSchema,
+  pendingApprovalsSchema,
   timerStateSchema,
   timesheetSchema,
 } from '@amc/contracts';
@@ -145,4 +148,20 @@ export async function confirmEntry(entryId: string): Promise<TimerState> {
   return timerStateSchema.parse(
     await send(`/timer/entries/${encodeURIComponent(entryId)}/confirm`),
   );
+}
+
+/**
+ * The hours a manager has not yet approved (FR-23).
+ *
+ * Everybody's, unlike the timesheet: approval is the one place somebody has
+ * to see other people's time, and the permission behind it says so.
+ */
+export async function pendingApprovals(): Promise<PendingApproval[]> {
+  return pendingApprovalsSchema.parse(await request('/timer/approvals')).entries;
+}
+
+export async function approveEntries(
+  entryIds: readonly string[],
+): Promise<{ approved: string[]; refused: { id: string; because: string }[] }> {
+  return approvalOutcomeSchema.parse(await send('/timer/entries/approve', { entryIds }));
 }

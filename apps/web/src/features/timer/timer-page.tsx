@@ -17,10 +17,11 @@ import {
   stopTimer,
   timerState,
 } from './api.js';
+import { ApprovalsPanel } from './approvals.js';
 import { ManualEntry } from './manual-entry.js';
 import { TimesheetPanel } from './timesheet.js';
 
-export function TimerPage() {
+export function TimerPage({ canApprove }: { canApprove: boolean }) {
   const { t } = useTranslation();
   const queries = useQueryClient();
   const state = useQuery({ queryKey: ['timer'], queryFn: timerState });
@@ -110,6 +111,10 @@ export function TimerPage() {
       />
 
       <TimesheetPanel />
+
+      {/* Only a manager sees this, and only a manager can act on it: the
+          route behind it requires the same permission. */}
+      {canApprove ? <ApprovalsPanel /> : null}
     </div>
   );
 }

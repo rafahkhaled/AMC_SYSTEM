@@ -144,3 +144,16 @@ export const approveEntriesSchema = z.object({
   entryIds: z.array(z.string().min(1)).min(1, { message: 'Nothing was selected to approve' }),
 });
 export type ApproveEntriesRequest = z.infer<typeof approveEntriesSchema>;
+
+/**
+ * What approving actually did.
+ *
+ * Both halves, because it is not all or nothing: a week where one row is
+ * still running approves the rest and says which one it could not, in the
+ * words the server used rather than a count the screen has to interpret.
+ */
+export const approvalOutcomeSchema = z.object({
+  approved: z.array(z.string()),
+  refused: z.array(z.object({ id: z.string(), because: z.string() })),
+});
+export type ApprovalOutcome = z.infer<typeof approvalOutcomeSchema>;
