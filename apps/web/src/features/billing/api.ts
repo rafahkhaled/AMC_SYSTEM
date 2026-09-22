@@ -88,7 +88,12 @@ export async function quotations(clientId?: string): Promise<QuotationView[]> {
 
 export async function draftQuotation(input: {
   clientId: string;
-  reference: string;
+  /**
+   * Left out for anything drafted here: the number comes from the firm's own
+   * estimate sequence. Given only when recording one issued by hand before
+   * this system existed.
+   */
+  reference?: string;
   validUntil?: string;
 }): Promise<QuotationView> {
   return quotationSchema.parse(await send('/billing/quotations', input));

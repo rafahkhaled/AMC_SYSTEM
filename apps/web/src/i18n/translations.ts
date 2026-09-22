@@ -447,6 +447,16 @@ export const translations = {
           noHoursHint: 'لم تُسجَّل ساعات على هذا العميل، فلا سعر فعلي يُحتسب.',
         },
       },
+      newQuotation: {
+        open: 'عرض سعر جديد',
+        title: 'عرض سعر جديد',
+        hint: 'يأخذ رقمه التالي من تسلسل الشركة. أضف البنود بعد إنشائه.',
+        client: 'العميل',
+        chooseClient: 'اختر العميل',
+        validUntil: 'صالح حتى',
+        validUntilHint: 'اتركه فارغاً إن لم يُتفق على مدة.',
+        submit: 'إنشاء العرض',
+      },
       quotations: {
         title: 'عروض الأسعار',
         hint: 'ما عرضته الشركة على العميل، قبل بدء أي عمل.',
@@ -1072,6 +1082,16 @@ export const translations = {
           noHours: 'no hours',
           noHoursHint: 'Nobody recorded time for this client, so there is no rate to work out.',
         },
+      },
+      newQuotation: {
+        open: 'New quotation',
+        title: 'New quotation',
+        hint: 'Numbered from the firm’s own sequence. Add the lines once it exists.',
+        client: 'Client',
+        chooseClient: 'Choose a client',
+        validUntil: 'Valid until',
+        validUntilHint: 'Leave empty if no period was agreed.',
+        submit: 'Create it',
       },
       quotations: {
         title: 'Quotations',

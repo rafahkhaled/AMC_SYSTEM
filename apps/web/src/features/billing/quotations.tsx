@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { listClients } from '../clients/api.js';
 import {
   addQuotationLine,
   answerQuotation,
+  draftQuotation,
   quotations as fetchQuotations,
   firmProfile,
   removeQuotationLine,
@@ -33,6 +35,8 @@ export function Quotations({
 
   return (
     <>
+      <NewQuotation onDrafted={onOpen} />
+
       <Card title={t('billing.quotations.title')} description={t('billing.quotations.hint')}>
         {list.isLoading ? <Loading label={t('loading')} /> : null}
         {list.isError ? <Alert tone="error">{t('billing.failed')}</Alert> : null}
@@ -78,6 +82,97 @@ function tone(state: QuotationView['state']) {
   if (state === 'expired') return 'warning' as const;
   if (state === 'sent') return 'accent' as const;
   return 'neutral' as const;
+}
+
+/**
+ * Drafting a quotation (FR-30).
+ *
+ * The client and, if it was agreed, how long the offer stands. No reference
+ * field: the number comes from the firm's own estimate sequence, continuing
+ * from the 192 it had issued by hand, and asking somebody to type one is how
+ * that sequence acquires a gap or a duplicate.
+ *
+ * It opens empty on purpose. A quotation with no lines is not an offer and
+ * the aggregate refuses to send one, so the next thing to do is add what is
+ * being quoted for — which is the screen this drops you into.
+ */
+function NewQuotation({ onDrafted }: { onDrafted: (id: string) => void }) {
+  const { t } = useTranslation();
+  const queries = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [validUntil, setValidUntil] = useState('');
+
+  const clients = useQuery({ queryKey: ['clients'], queryFn: listClients, enabled: open });
+
+  const draft = useMutation({
+    mutationFn: () => draftQuotation({ clientId, ...(validUntil ? { validUntil } : {}) }),
+    onSuccess: (quotation) => {
+      void queries.invalidateQueries({ queryKey: ['billing', 'quotations'] });
+      setOpen(false);
+      setClientId('');
+      setValidUntil('');
+      onDrafted(quotation.id);
+    },
+  });
+
+  if (!open) {
+    return (
+      <div className="u-row">
+        <Button onClick={() => setOpen(true)}>{t('billing.newQuotation.open')}</Button>
+      </div>
+    );
+  }
+
+  return (
+    <Card title={t('billing.newQuotation.title')} description={t('billing.newQuotation.hint')}>
+      <form
+        className="u-stack-tight"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (clientId) draft.mutate();
+        }}
+      >
+        <Field
+          label={t('billing.newQuotation.client')}
+          control={(props) => (
+            <select
+              {...props}
+              className="input"
+              value={clientId}
+              onChange={(event) => setClientId(event.target.value)}
+            >
+              <option value="">{t('billing.newQuotation.chooseClient')}</option>
+              {(clients.data ?? []).map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.legalName}
+                </option>
+              ))}
+            </select>
+          )}
+        />
+
+        <Field
+          label={t('billing.newQuotation.validUntil')}
+          hint={t('billing.newQuotation.validUntilHint')}
+          type="date"
+          value={validUntil}
+          onChange={(event) => setValidUntil(event.target.value)}
+        />
+
+        {draft.isError ? <Alert tone="error">{(draft.error as Error).message}</Alert> : null}
+
+        <div className="u-row">
+          <Button type="submit" busy={draft.isPending} disabled={!clientId}>
+            {t('billing.newQuotation.submit')}
+          </Button>
+          <Button tone="quiet" onClick={() => setOpen(false)}>
+            {t('billing.cancel')}
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
 }
 
 function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {

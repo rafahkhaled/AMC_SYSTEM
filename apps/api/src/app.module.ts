@@ -380,7 +380,14 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             clock,
             ids,
           ),
-          quotations: new ManageQuotations(new DrizzleQuotationRepository(db), rates, clock, ids),
+          quotations: new ManageQuotations(
+            new DrizzleQuotationRepository(db),
+            rates,
+            clock,
+            ids,
+            // The firm's own estimate sequence, continuing from 192.
+            new DrizzleDocumentNumbering(db, 'quotation'),
+          ),
           settle: new SettleInvoice(invoices, clock, ids),
           release: new ReleaseFromStatement(statements, attachment),
           statements,

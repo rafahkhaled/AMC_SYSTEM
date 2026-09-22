@@ -9,11 +9,11 @@ import {
   ok,
 } from '@amc/kernel';
 import { Quotation, type QuotationLine } from '../domain/index.js';
-import type { QuotationRepository, RateReader } from './ports.js';
+import type { InvoiceNumbering, QuotationRepository, RateReader } from './ports.js';
 
 export interface DraftQuotationCommand {
   readonly clientId: string;
-  readonly reference: string;
+  readonly reference?: string | undefined;
   readonly validUntil?: Date | null;
   readonly notesEn?: string | null;
   readonly notesAr?: string | null;
@@ -40,6 +40,12 @@ export class ManageQuotations {
     private readonly rates: RateReader,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    /**
+     * The firm's own estimate sequence, continuing from what it issued by
+     * hand. Their template prints "Estimate # 192"; the next one out of this
+     * system has to be 193 or the client sees a gap and asks about it.
+     */
+    private readonly numbering: InvoiceNumbering,
   ) {}
 
   async draft(
@@ -47,14 +53,24 @@ export class ManageQuotations {
     command: DraftQuotationCommand,
   ): Promise<Result<{ quotationId: string }, Conflict>> {
     /*
-     * The reference is checked here rather than caught from the database.
+     * Numbered from the firm's own sequence unless a reference is given.
+     *
+     * One is accepted because the practice has quotations up to 192 issued
+     * before this system existed, and recording one of those afterwards has
+     * to be possible. Everything drafted here takes the next number instead,
+     * so nobody has to remember what it was.
+     */
+    const reference = command.reference?.trim() || (await this.numbering.next());
+
+    /*
+     * Checked here rather than caught from the database.
      *
      * A unique index does stop two quotations answering to one reference, but
      * it surfaces as a constraint violation halfway through a save, and what
-     * somebody typing 'Q-2026-014' for the second time needs is to be told
-     * that number is taken.
+     * somebody typing '192' for the second time needs is to be told that
+     * number is taken.
      */
-    const existing = await this.quotations.findByReference(command.reference.trim());
+    const existing = await this.quotations.findByReference(reference);
     if (existing) {
       return err(new Conflict('A quotation with that reference already exists'));
     }
@@ -63,7 +79,7 @@ export class ManageQuotations {
     const quotation = Quotation.draft({
       id: this.ids.next(),
       clientId: command.clientId,
-      reference: command.reference,
+      reference,
       currency,
       createdBy,
       validUntil: command.validUntil ?? null,

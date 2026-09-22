@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ManageQuotations } from './manage-quotations.js';
-import { CountingIds, FakeClock, FakeRates, InMemoryQuotations } from './test-doubles.js';
+import {
+  CountingIds,
+  CountingNumbers,
+  FakeClock,
+  FakeRates,
+  InMemoryQuotations,
+} from './test-doubles.js';
 
 const now = new Date('2026-09-22T08:00:00.000Z');
 const days = (n: number) => new Date(now.getTime() + n * 86_400_000);
@@ -12,6 +18,7 @@ function harness(at = now) {
     new FakeRates(),
     new FakeClock(at),
     new CountingIds(),
+    new CountingNumbers(192),
   );
   return { manage, quotations };
 }
@@ -158,6 +165,7 @@ describe('the expiry sweep', () => {
       new FakeRates(),
       new FakeClock(days(40)),
       new CountingIds(),
+      new CountingNumbers(900),
     );
     const swept = await later.sweepExpired();
 
@@ -177,6 +185,7 @@ describe('the expiry sweep', () => {
       new FakeRates(),
       new FakeClock(days(40)),
       new CountingIds(),
+      new CountingNumbers(900),
     );
     // The client said yes. A sweep running later must not undo that.
     expect((await later.sweepExpired()).expired).toBe(0);
@@ -194,6 +203,7 @@ describe('the expiry sweep', () => {
       new FakeRates(),
       new FakeClock(days(40)),
       new CountingIds(),
+      new CountingNumbers(900),
     );
     await later.sweepExpired();
     expect((await later.accept(id)).ok).toBe(false);

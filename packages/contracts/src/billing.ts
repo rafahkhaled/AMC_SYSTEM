@@ -197,7 +197,12 @@ export type Quotations = z.infer<typeof quotationsSchema>;
 
 export const draftQuotationRequestSchema = z.object({
   clientId: z.string().min(1),
-  reference: z.string().trim().min(1).max(60),
+  /**
+   * Left out for anything drafted here, which takes the next number from the
+   * firm's own estimate sequence. Given only when recording a quotation that
+   * was issued by hand before this system existed.
+   */
+  reference: z.string().trim().min(1).max(60).optional(),
   validUntil: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
