@@ -1,4 +1,5 @@
 export * from './generate-statement.js';
+export * from './manage-quotations.js';
 export * from './ports.js';
 export * from './raise-invoice.js';
 export * from './read-billing.js';

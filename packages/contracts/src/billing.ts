@@ -129,3 +129,77 @@ export const releaseStatementRequestSchema = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 export type ReleaseStatementRequest = z.infer<typeof releaseStatementRequestSchema>;
+
+/* ---------------------------------------------------------------- quotations */
+
+export const quotationLineSchema = z.object({
+  id: z.string(),
+  descriptionEn: z.string(),
+  descriptionAr: z.string(),
+  /** How it was priced, which still matters after the client says yes. */
+  kind: z.enum(['hours', 'fixed']),
+  hours: z.number().nullable(),
+  perHour: moneySchema.nullable(),
+  amount: moneySchema,
+});
+export type QuotationLineView = z.infer<typeof quotationLineSchema>;
+
+export const quotationSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  clientName: z.string().nullable(),
+  /** What the client quotes back on the phone. */
+  reference: z.string(),
+  state: z.enum(['draft', 'sent', 'accepted', 'declined', 'expired']),
+  currency: z.string(),
+  lines: z.array(quotationLineSchema),
+  total: moneySchema,
+  validUntil: z.string().nullable(),
+  sentAt: z.string().nullable(),
+  decidedAt: z.string().nullable(),
+  notesEn: z.string().nullable(),
+  notesAr: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type QuotationView = z.infer<typeof quotationSchema>;
+
+export const quotationsSchema = z.object({ quotations: z.array(quotationSchema) });
+export type Quotations = z.infer<typeof quotationsSchema>;
+
+export const draftQuotationRequestSchema = z.object({
+  clientId: z.string().min(1),
+  reference: z.string().trim().min(1).max(60),
+  validUntil: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  notesEn: z.string().trim().max(2000).optional(),
+  notesAr: z.string().trim().max(2000).optional(),
+});
+export type DraftQuotationRequest = z.infer<typeof draftQuotationRequestSchema>;
+
+/**
+ * A line, priced one way or the other.
+ *
+ * `hours` carries an estimate and a rate; `amount` a fixed fee. Which was
+ * offered is kept because a fixed fee accepted at 5,000 is still 5,000 when
+ * the work runs long, and an hourly estimate is not.
+ */
+export const addQuotationLineRequestSchema = z
+  .object({
+    descriptionEn: z.string().trim().max(300).optional(),
+    descriptionAr: z.string().trim().max(300).optional(),
+    hours: z.number().positive().max(10_000).optional(),
+    perHourMinor: z.number().int().nonnegative().optional(),
+    amountMinor: z.number().int().nonnegative().optional(),
+  })
+  .refine(
+    (line) =>
+      (line.hours !== undefined && line.perHourMinor !== undefined) !==
+      (line.amountMinor !== undefined),
+    { message: 'Price it by hours and a rate, or as a fixed amount, but not both' },
+  )
+  .refine((line) => Boolean(line.descriptionEn?.trim() || line.descriptionAr?.trim()), {
+    message: 'Say what the line is for, in at least one language',
+  });
+export type AddQuotationLineRequest = z.infer<typeof addQuotationLineRequestSchema>;

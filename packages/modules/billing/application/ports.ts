@@ -1,4 +1,4 @@
-import type { InvoiceView, StatementView } from '@amc/contracts';
+import type { InvoiceView, QuotationView, StatementView } from '@amc/contracts';
 import type { Conflict, CurrencyCode, Money, Result } from '@amc/kernel';
 import type { BillingScope, Invoice, Quotation, Statement } from '../domain/index.js';
 
@@ -115,6 +115,8 @@ export type { Conflict, Result };
  * invoice exists but is not theirs is itself the thing being withheld.
  */
 export interface BillingReader {
+  quotations(scope: BillingScope, clientId: string | null): Promise<QuotationView[]>;
+  quotation(id: string, scope: BillingScope): Promise<QuotationView | null>;
   statements(scope: BillingScope, clientId: string | null): Promise<StatementView[]>;
   statement(id: string, scope: BillingScope): Promise<StatementView | null>;
   invoices(

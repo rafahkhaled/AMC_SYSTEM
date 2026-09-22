@@ -1,5 +1,14 @@
-import type { InvoiceView, Invoices, StatementView, Statements } from '@amc/contracts';
+import type {
+  InvoiceView,
+  Invoices,
+  QuotationView,
+  Quotations,
+  StatementView,
+  Statements,
+} from '@amc/contracts';
 import {
+  addQuotationLineRequestSchema,
+  draftQuotationRequestSchema,
   generateStatementRequestSchema,
   recordPaymentRequestSchema,
   releaseStatementRequestSchema,
@@ -12,6 +21,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Inject,
   NotFoundException,
@@ -20,6 +30,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { GenerateStatement } from '../application/generate-statement.js';
+import { ManageQuotations } from '../application/manage-quotations.js';
 import type { StatementRepository } from '../application/ports.js';
 import { RaiseInvoice } from '../application/raise-invoice.js';
 import { ReadBilling } from '../application/read-billing.js';
@@ -46,11 +57,129 @@ export class BillingController {
   constructor(
     @Inject(ReadBilling) private readonly read: ReadBilling,
     @Inject(GenerateStatement) private readonly generate: GenerateStatement,
+    @Inject(ManageQuotations) private readonly quotations: ManageQuotations,
     @Inject(RaiseInvoice) private readonly raise: RaiseInvoice,
     @Inject(SettleInvoice) private readonly settle: SettleInvoice,
     @Inject(ReleaseFromStatement) private readonly release: ReleaseFromStatement,
     @Inject(StatementRepositoryToken) private readonly statements: StatementRepository,
   ) {}
+
+  /* ------------------------------------------------------- quotations -- */
+
+  @RequirePermissions('billing.view')
+  @Get('quotations')
+  async listQuotations(
+    @CurrentCaller() caller: Caller,
+    @Query('clientId') clientId?: string,
+  ): Promise<Quotations> {
+    return { quotations: await this.read.quotations(caller, clientId) };
+  }
+
+  @RequirePermissions('billing.view')
+  @Get('quotations/:id')
+  async quotation(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+  ): Promise<QuotationView> {
+    const quotation = await this.read.quotation(caller, id);
+    if (!quotation) throw new NotFoundException('No such quotation');
+    return quotation;
+  }
+
+  @RequirePermissions('billing.approve')
+  @Post('quotations')
+  async draftQuotation(
+    @CurrentCaller() caller: Caller,
+    @Body() body: unknown,
+  ): Promise<QuotationView> {
+    const parsed = draftQuotationRequestSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('Name a client and a reference');
+
+    const drafted = await this.quotations.draft(caller.userId, {
+      clientId: parsed.data.clientId,
+      reference: parsed.data.reference,
+      validUntil: parsed.data.validUntil ? day(parsed.data.validUntil) : null,
+      notesEn: parsed.data.notesEn ?? null,
+      notesAr: parsed.data.notesAr ?? null,
+    });
+    if (!drafted.ok) throw new ConflictException(drafted.error.message);
+
+    return this.mustReadQuotation(caller, drafted.value.quotationId);
+  }
+
+  @RequirePermissions('billing.approve')
+  @Post('quotations/:id/lines')
+  async addQuotationLine(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<QuotationView> {
+    const parsed = addQuotationLineRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Say what the line is for and what it costs',
+      );
+    }
+
+    await this.mustReadQuotation(caller, id);
+    const added = await this.quotations.addLine(id, parsed.data);
+    if (!added.ok) throw new ConflictException(added.error.message);
+
+    return this.mustReadQuotation(caller, id);
+  }
+
+  @RequirePermissions('billing.approve')
+  @Delete('quotations/:id/lines/:lineId')
+  async removeQuotationLine(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+  ): Promise<QuotationView> {
+    await this.mustReadQuotation(caller, id);
+    const removed = await this.quotations.removeLine(id, lineId);
+    if (!removed.ok) throw new ConflictException(removed.error.message);
+    return this.mustReadQuotation(caller, id);
+  }
+
+  /**
+   * Sending, and the client's answer.
+   *
+   * One route with the act in the path rather than a state in the body: the
+   * three are different decisions with different consequences, and a body
+   * saying {"state": "accepted"} invites a screen to send whichever one it
+   * happens to hold.
+   */
+  @RequirePermissions('billing.approve')
+  @Post('quotations/:id/:act')
+  async answerQuotation(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Param('act') act: string,
+  ): Promise<QuotationView> {
+    await this.mustReadQuotation(caller, id);
+
+    const done =
+      act === 'send'
+        ? await this.quotations.send(id)
+        : act === 'accept'
+          ? await this.quotations.accept(id)
+          : act === 'decline'
+            ? await this.quotations.decline(id)
+            : null;
+
+    if (done === null) throw new BadRequestException('That is not something to do to a quotation');
+    if (!done.ok) throw new ConflictException(done.error.message);
+
+    return this.mustReadQuotation(caller, id);
+  }
+
+  private async mustReadQuotation(caller: Caller, id: string): Promise<QuotationView> {
+    const quotation = await this.read.quotation(caller, id);
+    if (!quotation) throw new NotFoundException('No such quotation');
+    return quotation;
+  }
+
+  /* ------------------------------------------------------- statements -- */
 
   @RequirePermissions('billing.view')
   @Get('statements')

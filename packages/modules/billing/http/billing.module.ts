@@ -5,6 +5,7 @@ import {
   type OptionalFactoryDependency,
 } from '@nestjs/common';
 import { GenerateStatement } from '../application/generate-statement.js';
+import { ManageQuotations } from '../application/manage-quotations.js';
 import type { StatementRepository } from '../application/ports.js';
 import { RaiseInvoice } from '../application/raise-invoice.js';
 import { ReadBilling } from '../application/read-billing.js';
@@ -17,6 +18,7 @@ import { StatementRepositoryToken } from './tokens.js';
 export interface BillingParts {
   readonly read: ReadBilling;
   readonly generate: GenerateStatement;
+  readonly quotations: ManageQuotations;
   readonly raise: RaiseInvoice;
   readonly settle: SettleInvoice;
   readonly release: ReleaseFromStatement;
@@ -49,6 +51,11 @@ export class BillingModule {
           inject: [PARTS],
           useFactory: (p: BillingParts) => p.generate,
         },
+        {
+          provide: ManageQuotations,
+          inject: [PARTS],
+          useFactory: (p: BillingParts) => p.quotations,
+        },
         { provide: RaiseInvoice, inject: [PARTS], useFactory: (p: BillingParts) => p.raise },
         { provide: SettleInvoice, inject: [PARTS], useFactory: (p: BillingParts) => p.settle },
         {
@@ -62,7 +69,14 @@ export class BillingModule {
           useFactory: (p: BillingParts) => p.statements,
         },
       ],
-      exports: [ReadBilling, GenerateStatement, RaiseInvoice, SettleInvoice, ReleaseFromStatement],
+      exports: [
+        ReadBilling,
+        GenerateStatement,
+        ManageQuotations,
+        RaiseInvoice,
+        SettleInvoice,
+        ReleaseFromStatement,
+      ],
     };
   }
 }

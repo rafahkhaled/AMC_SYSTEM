@@ -2,6 +2,7 @@ import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
 import {
   GenerateStatement,
+  ManageQuotations,
   RaiseInvoice,
   ReadBilling,
   ReleaseFromStatement,
@@ -12,6 +13,7 @@ import {
   DrizzleBillingReader,
   DrizzleInvoiceNumbering,
   DrizzleInvoiceRepository,
+  DrizzleQuotationRepository,
   DrizzleStatementRepository,
 } from '@amc/billing/infrastructure';
 import {
@@ -317,6 +319,10 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
         const statements = new DrizzleStatementRepository(db);
         const invoices = new DrizzleInvoiceRepository(db);
         const attachment = workAttachment(db);
+        const rates = rateReader(db, {
+          perHourMinor: environment.BILLING_DEFAULT_RATE_MINOR,
+          currency: environment.DEFAULT_CURRENCY,
+        });
         const settings = {
           vatBasisPoints: environment.BILLING_VAT_BASIS_POINTS,
           paymentTermsDays: environment.BILLING_PAYMENT_TERMS_DAYS,
@@ -326,10 +332,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
           read: new ReadBilling(new DrizzleBillingReader(db), clock),
           generate: new GenerateStatement(
             unbilledWork(db, environment.BUSINESS_TIME_ZONE),
-            rateReader(db, {
-              perHourMinor: environment.BILLING_DEFAULT_RATE_MINOR,
-              currency: environment.DEFAULT_CURRENCY,
-            }),
+            rates,
             statements,
             attachment,
             clock,
@@ -343,6 +346,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             clock,
             ids,
           ),
+          quotations: new ManageQuotations(new DrizzleQuotationRepository(db), rates, clock, ids),
           settle: new SettleInvoice(invoices, clock, ids),
           release: new ReleaseFromStatement(statements, attachment),
           statements,

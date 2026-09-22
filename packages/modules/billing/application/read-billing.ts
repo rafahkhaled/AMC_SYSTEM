@@ -1,4 +1,4 @@
-import type { InvoiceView, StatementView } from '@amc/contracts';
+import type { InvoiceView, QuotationView, StatementView } from '@amc/contracts';
 import type { Clock } from '@amc/kernel';
 import { scopeFor } from '../domain/index.js';
 import type { BillingReader, CallerLike } from './ports.js';
@@ -16,6 +16,14 @@ export class ReadBilling {
     private readonly reader: BillingReader,
     private readonly clock: Clock,
   ) {}
+
+  async quotations(caller: CallerLike, clientId?: string): Promise<QuotationView[]> {
+    return this.reader.quotations(scopeFor(caller), clientId ?? null);
+  }
+
+  async quotation(caller: CallerLike, id: string): Promise<QuotationView | null> {
+    return this.reader.quotation(id, scopeFor(caller));
+  }
 
   async statements(caller: CallerLike, clientId?: string): Promise<StatementView[]> {
     return this.reader.statements(scopeFor(caller), clientId ?? null);

@@ -1,4 +1,4 @@
-import type { InvoiceView, StatementView } from '@amc/contracts';
+import type { InvoiceView, QuotationView, StatementView } from '@amc/contracts';
 import { sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { BillingReader } from '../application/ports.js';
@@ -66,6 +66,89 @@ function asWorked(line: LineRow): number {
 
 export class DrizzleBillingReader implements BillingReader {
   constructor(private readonly db: Db) {}
+
+  async quotations(scope: BillingScope, clientId: string | null): Promise<QuotationView[]> {
+    if (scope.kind === 'none') return [];
+
+    const rows = await this.db.execute<QuotationRow>(sql`
+      ${QUOTATION_SELECT}
+      WHERE ${billingVisibleTo(scope, sql`q.client_id`)}
+        AND (${clientId}::text IS NULL OR q.client_id = ${clientId})
+      ORDER BY q.created_at DESC
+      LIMIT 200
+    `);
+    return this.withLines(rows);
+  }
+
+  async quotation(id: string, scope: BillingScope): Promise<QuotationView | null> {
+    if (scope.kind === 'none') return null;
+
+    const rows = await this.db.execute<QuotationRow>(sql`
+      ${QUOTATION_SELECT}
+      WHERE q.id = ${id} AND ${billingVisibleTo(scope, sql`q.client_id`)}
+      LIMIT 1
+    `);
+    const [quotation] = await this.withLines(rows);
+    return quotation ?? null;
+  }
+
+  private async withLines(rows: readonly QuotationRow[]): Promise<QuotationView[]> {
+    if (rows.length === 0) return [];
+
+    const lineRows = await this.db.execute<QuotationLineRow>(sql`
+      SELECT * FROM quotation_lines
+      WHERE quotation_id = ANY(${sql.param(rows.map((row) => row.id))}::text[])
+      ORDER BY quotation_id, position
+    `);
+
+    return rows.map((row) => {
+      const currency = row.currency;
+      const lines = lineRows
+        .filter((line) => line.quotation_id === row.id)
+        .map((line) => {
+          // Hundredths of an hour, whole, so nothing in the billing path is a
+          // float — including the quantity.
+          const hours = line.hours_centi === null ? null : line.hours_centi / 100;
+          const amount =
+            line.kind === 'fixed'
+              ? Number(line.amount_minor ?? 0)
+              : roundHalfAway(
+                  BigInt(line.hours_centi ?? 0) * BigInt(line.per_hour_minor ?? 0),
+                  100n,
+                );
+
+          return {
+            id: line.id,
+            descriptionEn: line.description_en ?? '',
+            descriptionAr: line.description_ar ?? '',
+            kind: line.kind as 'hours' | 'fixed',
+            hours,
+            perHour: line.per_hour_minor === null ? null : money(line.per_hour_minor, currency),
+            amount: money(amount, currency),
+          };
+        });
+
+      return {
+        id: row.id,
+        clientId: row.client_id,
+        clientName: row.client_name,
+        reference: row.reference,
+        state: row.state as QuotationView['state'],
+        currency,
+        lines,
+        total: money(
+          lines.reduce((sum, line) => sum + line.amount.minorUnits, 0),
+          currency,
+        ),
+        validUntil: row.valid_until ? row.valid_until.slice(0, 10) : null,
+        sentAt: row.sent_at ? new Date(row.sent_at).toISOString() : null,
+        decidedAt: row.decided_at ? new Date(row.decided_at).toISOString() : null,
+        notesEn: row.notes_en,
+        notesAr: row.notes_ar,
+        createdAt: new Date(row.created_at).toISOString(),
+      };
+    });
+  }
 
   async statements(scope: BillingScope, clientId: string | null): Promise<StatementView[]> {
     if (scope.kind === 'none') return [];
@@ -324,4 +407,45 @@ type PaymentRow = {
   reference: string | null;
   recorded_by: string;
   recorded_by_name: string | null;
+};
+
+/** Half away from zero, the one rounding rule in this system. */
+function roundHalfAway(product: bigint, divisor: bigint): number {
+  const whole = product / divisor;
+  const remainder = product % divisor;
+  return Number(remainder * 2n >= divisor ? whole + 1n : whole);
+}
+
+const QUOTATION_SELECT = sql`
+  SELECT q.id, q.client_id, c.legal_name AS client_name, q.reference, q.state,
+         q.currency, q.valid_until, q.sent_at, q.decided_at,
+         q.notes_en, q.notes_ar, q.created_at
+  FROM quotations q
+  JOIN clients c ON c.id = q.client_id
+`;
+
+type QuotationRow = {
+  id: string;
+  client_id: string;
+  client_name: string | null;
+  reference: string;
+  state: string;
+  currency: string;
+  valid_until: string | null;
+  sent_at: string | null;
+  decided_at: string | null;
+  notes_en: string | null;
+  notes_ar: string | null;
+  created_at: string;
+};
+
+type QuotationLineRow = {
+  id: string;
+  quotation_id: string;
+  description_en: string | null;
+  description_ar: string | null;
+  kind: string;
+  hours_centi: number | null;
+  per_hour_minor: string | null;
+  amount_minor: string | null;
 };
