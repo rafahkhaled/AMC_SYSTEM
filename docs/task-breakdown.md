@@ -122,6 +122,15 @@ The largest phase and the one that earns money, because it is the one that captu
 
 **Phase exit:** SRS P2 accepted. The figures match a hand calculation, and invoiced hours can no longer be edited.
 
+**P2-01 to P2-13 are done.** `node scripts/acceptance-p2.mjs` walks it against a
+running server and passes 26 of 26. The run found that time approval — the step
+between a timesheet and a statement — had no route, no use case and no screen,
+so no statement could ever have had a line in it. That is built and is part of
+the run now. Still open, and written down rather than quietly carried: the firm
+profile is read fresh for every printed document instead of being snapshotted
+onto the invoice, so reprinting an old invoice after the firm changes bank would
+show the new account.
+
 ---
 
 ## P3 — AI invoice pipeline (16 tasks, ~19 days)

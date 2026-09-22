@@ -625,6 +625,34 @@ is a test comparing two bundles that are wrong in the same way. Render the
 string. This is also an argument for fixtures with two of something: one is the
 number at which a plural bug is invisible.
 
+### Hours could be recorded into a state they could never leave
+
+Statement generation reads `unbilledForClient`, which requires
+`approved_at IS NOT NULL`. Nothing in the system could set it.
+`TimeEntry.approve()` existed, was tested, and had no caller anywhere outside
+its own test file — no route, no use case, no screen.
+
+**What it would have looked like in production:** somebody records a week,
+generates a statement, and gets "There are no approved unbilled hours for that
+period". Nothing is broken, nothing logs an error, and the reason is a column
+nobody can write.
+
+**Cause:** the step sits exactly between two phases. P1 built recording, P2
+built billing, and approval belongs to neither — no task in the breakdown owns
+it, so it was never anybody's to miss.
+
+**Why nothing caught it:** every test that needed approved time approved it
+directly, in the fixture or in the domain. The integration tests inserted
+`approved_at` in their SQL. The demo seed did the same. Every layer was proved
+against data that had already been through a step the system could not perform.
+
+**Lesson:** a green suite proves the pieces work on data shaped the way the
+test shaped it. It says nothing about whether anything can produce that shape.
+The acceptance run found this in its second section, because it was the first
+thing that had to get from an empty timesheet to an invoice using only what a
+real user can reach. That is what an acceptance run is for, and it is why it
+has to drive the HTTP API rather than call the use cases.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
