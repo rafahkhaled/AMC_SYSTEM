@@ -34,6 +34,8 @@ type LineRow = {
   description_ar: string;
   worked_seconds: number;
   amount_minor: string;
+  quantity_centi: number;
+  unit_minor: string | null;
 };
 
 type PaymentRow = {
@@ -91,6 +93,10 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
       descriptionAr: line.description_ar,
       worked: Duration.ofSeconds(line.worked_seconds),
       amount: Money.ofMinor(Number(line.amount_minor), currency),
+      quantityCenti: line.quantity_centi,
+      // Null for a line raised before the document started recording these,
+      // and the renderer prints the amount instead rather than a zero.
+      unitRate: line.unit_minor === null ? null : Money.ofMinor(Number(line.unit_minor), currency),
     }));
 
     const payments: Payment[] = paymentRows.map((payment) => ({
@@ -156,11 +162,12 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
       await this.db.execute(sql`
         INSERT INTO invoice_lines
           (id, invoice_id, project_id, service, description_en, description_ar,
-           worked_seconds, amount_minor, position)
+           worked_seconds, amount_minor, position, quantity_centi, unit_minor)
         VALUES (
           ${line.id}, ${state.id}, ${line.projectId}, ${line.service},
           ${line.descriptionEn}, ${line.descriptionAr},
-          ${line.worked.seconds}, ${line.amount.minorUnits}, ${position}
+          ${line.worked.seconds}, ${line.amount.minorUnits}, ${position},
+          ${line.quantityCenti}, ${line.unitRate?.minorUnits ?? null}
         )
         ON CONFLICT (id) DO NOTHING
       `);

@@ -16,6 +16,8 @@ const line: InvoiceLine = {
   descriptionEn: 'VAT return',
   descriptionAr: 'الإقرار الضريبي',
   worked: Duration.ofHours(2),
+  quantityCenti: 200,
+  unitRate: aed(30_000),
   amount: aed(60_000),
 };
 

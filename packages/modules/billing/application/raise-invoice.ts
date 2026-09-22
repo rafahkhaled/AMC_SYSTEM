@@ -1,5 +1,13 @@
-import { type Clock, Conflict, type IdGenerator, type Result, err, ok } from '@amc/kernel';
-import { Invoice, type InvoiceLine, lineAmount } from '../domain/index.js';
+import {
+  type Clock,
+  Conflict,
+  type IdGenerator,
+  type Money,
+  type Result,
+  err,
+  ok,
+} from '@amc/kernel';
+import { Invoice, type InvoiceLine, type StatementLine, lineAmount } from '../domain/index.js';
 import type {
   BillingSettings,
   InvoiceNumbering,
@@ -67,6 +75,7 @@ export class RaiseInvoice {
         descriptionAr: describe(line.service, line.performedOn, 'ar'),
         worked: line.worked,
         amount: lineAmount(line),
+        ...printedAs(line),
       }));
 
     if (lines.length === 0) {
@@ -132,4 +141,27 @@ function describe(service: string, performedOn: Date, language: 'en' | 'ar'): st
   };
   const name = names[service] ?? { en: 'Professional services', ar: 'خدمات مهنية' };
   return `${name[language]} — ${month}`;
+}
+
+/**
+ * The Qty and Rate the document prints for a line.
+ *
+ * An hourly line prints its hours at the rate they were billed at; a fixed
+ * fee prints one, at the fee. An adjusted or excluded line is the awkward
+ * case: its amount is no longer quantity times rate, and printing the
+ * original two would show arithmetic that does not reach the total on the
+ * same page. Those print as one, at whatever they came to.
+ */
+function printedAs(line: StatementLine): { quantityCenti: number; unitRate: Money | null } {
+  const charged = lineAmount(line);
+  const asWorked = line.adjustedTo === null && !line.excluded;
+
+  if (!asWorked) return { quantityCenti: 100, unitRate: charged };
+  if (line.pricing.kind === 'fixed') return { quantityCenti: 100, unitRate: line.pricing.fee };
+
+  // Hundredths of an hour, rounded the one way the kernel rounds.
+  const centi = Math.round((line.worked.seconds * 100) / 3600);
+  return centi > 0
+    ? { quantityCenti: centi, unitRate: line.pricing.perHour }
+    : { quantityCenti: 100, unitRate: charged };
 }

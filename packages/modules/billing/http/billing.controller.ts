@@ -1,4 +1,5 @@
 import type {
+  FirmProfile,
   HoursReport,
   InvoiceView,
   Invoices,
@@ -38,7 +39,7 @@ import { RaiseInvoice } from '../application/raise-invoice.js';
 import { ReadBilling } from '../application/read-billing.js';
 import { ReleaseFromStatement } from '../application/release-from-statement.js';
 import { SettleInvoice } from '../application/settle-invoice.js';
-import { StatementRepositoryToken } from './tokens.js';
+import { FirmProfileToken, StatementRepositoryToken } from './tokens.js';
 
 /**
  * Billing (FR-31 to FR-33).
@@ -64,6 +65,7 @@ export class BillingController {
     @Inject(SettleInvoice) private readonly settle: SettleInvoice,
     @Inject(ReleaseFromStatement) private readonly release: ReleaseFromStatement,
     @Inject(StatementRepositoryToken) private readonly statements: StatementRepository,
+    @Inject(FirmProfileToken) private readonly firmProfile: FirmProfile,
   ) {}
 
   /* ------------------------------------------------------- quotations -- */
@@ -179,6 +181,19 @@ export class BillingController {
     const quotation = await this.read.quotation(caller, id);
     if (!quotation) throw new NotFoundException('No such quotation');
     return quotation;
+  }
+
+  /**
+   * What the firm puts on its own paper (FR-30, FR-32).
+   *
+   * Served rather than built into the bundle because it is configuration: a
+   * firm that changes bank should not need a deploy, and this repository is
+   * public, so the values cannot live in it at all.
+   */
+  @RequirePermissions('billing.view')
+  @Get('documents/profile')
+  documentProfile(): FirmProfile {
+    return this.firmProfile;
   }
 
   /* ---------------------------------------------------------- reports -- */

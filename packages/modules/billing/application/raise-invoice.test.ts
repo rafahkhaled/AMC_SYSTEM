@@ -206,3 +206,62 @@ describe('numbering', () => {
     expect(next.value.number).toBe('2072');
   });
 });
+
+describe('what the printed document shows in Qty and Rate', () => {
+  async function raised(lines: StatementLine[]) {
+    const { raise, invoices } = await harness(statementOf(lines));
+    const result = await raise.execute('u-boss', 's-1');
+    if (!result.ok) throw result.error;
+    return invoices.saved[0]?.snapshot().lines ?? [];
+  }
+
+  it('prints hours at the rate they were billed at', async () => {
+    const [printed] = await raised([line({ worked: Duration.ofHours(2) })]);
+
+    // 2.00 × 300.00 = 600.00, and the three figures agree on the page.
+    expect(printed?.quantityCenti).toBe(200);
+    expect(printed?.unitRate?.minorUnits).toBe(30_000);
+    expect(printed?.amount.minorUnits).toBe(60_000);
+  });
+
+  it('prints part hours as part hours', async () => {
+    const [printed] = await raised([line({ worked: Duration.ofMinutes(90) })]);
+    expect(printed?.quantityCenti).toBe(150);
+    expect(printed?.unitRate?.minorUnits).toBe(30_000);
+  });
+
+  it('prints a fixed fee as one, at the fee', async () => {
+    const [printed] = await raised([
+      line({ pricing: { kind: 'fixed', fee: aed(175_000) }, worked: Duration.ofHours(12) }),
+    ]);
+
+    // Twelve hours went into it and the client is shown one fee, which is
+    // what a fixed fee means and what the firm's own template prints.
+    expect(printed?.quantityCenti).toBe(100);
+    expect(printed?.unitRate?.minorUnits).toBe(175_000);
+    expect(printed?.amount.minorUnits).toBe(175_000);
+  });
+
+  it('prints an adjusted line as one, at what it came to', async () => {
+    const statement = statementOf([line({ worked: Duration.ofHours(2) })]);
+    statement.reopen(now);
+    statement.adjust('sl-1', aed(50_000), 'agreed 500 with Layla', now);
+    statement.approve('u-boss', now);
+    statement.pullEvents();
+
+    const { raise, invoices } = await harness(statement);
+    const result = await raise.execute('u-boss', 's-1');
+    if (!result.ok) throw result.error;
+    const [printed] = invoices.saved[0]?.snapshot().lines ?? [];
+
+    /*
+     * 2 × 300 is 600, and this line is being charged at 500. Printing the
+     * original quantity and rate would put arithmetic on the page that does
+     * not reach the total underneath it, and the client would be right to
+     * query it.
+     */
+    expect(printed?.quantityCenti).toBe(100);
+    expect(printed?.unitRate?.minorUnits).toBe(50_000);
+    expect(printed?.amount.minorUnits).toBe(50_000);
+  });
+});

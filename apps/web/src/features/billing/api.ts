@@ -1,10 +1,12 @@
 import {
+  type FirmProfile,
   type HoursReport,
   type InvoiceView,
   type ProfitabilityReport,
   type QuotationView,
   type StatementView,
   type Statements,
+  firmProfileSchema,
   hoursReportSchema,
   invoiceSchema,
   invoicesSchema,
@@ -150,4 +152,8 @@ export async function hoursReport(
 export async function profitabilityReport(period: Period): Promise<ProfitabilityReport> {
   const query = new URLSearchParams({ from: period.from, to: period.to });
   return profitabilityReportSchema.parse(await request(`/billing/reports/profitability?${query}`));
+}
+
+export async function firmProfile(): Promise<FirmProfile> {
+  return firmProfileSchema.parse(await request('/billing/documents/profile'));
 }

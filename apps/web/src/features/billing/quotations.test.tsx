@@ -9,12 +9,14 @@ const quotations = vi.hoisted(() => vi.fn());
 const addQuotationLine = vi.hoisted(() => vi.fn());
 const removeQuotationLine = vi.hoisted(() => vi.fn());
 const answerQuotation = vi.hoisted(() => vi.fn());
+const firmProfile = vi.hoisted(() => vi.fn());
 vi.mock('./api.js', () => ({
   quotations,
   addQuotationLine,
   removeQuotationLine,
   answerQuotation,
   draftQuotation: vi.fn(),
+  firmProfile,
 }));
 
 const aed = (minorUnits: number) => ({ minorUnits, currency: 'AED' });

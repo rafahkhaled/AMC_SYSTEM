@@ -1,3 +1,4 @@
+import type { FirmProfile } from '@amc/contracts';
 import {
   type DynamicModule,
   type InjectionToken,
@@ -12,7 +13,7 @@ import { ReadBilling } from '../application/read-billing.js';
 import { ReleaseFromStatement } from '../application/release-from-statement.js';
 import { SettleInvoice } from '../application/settle-invoice.js';
 import { BillingController } from './billing.controller.js';
-import { StatementRepositoryToken } from './tokens.js';
+import { FirmProfileToken, StatementRepositoryToken } from './tokens.js';
 
 /** What the composition root has to supply for billing to work. */
 export interface BillingParts {
@@ -23,6 +24,8 @@ export interface BillingParts {
   readonly settle: SettleInvoice;
   readonly release: ReleaseFromStatement;
   readonly statements: StatementRepository;
+  /** What goes on a printed quotation or invoice. */
+  readonly firmProfile: FirmProfile;
 }
 
 @Module({})
@@ -67,6 +70,11 @@ export class BillingModule {
           provide: StatementRepositoryToken,
           inject: [PARTS],
           useFactory: (p: BillingParts) => p.statements,
+        },
+        {
+          provide: FirmProfileToken,
+          inject: [PARTS],
+          useFactory: (p: BillingParts) => p.firmProfile,
         },
       ],
       exports: [

@@ -64,6 +64,15 @@ export const invoiceLineSchema = z.object({
   descriptionAr: z.string(),
   workedSeconds: z.number().int().nonnegative(),
   amount: moneySchema,
+  /**
+   * What the printed document's Qty and Rate columns show.
+   *
+   * Hundredths of a unit: 250 is two and a half hours, 100 is one fixed fee.
+   * Both come off the invoice rather than being worked out here, because the
+   * client holds a piece of paper and a reprint has to match it.
+   */
+  quantityCenti: z.number().int().positive(),
+  unitRate: moneySchema.nullable(),
 });
 export type InvoiceLineView = z.infer<typeof invoiceLineSchema>;
 
@@ -294,3 +303,36 @@ export const profitabilityReportSchema = z.object({
   rows: z.array(profitabilityRowSchema),
 });
 export type ProfitabilityReport = z.infer<typeof profitabilityReportSchema>;
+
+/* ---------------------------------------------------------------- documents */
+
+/**
+ * What the firm puts on its own paper.
+ *
+ * Read from configuration, and read fresh every time a document is drawn.
+ *
+ * Known limitation, written down because it will not announce itself: an
+ * invoice is a record of what was sent, and this profile is not snapshotted
+ * onto it. Reprint an invoice from last year after the firm changes bank and
+ * it will carry this year's IBAN. That is wrong for a tax document and the
+ * fix is a snapshot taken when the invoice is raised, which is a schema change
+ * and deserves to be made deliberately rather than bolted onto the renderer.
+ *
+ * Every field but the name is nullable, and a null prints as a visible marker
+ * rather than a gap: a document with a blank where the IBAN should be reads
+ * as finished and is not.
+ */
+export const firmProfileSchema = z.object({
+  legalName: z.string(),
+  addresses: z.array(z.string()),
+  bank: z
+    .object({
+      accountHolder: z.string().nullable(),
+      iban: z.string().nullable(),
+      bic: z.string().nullable(),
+    })
+    .nullable(),
+  logoUrl: z.string().nullable(),
+  stampUrl: z.string().nullable(),
+});
+export type FirmProfile = z.infer<typeof firmProfileSchema>;

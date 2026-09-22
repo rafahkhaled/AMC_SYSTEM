@@ -7,11 +7,13 @@ import {
   approve,
   invoices as fetchInvoices,
   statements as fetchStatements,
+  firmProfile,
   raiseInvoice,
   recordPayment,
   reviseLine,
   statement as statementById,
 } from './api.js';
+import { InvoiceDocument } from './document.js';
 import { formatHours, formatMoney, minorUnitsFrom } from './money.js';
 import { Quotations } from './quotations.js';
 import { Reports } from './reports.js';
@@ -473,6 +475,8 @@ function statusTone(status: InvoiceView['status']) {
 function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const queries = useQueryClient();
+  const [printing, setPrinting] = useState(false);
+  const profile = useQuery({ queryKey: ['billing', 'firm-profile'], queryFn: firmProfile });
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('bank_transfer');
   const [reference, setReference] = useState('');
@@ -505,7 +509,17 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <Button small tone="quiet" onClick={onClose}>
           {t('billing.close')}
         </Button>
+        <Button small tone="secondary" onClick={() => setPrinting(!printing)}>
+          {t('billing.print')}
+        </Button>
       </div>
+
+      {/* The document itself, on the page rather than behind a route: what
+          gets printed is what was on screen, so nobody sends a client a
+          document they were not looking at. */}
+      {printing && profile.data ? (
+        <InvoiceDocument invoice={invoice} profile={profile.data} />
+      ) : null}
 
       {invoice.overdueSince ? (
         <Alert tone="warning">

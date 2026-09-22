@@ -1446,11 +1446,23 @@ a {
   .shell__menu,
   .shell__bar,
   .shell__scrim,
-  .card:not(:has(.letter)),
+  .card:not(:has(.letter)):not(:has(.doc)),
   .letter ~ *,
   .alert,
   .button {
     display: none !important;
+  }
+
+  /* The sheet is the page. No card around it, no margin of ours: the printer
+     dialog owns the margins and the template's own box rules do the rest. */
+  .doc {
+    max-inline-size: none;
+    padding: 0;
+  }
+  .doc__filler td {
+    /* Shorter on paper than on screen, so a one-line invoice still lands on
+       a single page with its bank details and address under it. */
+    block-size: 240px;
   }
 
   .letter {
@@ -1462,4 +1474,241 @@ a {
   .shell {
     display: block;
   }
+}
+
+/* ---- the firm's own paper ------------------------------------------- */
+
+/*
+ * A quotation or an invoice, laid out as the firm's existing template.
+ *
+ * Black on white and ruled throughout, whatever the interface theme: this
+ * sheet is going to a printer and then to a client, and a dark background
+ * either wastes a cartridge or drops out and takes the rules with it. The
+ * tokens are deliberately not used here for that reason.
+ */
+.doc {
+  --doc-line: #000;
+  inline-size: 100%;
+  max-inline-size: 210mm;
+  margin-inline: auto;
+  padding: var(--space-5);
+  background: #fff;
+  color: #000;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 11pt;
+  line-height: 1.35;
+}
+
+.doc__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+.doc__headEnd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.doc__firm {
+  font-size: 14pt;
+  font-weight: 700;
+}
+.doc__headStart {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+/* Under the mark rather than beside the title, and not bold: the logo is
+   already doing the announcing. */
+.doc__firm--underMark {
+  font-size: 13pt;
+  font-weight: 400;
+}
+.doc__logo {
+  block-size: 90px;
+  inline-size: auto;
+}
+/* Keeps the heading's shape when no logo is configured, so the page does not
+   jump about between a server that has one and a server that does not. */
+.doc__logo--absent {
+  display: block;
+  block-size: 90px;
+  inline-size: 90px;
+}
+.doc__title {
+  margin: 0;
+  font-size: 26pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.doc__meta,
+.doc__lines {
+  border-collapse: collapse;
+}
+.doc__meta th,
+.doc__meta td {
+  padding: 4px 18px;
+  border: 1px solid var(--doc-line);
+  text-align: center;
+  font-weight: 400;
+  font-size: 10pt;
+}
+
+.doc__party {
+  margin-block-start: var(--space-4);
+  border: 1px solid var(--doc-line);
+}
+.doc__party h2 {
+  margin: 0;
+  padding: 4px 8px;
+  border-block-end: 1px solid var(--doc-line);
+  font-size: 10pt;
+  font-weight: 700;
+}
+.doc__party p {
+  margin: 0;
+  padding: 6px 8px;
+  /* The box keeps its height with a short name in it, as the template does. */
+  min-block-size: 68px;
+}
+
+.doc__lines {
+  inline-size: 100%;
+  margin-block-start: var(--space-4);
+  table-layout: fixed;
+}
+.doc__lines th,
+.doc__lines td {
+  padding: 4px 8px;
+  border: 1px solid var(--doc-line);
+  vertical-align: top;
+  font-size: 10pt;
+}
+.doc__lines th {
+  text-align: center;
+  font-weight: 400;
+}
+.doc__description {
+  inline-size: 52%;
+}
+.doc__qty,
+.doc__rate,
+.doc__amount {
+  inline-size: 16%;
+}
+.doc__lines td.doc__qty,
+.doc__lines td.doc__rate,
+.doc__lines td.doc__amount {
+  text-align: end;
+}
+/* The ruled remainder. One tall empty row rather than a fixed table height,
+   so the columns keep their rules all the way down whatever is above. */
+.doc__filler td {
+  block-size: 320px;
+  border-block-start: 0;
+}
+.doc__lines tbody tr:not(.doc__filler) td {
+  border-block-end: 0;
+}
+
+.doc__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border: 1px solid var(--doc-line);
+  border-block-start: 0;
+  font-size: 13pt;
+}
+.doc__totalAmount {
+  font-size: 11pt;
+}
+
+.doc__generated {
+  margin-block: var(--space-3);
+  text-decoration: underline;
+}
+
+.doc__bank {
+  position: relative;
+  border: 1px solid var(--doc-line);
+  padding: 6px 8px;
+}
+.doc__bank h2,
+.doc__customerStamp h2 {
+  margin: 0;
+  font-size: 11pt;
+  font-weight: 400;
+}
+.doc__bank p {
+  margin: 0;
+}
+.doc__stamp {
+  block-size: 110px;
+  inline-size: auto;
+}
+.doc__bank .doc__stamp {
+  position: absolute;
+  inset-block-end: 4px;
+  inset-inline-end: 12px;
+}
+
+.doc__sign {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-block-start: var(--space-5);
+}
+.doc__customerStamp {
+  flex: 0 0 48%;
+  border: 1px solid var(--doc-line);
+  padding: 6px 8px;
+  min-block-size: 110px;
+}
+
+.doc__addresses {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-block-start: var(--space-4);
+  font-size: 10pt;
+}
+.doc__addresses--centred {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  text-align: center;
+}
+.doc__address {
+  flex: 1;
+  border: 1px solid var(--doc-line);
+  padding: 6px 8px;
+  /* Two lines of address, the way the template writes them. */
+  white-space: pre-line;
+}
+
+/* Missing configuration, marked rather than left blank. */
+.doc__missing {
+  letter-spacing: 1px;
+}
+
+/* Subtotal and VAT, shown only once the firm is registered. Same box as the
+   total beneath them, so the three figures read as one column. */
+.doc__tax {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  border: 1px solid var(--doc-line);
+  border-block-start: 0;
+  font-size: 10pt;
+}
+.doc__tax > span {
+  display: flex;
+  justify-content: space-between;
 }

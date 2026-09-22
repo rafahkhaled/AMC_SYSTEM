@@ -99,6 +99,32 @@ export const environmentSchema = z.object({
   BILLING_PAYMENT_TERMS_DAYS: z.coerce.number().int().positive().max(365).default(30),
   BILLING_DEFAULT_RATE_MINOR: z.coerce.number().int().nonnegative().default(30_000),
 
+  /**
+   * What goes on a printed quotation or invoice.
+   *
+   * Configuration, not code, and deliberately without real defaults: this
+   * repository is public, and a firm's bank details are the one thing on its
+   * invoice that is worth forging. They live in the server's environment,
+   * which is not committed anywhere.
+   *
+   * Every one is optional, and a missing one prints the same visible marker
+   * the letters use rather than a blank. A document with a gap where the IBAN
+   * should be reads as finished and is not, and somebody sends it.
+   *
+   * The legal name is separate from FIRM_NAME because the letterhead and the
+   * registered entity are not always the same words, and an invoice has to
+   * carry the registered one.
+   */
+  FIRM_LEGAL_NAME: z.string().default('Active M Consultancy FZE LLC'),
+  FIRM_ADDRESS_PRIMARY: z.string().optional(),
+  FIRM_ADDRESS_SECONDARY: z.string().optional(),
+  FIRM_BANK_ACCOUNT_HOLDER: z.string().optional(),
+  FIRM_BANK_IBAN: z.string().optional(),
+  FIRM_BANK_BIC: z.string().optional(),
+  /** Served to the browser, so a URL rather than a file: `/api/files/...`. */
+  FIRM_LOGO_URL: z.string().optional(),
+  FIRM_STAMP_URL: z.string().optional(),
+
   // Business rules. Stored times are UTC; rules are expressed in Dubai time.
   BUSINESS_TIME_ZONE: z.string().default('Asia/Dubai'),
   DEFAULT_CURRENCY: z.enum(['AED', 'USD', 'EUR', 'GBP', 'SAR']).default('AED'),

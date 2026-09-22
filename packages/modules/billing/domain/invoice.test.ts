@@ -14,6 +14,8 @@ const line = (over: Partial<InvoiceLine> = {}): InvoiceLine => ({
   service: 'vat_return',
   descriptionEn: 'VAT return, Q3',
   descriptionAr: 'الإقرار الضريبي، الربع الثالث',
+  quantityCenti: 200,
+  unitRate: aed(30_000),
   worked: Duration.ofHours(2),
   amount: aed(60_000),
   ...over,

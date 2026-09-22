@@ -331,6 +331,27 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
 
         return {
           read: new ReadBilling(new DrizzleBillingReader(db), new DrizzleReportReader(db), clock),
+          /*
+           * Straight from the environment, and nullable throughout. The
+           * renderer prints a visible marker for anything missing rather than
+           * a blank, so a server configured without an IBAN produces an
+           * invoice that looks unfinished instead of one that looks finished
+           * and cannot be paid.
+           */
+          firmProfile: {
+            legalName: environment.FIRM_LEGAL_NAME,
+            addresses: [
+              environment.FIRM_ADDRESS_PRIMARY,
+              environment.FIRM_ADDRESS_SECONDARY,
+            ].filter((address): address is string => Boolean(address)),
+            bank: {
+              accountHolder: environment.FIRM_BANK_ACCOUNT_HOLDER ?? null,
+              iban: environment.FIRM_BANK_IBAN ?? null,
+              bic: environment.FIRM_BANK_BIC ?? null,
+            },
+            logoUrl: environment.FIRM_LOGO_URL ?? null,
+            stampUrl: environment.FIRM_STAMP_URL ?? null,
+          },
           generate: new GenerateStatement(
             unbilledWork(db, environment.BUSINESS_TIME_ZONE),
             rates,

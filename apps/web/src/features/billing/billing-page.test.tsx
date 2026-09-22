@@ -24,6 +24,8 @@ const approve = vi.hoisted(() => vi.fn());
 const raiseInvoice = vi.hoisted(() => vi.fn());
 const invoices = vi.hoisted(() => vi.fn());
 const recordPayment = vi.hoisted(() => vi.fn());
+const firmProfile = vi.hoisted(() => vi.fn());
+
 vi.mock('./api.js', () => ({
   statements,
   statement,
@@ -33,6 +35,7 @@ vi.mock('./api.js', () => ({
   raiseInvoice,
   invoices,
   recordPayment,
+  firmProfile,
 }));
 
 const aed = (minorUnits: number) => ({ minorUnits, currency: 'AED' });
@@ -98,6 +101,8 @@ function invoiceOf(over: Partial<InvoiceView> = {}): InvoiceView {
         descriptionAr: 'الإقرار الضريبي — سبتمبر ٢٠٢٦',
         workedSeconds: 7200,
         amount: aed(60_000),
+        quantityCenti: 200,
+        unitRate: aed(30_000),
       },
     ],
     payments: [],

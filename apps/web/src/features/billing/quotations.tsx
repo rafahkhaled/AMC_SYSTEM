@@ -7,8 +7,10 @@ import {
   addQuotationLine,
   answerQuotation,
   quotations as fetchQuotations,
+  firmProfile,
   removeQuotationLine,
 } from './api.js';
+import { QuotationDocument } from './document.js';
 import { formatMoney, minorUnitsFrom } from './money.js';
 
 /**
@@ -81,6 +83,8 @@ function tone(state: QuotationView['state']) {
 function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const queries = useQueryClient();
+  const [printing, setPrinting] = useState(false);
+  const profile = useQuery({ queryKey: ['billing', 'firm-profile'], queryFn: firmProfile });
 
   const list = useQuery({ queryKey: ['billing', 'quotations'], queryFn: () => fetchQuotations() });
   const quotation = list.data?.find((candidate) => candidate.id === id);
@@ -103,6 +107,9 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="u-row">
         <Button small tone="quiet" onClick={onClose}>
           {t('billing.close')}
+        </Button>
+        <Button small tone="secondary" onClick={() => setPrinting(!printing)}>
+          {t('billing.print')}
         </Button>
 
         {editable ? (
@@ -132,6 +139,12 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
           </>
         ) : null}
       </div>
+
+      {/* What gets printed is what is on the screen, so nobody sends a client
+          a document they were not looking at. */}
+      {printing && profile.data ? (
+        <QuotationDocument quotation={quotation} profile={profile.data} />
+      ) : null}
 
       {answer.isError ? <Alert tone="error">{(answer.error as Error).message}</Alert> : null}
       {quotation.state === 'expired' ? (

@@ -44,6 +44,18 @@ export interface InvoiceLine {
   readonly descriptionAr: string;
   readonly worked: Duration;
   readonly amount: Money;
+  /**
+   * What the document's Qty and Rate columns print.
+   *
+   * Hundredths of a unit, so 250 is two and a half hours and 100 is one fixed
+   * fee. Carried rather than worked out at print time, because the client
+   * holds a piece of paper and it has to keep saying what it said even after
+   * the rate changes.
+   *
+   * `unitRate` is null only for a line from before these were recorded.
+   */
+  readonly quantityCenti: number;
+  readonly unitRate: Money | null;
 }
 
 export interface Payment {

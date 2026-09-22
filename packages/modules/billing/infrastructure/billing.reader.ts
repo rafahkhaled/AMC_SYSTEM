@@ -336,6 +336,8 @@ export class DrizzleBillingReader implements BillingReader {
           descriptionAr: line.description_ar,
           workedSeconds: line.worked_seconds,
           amount: money(line.amount_minor, currency),
+          quantityCenti: line.quantity_centi,
+          unitRate: line.unit_minor === null ? null : money(line.unit_minor, currency),
         })),
         payments: payments.map((payment) => ({
           id: payment.id,
@@ -430,6 +432,8 @@ type InvoiceLineRow = {
   description_ar: string;
   worked_seconds: number;
   amount_minor: string;
+  quantity_centi: number;
+  unit_minor: string | null;
 };
 
 type PaymentRow = {
