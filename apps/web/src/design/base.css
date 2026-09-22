@@ -110,6 +110,11 @@ a {
 .u-spread {
   justify-content: space-between;
 }
+/* For a row of fields and the button that acts on them: the button sits on
+   the text baseline rather than halfway up the labels. */
+.u-row--end {
+  align-items: flex-end;
+}
 .u-grow {
   flex: 1;
 }
@@ -621,6 +626,26 @@ a {
 .table tbody tr:hover {
   background: var(--surface-sunken);
 }
+/*
+ * A column of figures, ending where the next one begins.
+ *
+ * `text-align: end`, not `right`: in Arabic the whole table mirrors and the
+ * figures have to follow it. The numerals themselves stay in one direction —
+ * see `.u-numeric` — because a money amount is read the same way in both
+ * languages even when the columns around it have swapped sides.
+ */
+.table__figure {
+  text-align: end;
+  white-space: nowrap;
+}
+/* The row's subject, given enough width not to break a client's name across
+   three lines. The table scrolls inside its own box, so widening it here
+   costs nothing the page has to absorb. */
+.table tbody th[scope="row"] {
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
 
 /* ---- motion ---------------------------------------------------------- */
 
@@ -725,6 +750,12 @@ a {
 
 .u-danger {
   color: var(--danger);
+  font-weight: 560;
+}
+/* A figure worth a second look rather than an error: unbilled hours, money
+   still owed. Colour is not the only signal — these cells carry a title. */
+.u-warn {
+  color: var(--warning);
   font-weight: 560;
 }
 
@@ -1148,6 +1179,11 @@ a {
   gap: var(--space-1);
   border-block-end: 1px solid var(--line);
   padding-block-end: 0;
+}
+/* Tabs inside a card, where the card already provides the edge. A second
+   rule below them reads as a box inside a box. */
+.tabs--quiet {
+  border-block-end: 0;
 }
 
 .tab {

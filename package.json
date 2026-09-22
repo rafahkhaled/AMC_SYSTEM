@@ -15,7 +15,7 @@
     "lint": "biome check . && eslint .",
     "lint:fix": "biome check --write . && eslint . --fix",
     "format": "biome format --write .",
-    "arch:check": "depcruise --config .dependency-cruiser.cjs packages apps && node scripts/dockerfile-manifests.mjs",
+    "arch:check": "depcruise --config .dependency-cruiser.cjs packages apps && node scripts/dockerfile-manifests.mjs && node scripts/css-classes.mjs",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm arch:check",
     "db:migrate": "pnpm --filter @amc/database db:migrate",
     "db:seed": "pnpm --filter @amc/database db:seed",

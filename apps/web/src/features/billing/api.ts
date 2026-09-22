@@ -1,10 +1,14 @@
 import {
+  type HoursReport,
   type InvoiceView,
+  type ProfitabilityReport,
   type QuotationView,
   type StatementView,
   type Statements,
+  hoursReportSchema,
   invoiceSchema,
   invoicesSchema,
+  profitabilityReportSchema,
   quotationSchema,
   quotationsSchema,
   statementSchema,
@@ -121,4 +125,29 @@ export async function answerQuotation(
   act: 'send' | 'accept' | 'decline',
 ): Promise<QuotationView> {
   return quotationSchema.parse(await send(`/billing/quotations/${encodeURIComponent(id)}/${act}`));
+}
+
+/* ------------------------------------------------------------------ reports */
+
+/**
+ * The period is inclusive on both ends, the way somebody says it out loud:
+ * "the first to the thirtieth". The server turns the end into an exclusive
+ * bound; doing it here as well would drop the last day twice.
+ */
+export interface Period {
+  readonly from: string;
+  readonly to: string;
+}
+
+export async function hoursReport(
+  period: Period,
+  by: 'client' | 'person' | 'service',
+): Promise<HoursReport> {
+  const query = new URLSearchParams({ from: period.from, to: period.to, by });
+  return hoursReportSchema.parse(await request(`/billing/reports/hours?${query}`));
+}
+
+export async function profitabilityReport(period: Period): Promise<ProfitabilityReport> {
+  const query = new URLSearchParams({ from: period.from, to: period.to });
+  return profitabilityReportSchema.parse(await request(`/billing/reports/profitability?${query}`));
 }
