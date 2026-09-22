@@ -47,7 +47,17 @@
 
   --text: var(--grey-900);
   --text-soft: var(--grey-600);
-  --text-faint: var(--grey-400);
+  /*
+   * grey-500, not grey-400.
+   *
+   * --text-faint is used at 0.78rem for period keys, assignee names and dates
+   * — small text, which WCAG AA holds to 4.5:1. grey-400 on white measures
+   * 2.56:1, and it looked exactly like what it was on the projects board: a
+   * date nobody could read. grey-500 is 4.76:1.
+   *
+   * Faint is a hierarchy, not an invitation to disappear.
+   */
+  --text-faint: var(--grey-500);
   --text-on-brand: #ffffff;
 
   --accent: var(--brand-700);
@@ -116,7 +126,8 @@
 
     --text: var(--grey-50);
     --text-soft: var(--grey-300);
-    --text-faint: var(--grey-500);
+    /* grey-500 measures 3.07:1 on a raised surface here; grey-400 is 5.71:1. */
+    --text-faint: var(--grey-400);
 
     --accent: var(--brand-500);
     --accent-hover: var(--brand-600);

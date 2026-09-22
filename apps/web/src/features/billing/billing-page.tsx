@@ -535,20 +535,23 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
             onChange={(event) => setAmount(event.target.value)}
             {...(amountIsWrong ? { error: t('billing.notAnAmount') } : {})}
           />
-          <label className="field">
-            <span className="field__label">{t('billing.method.label')}</span>
-            <select
-              className="field__input"
-              value={method}
-              onChange={(event) => setMethod(event.target.value)}
-            >
-              {(['bank_transfer', 'cheque', 'cash', 'card', 'other'] as const).map((which) => (
-                <option key={which} value={which}>
-                  {t(`billing.method.${which}`)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Field
+            label={t('billing.method.label')}
+            control={(props) => (
+              <select
+                {...props}
+                className="input"
+                value={method}
+                onChange={(event) => setMethod(event.target.value)}
+              >
+                {(['bank_transfer', 'cheque', 'cash', 'card', 'other'] as const).map((which) => (
+                  <option key={which} value={which}>
+                    {t(`billing.method.${which}`)}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
           <Field
             label={t('billing.reference')}
             value={reference}

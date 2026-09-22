@@ -2,7 +2,7 @@ import type { WhatsAppConversationView, WhatsAppMessageView, WhatsAppThread } fr
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
 import { conversations, handBack, reply, takeOver, thread } from './api.js';
 
 /**
@@ -185,16 +185,25 @@ function Thread({ id, onClose }: { id: string; onClose: () => void }) {
             if (body.length > 0) send.mutate(body);
           }}
         >
-          <label className="field">
-            <span className="field__label">{t('whatsapp.reply')}</span>
-            <textarea
-              className="field__input"
-              rows={3}
-              value={draft}
-              maxLength={4096}
-              onChange={(event) => setDraft(event.target.value)}
-            />
-          </label>
+          {/*
+            Through Field's `control` rather than a hand-rolled label. It wires
+            the label, the hint and the error to the control by id; doing it by
+            hand produced a textarea with a class that does not exist and a
+            label a screen reader never reached.
+          */}
+          <Field
+            label={t('whatsapp.reply')}
+            control={(props) => (
+              <textarea
+                {...props}
+                className="input"
+                rows={3}
+                value={draft}
+                maxLength={4096}
+                onChange={(event) => setDraft(event.target.value)}
+              />
+            )}
+          />
 
           {send.isError ? <Alert tone="error">{(send.error as Error).message}</Alert> : null}
 
