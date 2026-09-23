@@ -14,22 +14,43 @@ import { readFileSync } from 'node:fs';
 
 const CSS = readFileSync(new URL('../apps/web/src/design/tokens.css', import.meta.url), 'utf8');
 
-/** The light palette is `:root`; the dark one is what the media query swaps. */
-function palette(source) {
+/**
+ * The declarations inside one rule, found by matching its braces.
+ *
+ * Sliced on a marker string before, which broke silently the moment the dark
+ * palette stopped being a media query: `indexOf` returned -1, `slice(-1)`
+ * handed back one character, and the run measured the same palette twice and
+ * reported it as both. Every pair passed, for the wrong reason. Anything that
+ * cannot find what it is looking for has to say so.
+ */
+function block(source, selector) {
+  // A pattern, not a literal: the formatter is entitled to its own quote
+  // style, and a check that breaks when it changes one is a check that will
+  // be deleted rather than fixed.
+  const found = selector.exec(source);
+  if (!found) throw new Error(`${selector} matches nothing in tokens.css`);
+  const start = found.index;
+
+  let depth = 0;
+  let index = source.indexOf('{', start);
+  const from = index;
+  for (; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    else if (source[index] === '}' && --depth === 0) break;
+  }
+
   const values = new Map();
-  for (const [, name, value] of source.matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+  for (const [, name, value] of source.slice(from, index).matchAll(/--([\w-]+):\s*([^;]+);/g)) {
     values.set(name, value.trim());
   }
+  if (values.size === 0) throw new Error(`${selector} declares no tokens`);
   return values;
 }
 
-const dark = CSS.slice(CSS.indexOf('@media (prefers-color-scheme: dark)'));
-const light = CSS.slice(0, CSS.indexOf('@media (prefers-color-scheme: dark)'));
+const scales = block(CSS, /^:root\s*\{/m);
+const darkOverrides = block(CSS, /^:root\[data-theme=["']dark["']\]\s*\{/m);
 
-const scales = palette(light);
-const darkOverrides = palette(dark);
-
-/** Follows `var(--x)` until it reaches a literal. */
+/** Follows `var(--x)` until it reaches a literal colour. */
 function resolve(name, overrides) {
   const seen = new Set();
   let value = overrides.get(name) ?? scales.get(name);

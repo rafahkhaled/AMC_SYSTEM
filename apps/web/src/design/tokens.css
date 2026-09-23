@@ -131,41 +131,48 @@
 }
 
 /*
- * Dark mode follows the device. An accountant working late should not have to
- * find a setting, and the tokens above mean this is a palette swap rather than
- * a second stylesheet.
+ * Dark, in one place.
+ *
+ * Applied by `data-theme` on the root element rather than by a media query,
+ * because there are three states and only two of them are the device's:
+ * follow it, or override it in either direction. A media query can express
+ * "the device says dark"; it cannot express "this person chose light on a
+ * device set to dark" without a second copy of every token below, and a
+ * second copy is the thing this file exists to avoid.
+ *
+ * `applyTheme` resolves the preference — including watching the device for a
+ * change while the app is open — and sets the attribute. This is a React
+ * application: without JavaScript there is no interface to theme.
  */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: var(--grey-900);
-    --surface-sunken: #0b1220;
-    --surface-raised: var(--grey-800);
-    --line: #1e293b;
-    --line-strong: #334155;
-    /* grey-500 measures 3.07:1 even on the lightest surface here. */
-    --control-line: var(--grey-500);
+:root[data-theme="dark"] {
+  --surface: var(--grey-900);
+  --surface-sunken: #0b1220;
+  --surface-raised: var(--grey-800);
+  --line: #1e293b;
+  --line-strong: #334155;
+  /* grey-500 measures 3.07:1 even on the lightest surface here. */
+  --control-line: var(--grey-500);
 
-    --text: var(--grey-50);
-    --text-soft: var(--grey-300);
-    /* grey-500 measures 3.07:1 on a raised surface here; grey-400 is 5.71:1. */
-    --text-faint: var(--grey-400);
+  --text: var(--grey-50);
+  --text-soft: var(--grey-300);
+  /* grey-500 measures 3.07:1 on a raised surface here; grey-400 is 5.71:1. */
+  --text-faint: var(--grey-400);
 
-    --accent: var(--brand-500);
-    --accent-hover: var(--brand-600);
-    --accent-soft: color-mix(in srgb, var(--brand-500) 14%, transparent);
-    --text-on-brand: #04201d;
+  --accent: var(--brand-500);
+  --accent-hover: var(--brand-600);
+  --accent-soft: color-mix(in srgb, var(--brand-500) 14%, transparent);
+  --text-on-brand: #04201d;
 
-    --danger: #f87171;
-    --danger-soft: color-mix(in srgb, #f87171 12%, transparent);
-    --warning: #fbbf24;
-    --warning-soft: color-mix(in srgb, #fbbf24 12%, transparent);
-    --success: #4ade80;
-    --success-soft: color-mix(in srgb, #4ade80 12%, transparent);
+  --danger: #f87171;
+  --danger-soft: color-mix(in srgb, #f87171 12%, transparent);
+  --warning: #fbbf24;
+  --warning-soft: color-mix(in srgb, #fbbf24 12%, transparent);
+  --success: #4ade80;
+  --success-soft: color-mix(in srgb, #4ade80 12%, transparent);
 
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
-    --shadow-lg: 0 2px 4px rgb(0 0 0 / 45%), 0 16px 40px rgb(0 0 0 / 45%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
+  --shadow-lg: 0 2px 4px rgb(0 0 0 / 45%), 0 16px 40px rgb(0 0 0 / 45%);
 
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }

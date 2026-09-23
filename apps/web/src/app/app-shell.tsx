@@ -2,6 +2,7 @@ import type { Caller } from '@amc/contracts';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitch } from '../components/language-switch.js';
+import { ThemeSwitch } from '../components/theme-switch.js';
 import { Button } from '../design/index.js';
 import { useSession } from '../features/auth/session.js';
 import { useUnreadCount } from '../features/inbox/inbox-page.js';
@@ -127,6 +128,7 @@ export function AppShell({
 
         <div className="shell__foot">
           <span className="u-text-faint shell__who">{caller.displayName}</span>
+          <ThemeSwitch />
           <LanguageSwitch />
           <Button tone="quiet" small block onClick={() => void signOut()}>
             {t('home.signOut')}

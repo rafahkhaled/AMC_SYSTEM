@@ -683,6 +683,12 @@ export const translations = {
       menu: 'القائمة',
       closeMenu: 'إغلاق القائمة',
     },
+    theme: {
+      label: 'المظهر',
+      system: 'حسب الجهاز',
+      light: 'فاتح',
+      dark: 'داكن',
+    },
     clientLink: {
       title: 'عرض سعر رقم {{reference}}',
       validUntil: 'صالح حتى {{date}}',
@@ -1381,6 +1387,12 @@ export const translations = {
       home: 'Home',
       menu: 'Menu',
       closeMenu: 'Close the menu',
+    },
+    theme: {
+      label: 'Appearance',
+      system: 'Follow my device',
+      light: 'Light',
+      dark: 'Dark',
     },
     clientLink: {
       title: 'Quotation {{reference}}',

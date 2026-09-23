@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/app.js';
+import { applyTheme, storedTheme } from './design/theme.js';
 import { SessionProvider } from './features/auth/session.js';
 import { setUpI18n } from './i18n/index.js';
 import './styles.css';
@@ -19,6 +20,14 @@ const queryClient = new QueryClient({
 });
 
 async function start(): Promise<void> {
+  /*
+   * Before the first render, not after.
+   *
+   * The attribute has to be on the document by the time anything paints, or
+   * somebody who chose light on a dark laptop watches the interface flash
+   * dark and correct itself on every load.
+   */
+  applyTheme(storedTheme());
   await setUpI18n();
 
   const container = document.getElementById('root');
