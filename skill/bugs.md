@@ -687,6 +687,31 @@ for the three phases after it. An acceptance run should read the trail, not
 just the tables — the question is not "did it save" but "can the firm say who
 did it".
 
+### A check that passed because it could not find anything
+
+`contrast.mjs` split tokens.css by slicing on the literal
+`"@media (prefers-color-scheme: dark)"`. Restructuring the theme removed that
+media query. `indexOf` returned -1, `slice(-1)` returned the file's last
+character, the "dark" palette parsed as empty, and every lookup fell through
+to the light one — so the run measured the same palette twice, printed it
+under both headings, and passed.
+
+**Why it looked fine:** the output had a `light` section and a `dark` section
+with different-looking numbers, because the "light" slice was now
+`slice(0, -1)` — nearly the whole file, including the dark block, whose later
+declarations overwrote the earlier ones in the Map. Two sections, plausible
+figures, no warning.
+
+**Fix:** find each block by matching its braces, and throw if either selector
+is missing or declares nothing. Checked both ways: amber-600 back in place
+fails on the ratio, and renaming the dark block makes it refuse to run at all.
+
+**Lesson:** a check that cannot find its input must fail, not continue. The
+dangerous version of this is not the one that crashes — it is the one that
+quietly measures the wrong thing and reports success, because from then on
+the suite is evidence for a claim nobody is testing. Any script that locates
+its data by string position needs to assert it found it.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
