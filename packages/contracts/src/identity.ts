@@ -91,3 +91,41 @@ export type StaffMember = z.infer<typeof staffMemberSchema>;
 
 export const staffDirectorySchema = z.object({ staff: z.array(staffMemberSchema) });
 export type StaffDirectory = z.infer<typeof staffDirectorySchema>;
+
+/** The roles the firm has (FR-03). Kept beside the directory that offers them. */
+export const staffRoles = ['manager', 'accountant', 'data_entry', 'client'] as const;
+export type StaffRole = (typeof staffRoles)[number];
+
+/**
+ * Adding a colleague (FR-03).
+ *
+ * The initial password is set by whoever adds the person and is expected to
+ * be changed by them. There is no invitation email yet, and pretending
+ * otherwise would leave an account nobody can get into.
+ */
+export const addStaffSchema = z.object({
+  email: z.string().email(),
+  displayName: z.string().trim().min(1).max(120),
+  password: z.string().min(12),
+  roles: z.array(z.enum(staffRoles)).min(1),
+});
+export type AddStaffRequest = z.infer<typeof addStaffSchema>;
+
+/** Correcting a colleague's record. Anything left out is left alone. */
+export const updateStaffSchema = z.object({
+  displayName: z.string().trim().min(1).max(120).optional(),
+  roles: z.array(z.enum(staffRoles)).min(1).optional(),
+  /** When they work, which is what "after hours" is measured against. */
+  workingHours: z
+    .object({
+      startsAt: z.string().regex(/^\d{2}:\d{2}$/),
+      endsAt: z.string().regex(/^\d{2}:\d{2}$/),
+      /** ISO weekday numbers: 1 is Monday. */
+      days: z.array(z.number().int().min(1).max(7)).min(1),
+    })
+    .optional(),
+});
+export type UpdateStaffRequest = z.infer<typeof updateStaffSchema>;
+
+export const staffStatusSchema = z.object({ status: z.enum(['active', 'suspended']) });
+export type StaffStatusRequest = z.infer<typeof staffStatusSchema>;

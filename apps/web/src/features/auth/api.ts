@@ -42,6 +42,13 @@ export async function send(path: string, body?: unknown): Promise<unknown> {
   return response.status === 204 ? null : response.json();
 }
 
+/** A PATCH, for a change that touches only the fields it names. */
+export async function patch(path: string, body: unknown): Promise<unknown> {
+  const response = await call(path, { method: 'PATCH', body: JSON.stringify(body) });
+  if (!response.ok) throw await failure(response);
+  return response.status === 204 ? null : response.json();
+}
+
 /** A DELETE that returns parsed JSON, or throws an ApiError. */
 export async function del(path: string): Promise<unknown> {
   const response = await call(path, { method: 'DELETE' });

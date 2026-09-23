@@ -1,4 +1,12 @@
-import { AggregateRoot, Conflict, type Result, domainEvent, err, ok } from '@amc/kernel';
+import {
+  AggregateRoot,
+  Conflict,
+  type Result,
+  ValidationFailed,
+  domainEvent,
+  err,
+  ok,
+} from '@amc/kernel';
 import type { EmailAddress } from './email-address.js';
 import {
   type Permission,
@@ -201,6 +209,53 @@ export class User extends AggregateRoot<UserId> {
   disableTwoFactor(now: Date): void {
     this.state = { ...this.state, totpSecret: null, totpConfirmedAt: null };
     this.record(domainEvent('identity.twofactor.disabled', this.id, now, { userId: this.id }));
+  }
+
+  /**
+   * A change of name, which is an ordinary thing: people marry, and people
+   * are entered wrongly on their first day.
+   */
+  rename(displayName: string, now: Date): Result<true, ValidationFailed> {
+    const name = displayName.trim();
+    if (name.length === 0) {
+      return err(new ValidationFailed('A person needs a name'));
+    }
+    if (name === this.state.displayName) return ok(true);
+
+    const was = this.state.displayName;
+    this.state = { ...this.state, displayName: name };
+    this.record(
+      domainEvent('identity.user.renamed', this.id, now, { userId: this.id, was, now: name }),
+    );
+    return ok(true);
+  }
+
+  /**
+   * What this person may do (FR-03).
+   *
+   * The whole set, not a diff, because a role change is a decision about what
+   * somebody's job is now — and applying it as "add this, remove that" is how
+   * a person ends up holding a permission nobody meant to leave them.
+   *
+   * The event carries both sides. "Who gave them that" is the question asked
+   * after something has gone wrong, and it cannot be answered from a row that
+   * only records the result.
+   */
+  assignRoles(roles: readonly Role[], now: Date): Result<true, ValidationFailed> {
+    if (roles.length === 0) {
+      return err(new ValidationFailed('A person needs at least one role'));
+    }
+
+    const was = [...this.state.roles];
+    this.state = { ...this.state, roles: [...roles] };
+    this.record(
+      domainEvent('identity.user.roles_changed', this.id, now, {
+        userId: this.id,
+        was,
+        now: [...roles],
+      }),
+    );
+    return ok(true);
   }
 
   suspend(now: Date): void {

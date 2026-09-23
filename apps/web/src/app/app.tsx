@@ -127,7 +127,7 @@ function Screen({
     case 'whatsapp':
       return <WhatsAppPage />;
     case 'staff':
-      return <StaffPage />;
+      return <StaffPage canManage={caller.permissions.includes('users.manage')} />;
     case 'inbox':
       return <InboxPage />;
   }

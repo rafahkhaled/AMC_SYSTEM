@@ -61,6 +61,7 @@ import {
 } from '@amc/projects/infrastructure';
 import type { FileStorage } from '@amc/storage';
 import { ApproveTime, ReadTimer, TimerService } from '@amc/time-tracking';
+import { WorkingHours } from '@amc/time-tracking/domain';
 import { TimerModule } from '@amc/time-tracking/http';
 import {
   DrizzleRunningTimerRepository,
@@ -77,7 +78,12 @@ import {
   DrizzleMessageRepository,
   MetaWebhookGateway,
 } from '@amc/whatsapp/infrastructure';
-import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
+import {
+  BadRequestException,
+  type MiddlewareConsumer,
+  Module,
+  type NestModule,
+} from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import type { Logger } from 'pino';
 import { ulid } from 'ulid';
@@ -407,6 +413,27 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
         // Reads, for authenticating a session on every request.
         users: new DrizzleUserRepository(db),
         staff: staffReader(db),
+        /*
+         * Working hours live in the time-tracking module's table. Identity
+         * owns the screen that edits them and not the table itself, so the
+         * adapter is handed in here.
+         */
+        workingHours: {
+          async set({ userId, startsAt, endsAt, days }) {
+            const minutes = (clock: string) => {
+              const [h, m] = clock.split(':');
+              return Number(h) * 60 + Number(m);
+            };
+            const hours = WorkingHours.of({
+              userId,
+              startsAtMinutes: minutes(startsAt),
+              endsAtMinutes: minutes(endsAt),
+              workingDays: days,
+            });
+            if (!hours.ok) throw new BadRequestException(hours.error.message);
+            await new DrizzleWorkingHoursRepository(db).save(hours.value);
+          },
+        },
         sessions: new DrizzleSessionRepository(db),
         // Writes, each inside one transaction that also carries its audit rows.
         unitOfWork: new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),

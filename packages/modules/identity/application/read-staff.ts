@@ -9,8 +9,24 @@ import { type CallerLike, heldBy } from '@amc/kernel';
  * across to get them.
  */
 export interface StaffReader {
-  /** Every active person, with their counts already summed. */
+  /** Everyone, with their counts already summed. */
   all(params: { thisMonthStart: Date; lastMonthStart: Date; now: Date }): Promise<StaffMember[]>;
+}
+
+/**
+ * When somebody works.
+ *
+ * A separate port because the hours live in the time-tracking module's table,
+ * which is where "after hours" is decided. Identity knows who people are, not
+ * when they are at their desk.
+ */
+export interface WorkingHoursWriter {
+  set(params: {
+    userId: string;
+    startsAt: string;
+    endsAt: string;
+    days: readonly number[];
+  }): Promise<void>;
 }
 
 /**

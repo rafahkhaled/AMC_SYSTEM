@@ -1733,3 +1733,26 @@ a {
   border-color: var(--accent);
   background: var(--surface-raised);
 }
+
+/* A checkbox with its own label beside it: a weekday, a filter. Inline so a
+   row of them reads as one control rather than seven. */
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.choice:hover {
+  border-color: var(--line-strong);
+}
+
+/* Working hours: a clock range and a row of weekday initials, both of which
+   read as one run. Wrapping "08:30–16:30" over two lines makes a time look
+   like two. The table scrolls, so the width costs nothing. */
+.staff__hours {
+  white-space: nowrap;
+}

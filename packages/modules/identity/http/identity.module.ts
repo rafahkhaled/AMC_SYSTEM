@@ -15,7 +15,7 @@ import type {
   TwoFactorService,
   UserRepository,
 } from '../application/ports.js';
-import { ReadStaff, type StaffReader } from '../application/read-staff.js';
+import { ReadStaff, type StaffReader, type WorkingHoursWriter } from '../application/read-staff.js';
 import { RegisterUser } from '../application/register-user.js';
 import { SignIn } from '../application/sign-in.js';
 import { SignOut } from '../application/sign-out.js';
@@ -31,6 +31,7 @@ import { COOKIE_SETTINGS, type CookieSettings } from './session-cookie.js';
 import { SessionGuard } from './session.guard.js';
 import { SignInThrottle } from './sign-in-throttle.js';
 import { StaffController } from './staff.controller.js';
+import { WORKING_HOURS_WRITER } from './tokens.js';
 import { TwoFactorController } from './two-factor.controller.js';
 
 export interface IdentityModuleOptions {
@@ -52,6 +53,8 @@ export interface IdentityModuleOptions {
    * because they join projects and time entries, which identity does not see.
    */
   readonly staff: StaffReader;
+  /** When people work. The table is time-tracking's; the screen is here. */
+  readonly workingHours: WorkingHoursWriter;
 }
 
 /**
@@ -99,6 +102,7 @@ export class IdentityModule {
         },
         { provide: COOKIE_SETTINGS, ...from((o) => o.cookies) },
         { provide: ReadStaff, ...from((o) => new ReadStaff(o.staff)) },
+        { provide: WORKING_HOURS_WRITER, ...from((o) => o.workingHours) },
         {
           provide: SignIn,
           ...from(

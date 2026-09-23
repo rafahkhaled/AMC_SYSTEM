@@ -6,8 +6,10 @@ import {
   type UnitOfWork,
   type UnitOfWorkContext,
   ValidationFailed,
+  err,
+  ok,
 } from '@amc/kernel';
-import type { SessionLimits } from '../domain/index.js';
+import type { Role, SessionLimits } from '../domain/index.js';
 import { AuthenticateSession } from './authenticate-session.js';
 import type {
   PasswordHasher,
@@ -149,6 +151,96 @@ export class IdentityOperations {
     return this.inTransaction(actor, ({ users, sessions }) =>
       new VerifyTwoFactor(users, sessions, twoFactor, clock).execute(params),
     );
+  }
+
+  /* ------------------------------------------------- managing people -- */
+
+  /**
+   * Adding a colleague (FR-03).
+   *
+   * Inside the same transaction as everything else that changes something, so
+   * the audit row and the account commit together. An account that exists
+   * with nobody recorded as having created it is precisely what ADR-0004
+   * exists to prevent.
+   */
+  addStaff(
+    actor: Actor,
+    command: RegisterUserCommand,
+  ): Promise<Result<{ userId: string }, Conflict | ValidationFailed>> {
+    const { hasher, clock, ids } = this.dependencies;
+    return this.inTransaction(actor, ({ users }) =>
+      new RegisterUser(users, hasher, clock, ids).execute(command),
+    );
+  }
+
+  /**
+   * Changing a colleague's name or what they may do.
+   *
+   * Both in one call because they are one act — somebody looked at a person's
+   * record and corrected it — and two calls would leave a half-applied change
+   * if the second failed.
+   */
+  updateStaff(
+    actor: Actor,
+    userId: string,
+    changes: { displayName?: string | undefined; roles?: readonly Role[] | undefined },
+  ): Promise<Result<true, Conflict | ValidationFailed>> {
+    const { clock } = this.dependencies;
+    return this.inTransaction(actor, async ({ users }) => {
+      const user = await users.findById(userId);
+      if (!user) return err(new Conflict('There is no such person'));
+
+      const now = clock.now();
+      if (changes.displayName !== undefined) {
+        const renamed = user.rename(changes.displayName, now);
+        if (!renamed.ok) return err(renamed.error);
+      }
+      if (changes.roles !== undefined) {
+        const assigned = user.assignRoles(changes.roles, now);
+        if (!assigned.ok) return err(assigned.error);
+      }
+
+      await users.save(user);
+      return ok(true as const);
+    });
+  }
+
+  /**
+   * Taking somebody off the system, or putting them back.
+   *
+   * Suspension, not deletion, and not because deletion is hard: a person's id
+   * is on every hour they recorded, every project they were assigned and
+   * every audit row they caused. Removing the row would either orphan all of
+   * that or cascade it away, and a practice that cannot say who did the work
+   * it invoiced has a worse problem than a long staff list.
+   */
+  setStaffStatus(
+    actor: Actor,
+    userId: string,
+    status: 'active' | 'suspended',
+  ): Promise<Result<true, Conflict>> {
+    const { clock } = this.dependencies;
+    return this.inTransaction(actor, async ({ users, sessions }) => {
+      const user = await users.findById(userId);
+      if (!user) return err(new Conflict('There is no such person'));
+
+      if (status === 'suspended') {
+        if (user.id === actor.userId) {
+          // Otherwise the last manager can lock the firm out of its own
+          // system, and there is no second manager to undo it.
+          return err(new Conflict('You cannot suspend your own account'));
+        }
+        user.suspend(clock.now());
+        // Suspension has to reach the sessions they already hold, or somebody
+        // walked out on Friday keeps their laptop signed in until it expires.
+        await sessions.revokeAllForUser(userId, clock.now());
+      } else {
+        user.reinstate(clock.now());
+      }
+
+      await users.save(user);
+      return ok(true as const);
+    });
   }
 
   /** Reads only, and outside any transaction of ours. */
