@@ -653,6 +653,40 @@ thing that had to get from an empty timesheet to an invoice using only what a
 real user can reach. That is what an acceptance run is for, and it is why it
 has to drive the HTTP API rather than call the use cases.
 
+### Billing writes nothing to the audit log
+
+Every other module's writes land in `audit_log`: `clients.*`, `identity.*`,
+`services.*` are all there. There is not one `billing.*` row, and there never
+has been. A statement approved, an invoice raised, a payment recorded, a
+quotation accepted — none of it is in the trail.
+
+**Cause:** the billing repositories do not take an `EventCollector` at all,
+and the composition root builds them bare — `new DrizzleStatementRepository(db)`
+with no unit of work around them. The aggregates record their events properly
+and `pullEvents()` is called when they are saved, so the events are collected
+and then dropped on the floor. Nothing fails, nothing warns, and the domain
+tests all pass because they assert on the events the aggregate produced rather
+than on where they ended up.
+
+**Why nothing caught it:** every test that checks an event checks it at the
+aggregate — `expect(event?.name).toBe('billing.statement.approved')` — which is
+true and says nothing about persistence. The integration tests assert on the
+billing tables, which are correct. No test reads `audit_log` after a billing
+operation, and the P2 acceptance run does not either.
+
+**Found by:** looking for a client's acceptance in the log after building the
+client link, and finding no billing rows of any kind.
+
+**Not yet fixed.** It is the whole phase rather than one call, and doing half
+of it is worse than none: a module that audits its quotations and not its
+invoices reads as though the invoices were checked.
+
+**Lesson:** ADR-0004 is only true where something wires it. "Every write lands
+in the audit log" was proved for the phase that built the audit log and assumed
+for the three phases after it. An acceptance run should read the trail, not
+just the tables — the question is not "did it save" but "can the firm say who
+did it".
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`
