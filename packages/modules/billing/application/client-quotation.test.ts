@@ -32,7 +32,7 @@ function harness(at = now) {
     manage,
     tokens,
     clock,
-    client: new ClientQuotation(quotations, tokens, clock),
+    client: new ClientQuotation(quotations, tokens, clock, 'Active M Consultancy FZE LLC'),
   };
 }
 
@@ -79,6 +79,7 @@ describe('the link a client opens', () => {
     expect(Object.keys(opened.value).sort()).toEqual([
       'answerable',
       'currency',
+      'firmName',
       'lines',
       'notesAr',
       'notesEn',

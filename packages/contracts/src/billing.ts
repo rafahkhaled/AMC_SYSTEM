@@ -364,6 +364,14 @@ export type SendQuotationRequest = z.infer<typeof sendQuotationSchema>;
  * nothing they would not already have on the paper version.
  */
 export const clientQuotationSchema = z.object({
+  /**
+   * Who sent it.
+   *
+   * A client opening an unfamiliar link to a page showing their own prices,
+   * with nothing on it saying which firm it came from, has every reason to
+   * close the tab. They already know the name; the page should say it.
+   */
+  firmName: z.string(),
   reference: z.string(),
   state: z.enum(['draft', 'sent', 'accepted', 'declined', 'expired']),
   currency: z.string(),

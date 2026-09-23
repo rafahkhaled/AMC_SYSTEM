@@ -35,8 +35,10 @@
   --red-700: #b91c1c;
   --amber-50: #fffbeb;
   --amber-600: #d97706;
+  --amber-700: #b45309;
   --green-50: #f0fdf4;
   --green-600: #16a34a;
+  --green-700: #15803d;
 
   /* Semantic names. Screens use these; the scales above exist to feed them. */
   --surface: var(--grey-0);
@@ -44,6 +46,15 @@
   --surface-raised: var(--grey-0);
   --line: var(--grey-200);
   --line-strong: var(--grey-300);
+  /*
+   * The edge of a control, which is a different job from a separator.
+   *
+   * WCAG 1.4.11 holds anything you need to see in order to find a control to
+   * 3:1, and `--line-strong` measures 1.48:1 on white: an input you can only
+   * locate because you already know it is there. Separators stay soft; the
+   * boxes people type into do not.
+   */
+  --control-line: var(--grey-500);
 
   --text: var(--grey-900);
   --text-soft: var(--grey-600);
@@ -66,9 +77,17 @@
 
   --danger: var(--red-700);
   --danger-soft: var(--red-50);
-  --warning: var(--amber-600);
+  /*
+   * amber-700 and green-700, not 600.
+   *
+   * At 600 these measured 3.19:1 and 3.30:1 on white and barely three on
+   * their own soft backgrounds — and they are used for badge text and for
+   * figures, both small. Dark mode was never the problem: it reads 10:1 there
+   * and that is why this was invisible to anybody whose laptop is set to it.
+   */
+  --warning: var(--amber-700);
   --warning-soft: var(--amber-50);
-  --success: var(--green-600);
+  --success: var(--green-700);
   --success-soft: var(--green-50);
 
   /* A four-point scale. Enough choices to be useful, few enough to stay
@@ -123,6 +142,8 @@
     --surface-raised: var(--grey-800);
     --line: #1e293b;
     --line-strong: #334155;
+    /* grey-500 measures 3.07:1 even on the lightest surface here. */
+    --control-line: var(--grey-500);
 
     --text: var(--grey-50);
     --text-soft: var(--grey-300);

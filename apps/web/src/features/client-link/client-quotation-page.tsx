@@ -51,6 +51,10 @@ export function ClientQuotationPage({ token }: { token: string }) {
 
   return (
     <main className="client-page">
+      {/* Who sent it. A client opening an unfamiliar link to a page of their
+          own prices, with no name on it, has every reason to close the tab. */}
+      <p className="client-page__firm">{view.firmName}</p>
+
       <Card
         title={t('clientLink.title', { reference: view.reference })}
         description={view.validUntil ? t('clientLink.validUntil', { date: view.validUntil }) : ''}

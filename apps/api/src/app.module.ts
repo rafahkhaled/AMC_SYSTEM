@@ -369,6 +369,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             new DrizzleQuotationRepository(db),
             new CryptoSessionTokens(),
             clock,
+            environment.FIRM_LEGAL_NAME,
           ),
           firmProfile: {
             legalName: environment.FIRM_LEGAL_NAME,

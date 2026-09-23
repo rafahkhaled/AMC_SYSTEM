@@ -21,6 +21,8 @@ export class ClientQuotation {
     private readonly quotations: QuotationRepository,
     private readonly tokens: LinkTokens,
     private readonly clock: Clock,
+    /** The name the client will recognise on the page they open. */
+    private readonly firmName: string,
   ) {}
 
   /**
@@ -84,6 +86,7 @@ export class ClientQuotation {
   private view(quotation: Quotation): ClientQuotationView {
     const state = quotation.snapshot();
     return {
+      firmName: this.firmName,
       reference: state.reference,
       state: state.state,
       currency: state.currency,
