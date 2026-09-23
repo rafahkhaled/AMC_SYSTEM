@@ -5,6 +5,7 @@ import {
   Module,
   type OptionalFactoryDependency,
 } from '@nestjs/common';
+import { ClientQuotation } from '../application/client-quotation.js';
 import { GenerateStatement } from '../application/generate-statement.js';
 import { ManageQuotations } from '../application/manage-quotations.js';
 import type { StatementRepository } from '../application/ports.js';
@@ -13,6 +14,7 @@ import { ReadBilling } from '../application/read-billing.js';
 import { ReleaseFromStatement } from '../application/release-from-statement.js';
 import { SettleInvoice } from '../application/settle-invoice.js';
 import { BillingController } from './billing.controller.js';
+import { ClientQuotationController } from './client-quotation.controller.js';
 import { FirmProfileToken, StatementRepositoryToken } from './tokens.js';
 
 /** What the composition root has to supply for billing to work. */
@@ -26,6 +28,8 @@ export interface BillingParts {
   readonly statements: StatementRepository;
   /** What goes on a printed quotation or invoice. */
   readonly firmProfile: FirmProfile;
+  /** The client's own view of a quotation, reached by link and no account. */
+  readonly clientQuotations: ClientQuotation;
 }
 
 @Module({})
@@ -41,7 +45,7 @@ export class BillingModule {
     return {
       module: BillingModule,
       imports: options.imports ?? [],
-      controllers: [BillingController],
+      controllers: [BillingController, ClientQuotationController],
       providers: [
         {
           provide: PARTS,
@@ -75,6 +79,11 @@ export class BillingModule {
           provide: FirmProfileToken,
           inject: [PARTS],
           useFactory: (p: BillingParts) => p.firmProfile,
+        },
+        {
+          provide: ClientQuotation,
+          inject: [PARTS],
+          useFactory: (p: BillingParts) => p.clientQuotations,
         },
       ],
       exports: [

@@ -12,6 +12,7 @@ import { Quotation, type QuotationLine, type SentVia } from '../domain/index.js'
 import type {
   DocumentDelivery,
   InvoiceNumbering,
+  LinkTokens,
   QuotationRepository,
   RateReader,
 } from './ports.js';
@@ -52,6 +53,9 @@ export class ManageQuotations {
      */
     private readonly numbering: InvoiceNumbering,
     private readonly delivery: DocumentDelivery,
+    private readonly links: LinkTokens,
+    /** How long a client has to answer before the link stops working. */
+    private readonly linkDays: number = 60,
   ) {}
 
   async draft(
@@ -157,12 +161,27 @@ export class ManageQuotations {
     let via: SentVia = 'by_hand';
     if (options.deliver) {
       const state = quotation.snapshot();
+
+      /*
+       * A fresh link every time it is emailed.
+       *
+       * Issuing revokes the previous one, which is what somebody wants when
+       * the first went to the wrong address. It expires — an offer that can
+       * still be accepted two years later is a price the firm never agreed
+       * to hold.
+       */
+      const { token, tokenHash } = this.links.issue();
+      const expiresAt = new Date(this.clock.now().getTime() + this.linkDays * 86_400_000);
+      const issued = quotation.issueLink(tokenHash, expiresAt, this.clock.now());
+      if (!issued.ok) return err(issued.error);
+
       const channel = await this.delivery.quotation({
         quotationId,
         clientId: state.clientId,
         reference: state.reference,
         total: quotation.total(),
         validUntil: state.validUntil,
+        linkToken: token,
       });
       if (channel === null) {
         return err(
@@ -172,9 +191,61 @@ export class ManageQuotations {
       via = channel;
     }
 
-    const changed = await this.change(quotationId, (one) => one.send(this.clock.now(), via));
-    if (!changed.ok) return err(changed.error);
+    /*
+     * Saved here rather than through `change`, which reloads the aggregate
+     * and would drop the link this one just issued.
+     */
+    const sent = quotation.send(this.clock.now(), via);
+    if (!sent.ok) return err(sent.error);
+    await this.quotations.save(quotation);
     return ok({ via });
+  }
+
+  /**
+   * Emailing it again, with a new link (FR-30).
+   *
+   * Separate from `send` because the state does not change: it is already
+   * with the client. This is for the quotation that went to the wrong
+   * address, or the one somebody has lost — and without it the first link
+   * would be the only one there could ever be, since a sent quotation cannot
+   * be sent again.
+   *
+   * The previous link stops working, which is the point rather than a side
+   * effect: a quotation sent to the wrong person should not stay answerable
+   * by them.
+   */
+  async sendAgain(quotationId: string): Promise<Result<void, Conflict>> {
+    const quotation = await this.quotations.findById(quotationId);
+    if (!quotation) return err(new Conflict('There is no such quotation'));
+
+    const state = quotation.snapshot();
+    if (state.state !== 'sent') {
+      return err(new Conflict('Only a quotation already with the client can be sent again'));
+    }
+
+    const now = this.clock.now();
+    const { token, tokenHash } = this.links.issue();
+    const issued = quotation.issueLink(
+      tokenHash,
+      new Date(now.getTime() + this.linkDays * 86_400_000),
+      now,
+    );
+    if (!issued.ok) return err(issued.error);
+
+    const channel = await this.delivery.quotation({
+      quotationId,
+      clientId: state.clientId,
+      reference: state.reference,
+      total: quotation.total(),
+      validUntil: state.validUntil,
+      linkToken: token,
+    });
+    if (channel === null) {
+      return err(new Conflict('That client has no email address on file'));
+    }
+
+    await this.quotations.save(quotation);
+    return ok(undefined);
   }
 
   async accept(quotationId: string): Promise<Result<void, Conflict>> {

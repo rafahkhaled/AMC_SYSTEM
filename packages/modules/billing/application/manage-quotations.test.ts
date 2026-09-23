@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ManageQuotations } from './manage-quotations.js';
 import {
   CountingIds,
+  CountingLinkTokens,
   CountingNumbers,
   FakeClock,
   FakeDelivery,
@@ -21,6 +22,7 @@ function harness(at = now, delivery = new FakeDelivery()) {
     new CountingIds(),
     new CountingNumbers(192),
     delivery,
+    new CountingLinkTokens(),
   );
   return { manage, quotations, delivery };
 }
@@ -169,6 +171,7 @@ describe('the expiry sweep', () => {
       new CountingIds(),
       new CountingNumbers(900),
       new FakeDelivery(),
+      new CountingLinkTokens(),
     );
     const swept = await later.sweepExpired();
 
@@ -190,6 +193,7 @@ describe('the expiry sweep', () => {
       new CountingIds(),
       new CountingNumbers(900),
       new FakeDelivery(),
+      new CountingLinkTokens(),
     );
     // The client said yes. A sweep running later must not undo that.
     expect((await later.sweepExpired()).expired).toBe(0);
@@ -209,6 +213,7 @@ describe('the expiry sweep', () => {
       new CountingIds(),
       new CountingNumbers(900),
       new FakeDelivery(),
+      new CountingLinkTokens(),
     );
     await later.sweepExpired();
     expect((await later.accept(id)).ok).toBe(false);
@@ -240,7 +245,9 @@ describe('getting it to the client', () => {
     expect(sent.ok).toBe(true);
     if (sent.ok) expect(sent.value.via).toBe('email');
 
-    expect(h.delivery.sent).toEqual([{ quotationId: id, reference: 'Q-2026-014' }]);
+    expect(h.delivery.sent).toEqual([
+      { quotationId: id, reference: 'Q-2026-014', linkToken: 'token-1' },
+    ]);
     expect((await h.quotations.findById(id))?.snapshot().sentVia).toBe('email');
   });
 

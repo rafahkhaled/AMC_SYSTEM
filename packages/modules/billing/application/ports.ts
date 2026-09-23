@@ -15,6 +15,27 @@ export interface QuotationRepository {
   save(quotation: Quotation): Promise<void>;
   /** Sent, past their date, and still waiting — what the expiry sweep asks. */
   lapsed(asOf: Date, limit: number): Promise<Quotation[]>;
+  /**
+   * The quotation a client's link belongs to.
+   *
+   * By hash, never by token: the token is what the client holds and nothing
+   * here ever stores it. A miss and an expiry look the same to the caller, so
+   * somebody trying tokens learns nothing from the difference.
+   */
+  findByLinkHash(tokenHash: string): Promise<Quotation | null>;
+}
+
+/**
+ * The secret in a client's link.
+ *
+ * Declared here rather than imported from identity, because a module never
+ * reaches into another's: this is the same idea as a session token and a
+ * separate thing, and sharing the implementation is the composition root's
+ * business.
+ */
+export interface LinkTokens {
+  issue(): { token: string; tokenHash: string };
+  hash(token: string): string;
 }
 
 export interface InvoiceRepository {
@@ -192,5 +213,7 @@ export interface DocumentDelivery {
     reference: string;
     total: Money;
     validUntil: Date | null;
+    /** The secret half of the link. Never stored; only sent. */
+    linkToken: string;
   }): Promise<'email' | null>;
 }

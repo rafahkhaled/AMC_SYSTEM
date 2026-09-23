@@ -32,6 +32,10 @@ type QuotationRow = {
   valid_until: string | null;
   sent_at: string | null;
   sent_via: string | null;
+  link_token_hash: string | null;
+  link_expires_at: string | null;
+  link_opened_at: string | null;
+  decided_by: string | null;
   decided_at: string | null;
   notes_en: string | null;
   notes_ar: string | null;
@@ -80,6 +84,19 @@ export class DrizzleQuotationRepository implements QuotationRepository {
     return rows[0] ? this.hydrate(rows[0]) : null;
   }
 
+  /**
+   * By hash, never by token.
+   *
+   * The unique index makes this a single-row lookup, so a wrong guess costs
+   * the same as a right one and the response time says nothing.
+   */
+  async findByLinkHash(tokenHash: string): Promise<Quotation | null> {
+    const rows = await this.db.execute<QuotationRow>(sql`
+      SELECT * FROM quotations WHERE link_token_hash = ${tokenHash} LIMIT 1
+    `);
+    return rows[0] ? this.hydrate(rows[0]) : null;
+  }
+
   async lapsed(asOf: Date, limit: number): Promise<Quotation[]> {
     const rows = await this.db.execute<QuotationRow>(sql`
       SELECT * FROM quotations
@@ -117,6 +134,10 @@ export class DrizzleQuotationRepository implements QuotationRepository {
         : null,
       sentAt: at(row.sent_at),
       sentVia: row.sent_via as 'email' | 'by_hand' | null,
+      linkTokenHash: row.link_token_hash,
+      linkExpiresAt: at(row.link_expires_at),
+      linkOpenedAt: at(row.link_opened_at),
+      decidedBy: row.decided_by as 'client' | 'staff' | null,
       decidedAt: at(row.decided_at),
       notesEn: row.notes_en,
       notesAr: row.notes_ar,
@@ -139,11 +160,14 @@ export class DrizzleQuotationRepository implements QuotationRepository {
     await this.db.execute(sql`
       INSERT INTO quotations
         (id, client_id, reference, state, currency, valid_until, sent_at, sent_via,
+         link_token_hash, link_expires_at, link_opened_at, decided_by,
          decided_at, notes_en, notes_ar, created_by, created_at)
       VALUES (
         ${state.id}, ${state.clientId}, ${state.reference}, ${state.state}, ${state.currency},
         ${state.validUntil ? state.validUntil.toISOString().slice(0, 10) : null},
         ${state.sentAt?.toISOString() ?? null}, ${state.sentVia},
+        ${state.linkTokenHash}, ${state.linkExpiresAt?.toISOString() ?? null},
+        ${state.linkOpenedAt?.toISOString() ?? null}, ${state.decidedBy},
         ${state.decidedAt?.toISOString() ?? null},
         ${state.notesEn}, ${state.notesAr}, ${state.createdBy},
         ${state.createdAt.toISOString()}
@@ -153,6 +177,10 @@ export class DrizzleQuotationRepository implements QuotationRepository {
         valid_until = excluded.valid_until,
         sent_at     = excluded.sent_at,
         sent_via    = excluded.sent_via,
+        link_token_hash = excluded.link_token_hash,
+        link_expires_at = excluded.link_expires_at,
+        link_opened_at  = excluded.link_opened_at,
+        decided_by      = excluded.decided_by,
         decided_at  = excluded.decided_at,
         notes_en    = excluded.notes_en,
         notes_ar    = excluded.notes_ar

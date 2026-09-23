@@ -115,6 +115,15 @@ export const environmentSchema = z.object({
    * registered entity are not always the same words, and an invoice has to
    * carry the registered one.
    */
+  /**
+   * Where a client's browser lands when they open a link the firm sent.
+   *
+   * Configuration, because it differs between a laptop and the real server,
+   * and a link to localhost sitting in a client's inbox is the kind of thing
+   * nobody notices until they click it.
+   */
+  PUBLIC_BASE_URL: z.string().url().default('http://localhost:5173'),
+
   FIRM_LEGAL_NAME: z.string().default('Active M Consultancy FZE LLC'),
   FIRM_ADDRESS_PRIMARY: z.string().optional(),
   FIRM_ADDRESS_SECONDARY: z.string().optional(),

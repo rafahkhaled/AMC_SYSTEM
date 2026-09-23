@@ -352,3 +352,36 @@ export const sendQuotationSchema = z.object({
   deliver: z.boolean().optional(),
 });
 export type SendQuotationRequest = z.infer<typeof sendQuotationSchema>;
+
+/* ------------------------------------------------------- the client's link */
+
+/**
+ * What a client sees when they open the link they were sent (FR-30).
+ *
+ * Deliberately smaller than QuotationView: no client id, no notes on who
+ * drafted it, no internal state beyond whether they may still answer. This is
+ * the one view a person outside the firm can reach, and it should show them
+ * nothing they would not already have on the paper version.
+ */
+export const clientQuotationSchema = z.object({
+  reference: z.string(),
+  state: z.enum(['draft', 'sent', 'accepted', 'declined', 'expired']),
+  currency: z.string(),
+  lines: z.array(
+    z.object({
+      descriptionEn: z.string(),
+      descriptionAr: z.string(),
+      amount: moneySchema,
+    }),
+  ),
+  total: moneySchema,
+  validUntil: z.string().nullable(),
+  notesEn: z.string().nullable(),
+  notesAr: z.string().nullable(),
+  /** False once answered or lapsed, so the page shows the outcome instead. */
+  answerable: z.boolean(),
+});
+export type ClientQuotationView = z.infer<typeof clientQuotationSchema>;
+
+export const answerQuotationSchema = z.object({ decision: z.enum(['accept', 'decline']) });
+export type AnswerQuotationRequest = z.infer<typeof answerQuotationSchema>;

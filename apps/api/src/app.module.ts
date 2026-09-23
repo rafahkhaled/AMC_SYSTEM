@@ -1,6 +1,7 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
 import {
+  ClientQuotation,
   GenerateStatement,
   ManageQuotations,
   RaiseInvoice,
@@ -358,6 +359,17 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
            * invoice that looks unfinished instead of one that looks finished
            * and cannot be paid.
            */
+          /*
+           * The client's link uses the same token service as a session: 32
+           * random bytes, stored only as a SHA-256. It is the same problem —
+           * a secret with full entropy that must not be readable from a
+           * backup — so it gets the same answer.
+           */
+          clientQuotations: new ClientQuotation(
+            new DrizzleQuotationRepository(db),
+            new CryptoSessionTokens(),
+            clock,
+          ),
           firmProfile: {
             legalName: environment.FIRM_LEGAL_NAME,
             addresses: [
@@ -395,7 +407,8 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             ids,
             // The firm's own estimate sequence, continuing from 192.
             new DrizzleDocumentNumbering(db, 'quotation'),
-            quotationDelivery(db, ids),
+            quotationDelivery(db, ids, environment.PUBLIC_BASE_URL),
+            new CryptoSessionTokens(),
           ),
           settle: new SettleInvoice(invoices, clock, ids),
           release: new ReleaseFromStatement(statements, attachment),

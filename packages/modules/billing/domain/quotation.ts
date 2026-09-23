@@ -27,6 +27,15 @@ import {
 /** How a quotation reached the client. */
 export type SentVia = 'email' | 'by_hand';
 
+/**
+ * Who answered it.
+ *
+ * "The client accepted through the link" and "an accountant ticked accepted"
+ * are different evidence, and the difference is the whole reason for sending
+ * a link at all.
+ */
+export type DecidedBy = 'client' | 'staff';
+
 export type QuotationState = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
 
 /**
@@ -69,6 +78,12 @@ export interface QuotationSnapshot {
    * they ask whether the client ever actually saw it.
    */
   readonly sentVia: SentVia | null;
+  /** SHA-256 of the client's link token. The token itself is never stored. */
+  readonly linkTokenHash: string | null;
+  readonly linkExpiresAt: Date | null;
+  /** When the client first opened it, or null if they never have. */
+  readonly linkOpenedAt: Date | null;
+  readonly decidedBy: DecidedBy | null;
   readonly decidedAt: Date | null;
   readonly notesEn: string | null;
   readonly notesAr: string | null;
@@ -124,6 +139,10 @@ export class Quotation extends AggregateRoot {
         validUntil: params.validUntil ?? null,
         sentAt: null,
         sentVia: null,
+        linkTokenHash: null,
+        linkExpiresAt: null,
+        linkOpenedAt: null,
+        decidedBy: null,
         decidedAt: null,
         notesEn: params.notesEn?.trim() || null,
         notesAr: params.notesAr?.trim() || null,
@@ -241,12 +260,66 @@ export class Quotation extends AggregateRoot {
     return ok(undefined);
   }
 
-  accept(now: Date): Result<void, Conflict> {
-    return this.decide('accepted', 'billing.quotation.accepted', now);
+  accept(now: Date, by: DecidedBy = 'staff'): Result<void, Conflict> {
+    return this.decide('accepted', 'billing.quotation.accepted', now, by);
   }
 
-  decline(now: Date): Result<void, Conflict> {
-    return this.decide('declined', 'billing.quotation.declined', now);
+  decline(now: Date, by: DecidedBy = 'staff'): Result<void, Conflict> {
+    return this.decide('declined', 'billing.quotation.declined', now, by);
+  }
+
+  /**
+   * A link the client can open without an account (FR-30).
+   *
+   * Only the hash is kept. Issuing again replaces it, which revokes the
+   * previous link — the behaviour somebody wants when a quotation went to the
+   * wrong address.
+   *
+   * Refused once answered: a link that still accepts a decision after the
+   * client has made one is a way to change their answer without anybody
+   * noticing.
+   */
+  issueLink(tokenHash: string, expiresAt: Date, now: Date): Result<void, Conflict> {
+    if (this.state.state === 'accepted' || this.state.state === 'declined') {
+      return err(new Conflict('That quotation has already been answered'));
+    }
+    if (expiresAt.getTime() <= now.getTime()) {
+      return err(new Conflict('A link has to outlast the moment it was made'));
+    }
+
+    this.state = { ...this.state, linkTokenHash: tokenHash, linkExpiresAt: expiresAt };
+    this.record(
+      domainEvent('billing.quotation.link_issued', this.id, now, {
+        quotationId: this.id,
+        clientId: this.state.clientId,
+        expiresAt: expiresAt.toISOString(),
+      }),
+    );
+    return ok(undefined);
+  }
+
+  /**
+   * The client opened it.
+   *
+   * Recorded once, the first time. A second visit is not news, and
+   * overwriting would lose the answer to the question actually being asked:
+   * have they looked at this at all?
+   */
+  openedByClient(now: Date): void {
+    if (this.state.linkOpenedAt !== null) return;
+    this.state = { ...this.state, linkOpenedAt: now };
+    this.record(
+      domainEvent('billing.quotation.opened', this.id, now, {
+        quotationId: this.id,
+        clientId: this.state.clientId,
+      }),
+    );
+  }
+
+  /** Whether this link is still good at a given moment. */
+  linkIsLiveAt(now: Date): boolean {
+    if (this.state.linkTokenHash === null || this.state.linkExpiresAt === null) return false;
+    return this.state.linkExpiresAt.getTime() > now.getTime();
   }
 
   /**
@@ -275,20 +348,26 @@ export class Quotation extends AggregateRoot {
     return ok(undefined);
   }
 
-  private decide(next: 'accepted' | 'declined', event: string, now: Date): Result<void, Conflict> {
+  private decide(
+    next: 'accepted' | 'declined',
+    event: string,
+    now: Date,
+    by: DecidedBy,
+  ): Result<void, Conflict> {
     if (this.state.state !== 'sent') {
       // Including an expired one: the honest move is to re-quote rather than
       // quietly accept a price that lapsed.
       return err(new Conflict('Only a quotation that is out with the client can be answered'));
     }
 
-    this.state = { ...this.state, state: next, decidedAt: now };
+    this.state = { ...this.state, state: next, decidedAt: now, decidedBy: by };
     this.record(
       domainEvent(event, this.id, now, {
         quotationId: this.id,
         clientId: this.state.clientId,
         totalMinor: this.total().minorUnits,
         currency: this.state.currency,
+        decidedBy: by,
       }),
     );
     return ok(undefined);

@@ -6,6 +6,7 @@ import { SignInPage } from '../features/auth/sign-in-page.js';
 import { TwoFactorPage } from '../features/auth/two-factor-page.js';
 import { BillingPage } from '../features/billing/billing-page.js';
 import { CalendarPage } from '../features/calendar/calendar-page.js';
+import { ClientQuotationPage } from '../features/client-link/client-quotation-page.js';
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
 import { InboxPage } from '../features/inbox/inbox-page.js';
@@ -66,6 +67,16 @@ export function App() {
   const { state } = useSession();
   const { t } = useTranslation();
   const [view, setView] = useState<View>({ name: 'clients' });
+
+  /*
+   * The client's link, before anything asks about a session (FR-30).
+   *
+   * A client has no account and never will, so this is checked first: asking
+   * them to sign in to read a quotation they were sent would defeat the whole
+   * purpose of sending it.
+   */
+  const clientToken = clientLinkToken();
+  if (clientToken) return <ClientQuotationPage token={clientToken} />;
 
   switch (state.status) {
     case 'loading':
@@ -131,4 +142,15 @@ function Screen({
     case 'inbox':
       return <InboxPage />;
   }
+}
+
+/**
+ * The token out of `/q/<token>`, if that is where the browser is.
+ *
+ * Read from the path rather than a query string, so it stays out of referrer
+ * headers and out of the server logs that record query strings.
+ */
+function clientLinkToken(): string | null {
+  const match = /^\/q\/([A-Za-z0-9_-]+)\/?$/.exec(window.location.pathname);
+  return match?.[1] ?? null;
 }

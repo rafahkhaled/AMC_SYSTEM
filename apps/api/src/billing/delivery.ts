@@ -25,6 +25,7 @@ export type QuotationEmailPayload = {
   readonly totalMinor: number;
   readonly currency: string;
   readonly validUntil: string | null;
+  readonly link: string | null;
 };
 
 /**
@@ -41,7 +42,16 @@ export type QuotationEmailPayload = {
  * The job and the contact-log row go in one transaction with nothing else, so
  * a quotation is never recorded as emailed without the mail being queued.
  */
-export function quotationDelivery(db: Database, ids: IdGenerator): DocumentDelivery {
+export function quotationDelivery(
+  db: Database,
+  ids: IdGenerator,
+  /**
+   * Where the client's browser will land. Configuration, because it differs
+   * between a laptop and the real server and a link to localhost in a
+   * client's inbox is the kind of thing nobody notices until they click it.
+   */
+  publicBaseUrl: string,
+): DocumentDelivery {
   const queue = new PostgresJobQueue(db, ids, new SystemClock());
 
   return {
@@ -79,6 +89,7 @@ export function quotationDelivery(db: Database, ids: IdGenerator): DocumentDeliv
               totalMinor: params.total.minorUnits,
               currency: params.total.currency,
               validUntil: params.validUntil?.toISOString() ?? null,
+              link: `${publicBaseUrl.replace(/\/$/, '')}/q/${params.linkToken}`,
             } satisfies QuotationEmailPayload,
             // One live job per quotation. Pressing send twice should not send
             // the client the same offer twice.

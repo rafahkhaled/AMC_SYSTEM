@@ -203,6 +203,24 @@ export class BillingController {
     return this.firmProfile;
   }
 
+  /**
+   * Emailing a quotation again, with a fresh link (FR-30).
+   *
+   * For the one that went to the wrong address or that the client has lost.
+   * The previous link stops working, which is the point.
+   */
+  @RequirePermissions('billing.view')
+  @Post('quotations/:id/resend')
+  async resendQuotation(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+  ): Promise<QuotationView> {
+    await this.mustReadQuotation(caller, id);
+    const again = await this.quotations.sendAgain(id);
+    if (!again.ok) throw new ConflictException(again.error.message);
+    return this.mustReadQuotation(caller, id);
+  }
+
   /* ---------------------------------------------------------- reports -- */
 
   /**

@@ -6,6 +6,7 @@ import type {
   DocumentDelivery,
   InvoiceNumbering,
   InvoiceRepository,
+  LinkTokens,
   QuotationRepository,
   RateReader,
   StatementRepository,
@@ -60,6 +61,12 @@ export class InMemoryQuotations implements QuotationRepository {
   }
   async findByReference(reference: string): Promise<Quotation | null> {
     return this.byReference.get(reference) ?? null;
+  }
+  async findByLinkHash(tokenHash: string): Promise<Quotation | null> {
+    for (const quotation of this.byId.values()) {
+      if (quotation.snapshot().linkTokenHash === tokenHash) return quotation;
+    }
+    return null;
   }
   async save(quotation: Quotation): Promise<void> {
     this.byId.set(quotation.id, quotation);
@@ -200,7 +207,7 @@ export class CountingNumbers implements InvoiceNumbering {
  * case that has to refuse rather than quietly mark a quotation sent.
  */
 export class FakeDelivery implements DocumentDelivery {
-  readonly sent: { quotationId: string; reference: string }[] = [];
+  readonly sent: { quotationId: string; reference: string; linkToken: string }[] = [];
   constructor(private readonly channel: 'email' | null = 'email') {}
 
   async quotation(params: {
@@ -209,9 +216,31 @@ export class FakeDelivery implements DocumentDelivery {
     reference: string;
     total: Money;
     validUntil: Date | null;
+    linkToken: string;
   }): Promise<'email' | null> {
     if (this.channel === null) return null;
-    this.sent.push({ quotationId: params.quotationId, reference: params.reference });
+    this.sent.push({
+      quotationId: params.quotationId,
+      reference: params.reference,
+      linkToken: params.linkToken,
+    });
     return this.channel;
+  }
+}
+
+/**
+ * Predictable link tokens.
+ *
+ * Real ones are 32 random bytes; a test that cannot say what the token will
+ * be cannot then open the link with it.
+ */
+export class CountingLinkTokens implements LinkTokens {
+  private count = 0;
+  issue(): { token: string; tokenHash: string } {
+    const token = `token-${++this.count}`;
+    return { token, tokenHash: this.hash(token) };
+  }
+  hash(token: string): string {
+    return `hash-of-${token}`;
   }
 }

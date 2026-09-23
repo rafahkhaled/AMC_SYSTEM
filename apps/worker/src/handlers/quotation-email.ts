@@ -20,6 +20,8 @@ export type QuotationEmailPayload = {
   readonly totalMinor: number;
   readonly currency: string;
   readonly validUntil: string | null;
+  /** Where the client opens it. Absent on a job queued before links existed. */
+  readonly link: string | null;
 };
 
 /**
@@ -49,7 +51,11 @@ export function quotationEmail(payload: QuotationEmailPayload): {
     `القيمة الإجمالية: ${amount}.`,
     ...(until ? [`العرض صالح حتى ${until}.`] : []),
     '',
-    'سيصلكم العرض بصيغته الكاملة من فريقنا. للموافقة أو لأي استفسار، يكفي الرد على هذه الرسالة.',
+    ...(payload.link
+      ? ['لعرض التفاصيل والموافقة أو الاعتذار:', payload.link]
+      : ['سيصلكم العرض بصيغته الكاملة من فريقنا.']),
+    '',
+    'ولأي استفسار، يكفي الرد على هذه الرسالة.',
   ];
 
   const english = [
@@ -59,7 +65,11 @@ export function quotationEmail(payload: QuotationEmailPayload): {
     `Total: ${amount}.`,
     ...(until ? [`This quotation is valid until ${until}.`] : []),
     '',
-    'The full quotation will follow from our team. To accept, or if anything needs changing, simply reply to this message.',
+    ...(payload.link
+      ? ['To see it in full and accept or decline:', payload.link]
+      : ['The full quotation will follow from our team.']),
+    '',
+    'If anything needs changing, simply reply to this message.',
   ];
 
   return {
