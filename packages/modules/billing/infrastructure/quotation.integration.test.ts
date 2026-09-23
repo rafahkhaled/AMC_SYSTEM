@@ -194,7 +194,7 @@ describe('quotations, against a real database', () => {
         descriptionAr: 'عمل',
         pricing: { kind: 'fixed', amount: aed(1000) },
       });
-      quotation.send(NOW);
+      quotation.send(NOW, 'by_hand');
       await repository.save(quotation);
 
       const sent = await repository.findById('q-1');
@@ -228,7 +228,7 @@ describe('quotations, against a real database', () => {
       ] as const) {
         const quotation = drafted({ id, reference, validUntil: until });
         quotation.addLine({ ...line, id: `${id}-l` });
-        quotation.send(NOW);
+        quotation.send(NOW, 'by_hand');
         await repository.save(quotation);
       }
 

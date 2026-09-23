@@ -82,6 +82,7 @@ import { APP_FILTER } from '@nestjs/core';
 import type { Logger } from 'pino';
 import { ulid } from 'ulid';
 import { rateReader, unbilledWork, workAttachment } from './billing/adapters.js';
+import { quotationDelivery } from './billing/delivery.js';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { projectSummaries } from './clients/project-summaries.js';
 import { ConfigModule } from './config/config.module.js';
@@ -387,6 +388,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             ids,
             // The firm's own estimate sequence, continuing from 192.
             new DrizzleDocumentNumbering(db, 'quotation'),
+            quotationDelivery(db, ids),
           ),
           settle: new SettleInvoice(invoices, clock, ids),
           release: new ReleaseFromStatement(statements, attachment),

@@ -80,6 +80,9 @@ importers:
       '@amc/projects':
         specifier: workspace:*
         version: link:../../packages/modules/projects
+      '@amc/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@amc/storage':
         specifier: workspace:*
         version: link:../../packages/storage

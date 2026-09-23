@@ -186,7 +186,8 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
   const refresh = () => queries.invalidateQueries({ queryKey: ['billing', 'quotations'] });
   const answer = useMutation({
-    mutationFn: (act: 'send' | 'accept' | 'decline') => answerQuotation(id, act),
+    mutationFn: (command: { act: 'send' | 'accept' | 'decline'; deliver?: boolean }) =>
+      answerQuotation(id, command.act, command.deliver ? { deliver: true } : {}),
     onSuccess: () => void refresh(),
   });
   const removeLine = useMutation({
@@ -207,10 +208,31 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
           {t('billing.print')}
         </Button>
 
+        {/*
+         * Two actions, because they are two different claims. Emailing it
+         * queues a message to the client's own address and writes the
+         * contact log; marking it sent records that somebody printed it and
+         * handed it over, which is how half of these go out. "Sent" used to
+         * mean only that a button had been pressed.
+         */}
         {editable ? (
-          <Button small busy={answer.isPending} onClick={() => answer.mutate('send')}>
-            {t('billing.sendQuotation')}
-          </Button>
+          <>
+            <Button
+              small
+              busy={answer.isPending}
+              onClick={() => answer.mutate({ act: 'send', deliver: true })}
+            >
+              {t('billing.emailQuotation')}
+            </Button>
+            <Button
+              small
+              tone="secondary"
+              busy={answer.isPending}
+              onClick={() => answer.mutate({ act: 'send' })}
+            >
+              {t('billing.markSent')}
+            </Button>
+          </>
         ) : null}
 
         {/*
@@ -220,14 +242,14 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
         */}
         {quotation.state === 'sent' ? (
           <>
-            <Button small busy={answer.isPending} onClick={() => answer.mutate('accept')}>
+            <Button small busy={answer.isPending} onClick={() => answer.mutate({ act: 'accept' })}>
               {t('billing.clientAccepted')}
             </Button>
             <Button
               small
               tone="quiet"
               busy={answer.isPending}
-              onClick={() => answer.mutate('decline')}
+              onClick={() => answer.mutate({ act: 'decline' })}
             >
               {t('billing.clientDeclined')}
             </Button>
@@ -244,6 +266,12 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
       {answer.isError ? <Alert tone="error">{(answer.error as Error).message}</Alert> : null}
       {quotation.state === 'expired' ? (
         <Alert tone="warning">{t('billing.quotationExpired')}</Alert>
+      ) : null}
+      {quotation.sentAt && quotation.sentVia ? (
+        <p className="u-text-soft">
+          {t(`billing.sentVia.${quotation.sentVia}`)}{' '}
+          <span className="u-ltr">{quotation.sentAt.slice(0, 10)}</span>
+        </p>
       ) : null}
       {quotation.validUntil ? (
         <p className="u-text-soft">

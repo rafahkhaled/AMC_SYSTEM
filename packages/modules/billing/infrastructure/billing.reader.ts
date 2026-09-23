@@ -148,6 +148,7 @@ export class DrizzleBillingReader implements BillingReader {
         ),
         validUntil: row.valid_until ? row.valid_until.slice(0, 10) : null,
         sentAt: row.sent_at ? new Date(row.sent_at).toISOString() : null,
+        sentVia: row.sent_via as 'email' | 'by_hand' | null,
         decidedAt: row.decided_at ? new Date(row.decided_at).toISOString() : null,
         notesEn: row.notes_en,
         notesAr: row.notes_ar,
@@ -456,7 +457,7 @@ function roundHalfAway(product: bigint, divisor: bigint): number {
 
 const QUOTATION_SELECT = sql`
   SELECT q.id, q.client_id, c.legal_name AS client_name, q.reference, q.state,
-         q.currency, q.valid_until, q.sent_at, q.decided_at,
+         q.currency, q.valid_until, q.sent_at, q.sent_via, q.decided_at,
          q.notes_en, q.notes_ar, q.created_at
   FROM quotations q
   JOIN clients c ON c.id = q.client_id
@@ -471,6 +472,7 @@ type QuotationRow = {
   currency: string;
   valid_until: string | null;
   sent_at: string | null;
+  sent_via: string | null;
   decided_at: string | null;
   notes_en: string | null;
   notes_ar: string | null;

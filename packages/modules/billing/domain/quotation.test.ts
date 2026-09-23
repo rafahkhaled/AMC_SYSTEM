@@ -129,7 +129,7 @@ describe('sending', () => {
     const quotation = draft();
     quotation.addLine(hoursLine());
 
-    expect(quotation.send(now).ok).toBe(true);
+    expect(quotation.send(now, 'by_hand').ok).toBe(true);
     expect(quotation.currentState).toBe('sent');
     expect(quotation.snapshot().sentAt).toEqual(now);
   });
@@ -137,7 +137,7 @@ describe('sending', () => {
   it('records what was offered, so the event carries the figure', () => {
     const quotation = draft();
     quotation.addLine(hoursLine());
-    quotation.send(now);
+    quotation.send(now, 'by_hand');
 
     const [event] = quotation.pullEvents();
     expect(event?.name).toBe('billing.quotation.sent');
@@ -145,14 +145,14 @@ describe('sending', () => {
   });
 
   it('will not send an offer of nothing', () => {
-    const refused = draft().send(now);
+    const refused = draft().send(now, 'by_hand');
     expect(refused.ok).toBe(false);
   });
 
   it('will not send one that has already expired', () => {
     const quotation = draft({ validUntil: later(-1) });
     quotation.addLine(hoursLine());
-    const refused = quotation.send(now);
+    const refused = quotation.send(now, 'by_hand');
     expect(refused.ok).toBe(false);
     if (!refused.ok) expect(refused.error.message).toContain('already expired');
   });
@@ -160,8 +160,8 @@ describe('sending', () => {
   it('will not send the same quotation twice', () => {
     const quotation = draft();
     quotation.addLine(hoursLine());
-    quotation.send(now);
-    expect(quotation.send(now).ok).toBe(false);
+    quotation.send(now, 'by_hand');
+    expect(quotation.send(now, 'by_hand').ok).toBe(false);
   });
 });
 
@@ -169,7 +169,7 @@ describe('once it is with the client', () => {
   function sent() {
     const quotation = draft();
     quotation.addLine(hoursLine());
-    quotation.send(now);
+    quotation.send(now, 'by_hand');
     quotation.pullEvents();
     return quotation;
   }
@@ -214,7 +214,7 @@ describe('expiry', () => {
   function sent(validUntil: Date | null) {
     const quotation = draft({ validUntil: validUntil ?? null });
     quotation.addLine(hoursLine());
-    quotation.send(now);
+    quotation.send(now, 'by_hand');
     quotation.pullEvents();
     return quotation;
   }

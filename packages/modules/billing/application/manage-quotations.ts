@@ -8,8 +8,13 @@ import {
   err,
   ok,
 } from '@amc/kernel';
-import { Quotation, type QuotationLine } from '../domain/index.js';
-import type { InvoiceNumbering, QuotationRepository, RateReader } from './ports.js';
+import { Quotation, type QuotationLine, type SentVia } from '../domain/index.js';
+import type {
+  DocumentDelivery,
+  InvoiceNumbering,
+  QuotationRepository,
+  RateReader,
+} from './ports.js';
 
 export interface DraftQuotationCommand {
   readonly clientId: string;
@@ -46,6 +51,7 @@ export class ManageQuotations {
      * system has to be 193 or the client sees a gap and asks about it.
      */
     private readonly numbering: InvoiceNumbering,
+    private readonly delivery: DocumentDelivery,
   ) {}
 
   async draft(
@@ -119,8 +125,56 @@ export class ManageQuotations {
     return this.change(quotationId, (quotation) => quotation.removeLine(lineId));
   }
 
-  async send(quotationId: string): Promise<Result<void, Conflict>> {
-    return this.change(quotationId, (quotation) => quotation.send(this.clock.now()));
+  /**
+   * With the client (FR-30).
+   *
+   * `deliver` decides whether the system sends it or merely records that
+   * somebody did. Both are real: half of these are printed and handed over,
+   * and the quotation keeps which it was, because "sent" used to mean only
+   * that a button had been pressed.
+   *
+   * Delivery happens before the state changes. If the mail fails, the
+   * quotation is still a draft and can be tried again — the other order
+   * leaves a quotation marked sent that nobody received.
+   */
+  async send(
+    quotationId: string,
+    options: { deliver: boolean } = { deliver: false },
+  ): Promise<Result<{ via: SentVia }, Conflict>> {
+    const quotation = await this.quotations.findById(quotationId);
+    if (!quotation) return err(new Conflict('There is no such quotation'));
+
+    /*
+     * Asked before anything leaves the building.
+     *
+     * The aggregate holds the rules and would refuse a quotation with no
+     * lines anyway — but it would refuse it after the client had already
+     * received the email, and nothing un-sends that.
+     */
+    const allowed = quotation.canSend(this.clock.now());
+    if (!allowed.ok) return err(allowed.error);
+
+    let via: SentVia = 'by_hand';
+    if (options.deliver) {
+      const state = quotation.snapshot();
+      const channel = await this.delivery.quotation({
+        quotationId,
+        clientId: state.clientId,
+        reference: state.reference,
+        total: quotation.total(),
+        validUntil: state.validUntil,
+      });
+      if (channel === null) {
+        return err(
+          new Conflict('That client has no email address on file; send it by hand instead'),
+        );
+      }
+      via = channel;
+    }
+
+    const changed = await this.change(quotationId, (one) => one.send(this.clock.now(), via));
+    if (!changed.ok) return err(changed.error);
+    return ok({ via });
   }
 
   async accept(quotationId: string): Promise<Result<void, Conflict>> {

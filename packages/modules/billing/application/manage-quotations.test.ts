@@ -4,6 +4,7 @@ import {
   CountingIds,
   CountingNumbers,
   FakeClock,
+  FakeDelivery,
   FakeRates,
   InMemoryQuotations,
 } from './test-doubles.js';
@@ -11,7 +12,7 @@ import {
 const now = new Date('2026-09-22T08:00:00.000Z');
 const days = (n: number) => new Date(now.getTime() + n * 86_400_000);
 
-function harness(at = now) {
+function harness(at = now, delivery = new FakeDelivery()) {
   const quotations = new InMemoryQuotations();
   const manage = new ManageQuotations(
     quotations,
@@ -19,8 +20,9 @@ function harness(at = now) {
     new FakeClock(at),
     new CountingIds(),
     new CountingNumbers(192),
+    delivery,
   );
-  return { manage, quotations };
+  return { manage, quotations, delivery };
 }
 
 async function drafted(h: ReturnType<typeof harness>, reference = 'Q-2026-014') {
@@ -166,6 +168,7 @@ describe('the expiry sweep', () => {
       new FakeClock(days(40)),
       new CountingIds(),
       new CountingNumbers(900),
+      new FakeDelivery(),
     );
     const swept = await later.sweepExpired();
 
@@ -186,6 +189,7 @@ describe('the expiry sweep', () => {
       new FakeClock(days(40)),
       new CountingIds(),
       new CountingNumbers(900),
+      new FakeDelivery(),
     );
     // The client said yes. A sweep running later must not undo that.
     expect((await later.sweepExpired()).expired).toBe(0);
@@ -204,8 +208,67 @@ describe('the expiry sweep', () => {
       new FakeClock(days(40)),
       new CountingIds(),
       new CountingNumbers(900),
+      new FakeDelivery(),
     );
     await later.sweepExpired();
     expect((await later.accept(id)).ok).toBe(false);
+  });
+});
+
+describe('getting it to the client', () => {
+  it('records that somebody sent it by hand, and sends nothing', async () => {
+    const h = harness();
+    const id = await drafted(h);
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+
+    const sent = await h.manage.send(id);
+    expect(sent.ok).toBe(true);
+    if (sent.ok) expect(sent.value.via).toBe('by_hand');
+
+    // Half of these are printed and handed over. That is a real answer, and
+    // a different claim from "we emailed it".
+    expect(h.delivery.sent).toHaveLength(0);
+    expect((await h.quotations.findById(id))?.snapshot().sentVia).toBe('by_hand');
+  });
+
+  it('emails it when asked, and says so on the quotation', async () => {
+    const h = harness();
+    const id = await drafted(h);
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+
+    const sent = await h.manage.send(id, { deliver: true });
+    expect(sent.ok).toBe(true);
+    if (sent.ok) expect(sent.value.via).toBe('email');
+
+    expect(h.delivery.sent).toEqual([{ quotationId: id, reference: 'Q-2026-014' }]);
+    expect((await h.quotations.findById(id))?.snapshot().sentVia).toBe('email');
+  });
+
+  it('refuses when the client has no address, rather than marking it sent', async () => {
+    const h = harness(now, new FakeDelivery(null));
+    const id = await drafted(h);
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+
+    const sent = await h.manage.send(id, { deliver: true });
+    expect(sent.ok).toBe(false);
+    if (!sent.ok) expect(sent.error.message).toContain('no email address');
+
+    /*
+     * Still a draft. Marking it sent because the mail could not go is how a
+     * quotation ends up believed-delivered and never chased, which is the
+     * exact failure this whole change exists to remove.
+     */
+    expect((await h.quotations.findById(id))?.currentState).toBe('draft');
+  });
+
+  it('does not deliver a quotation that cannot be sent anyway', async () => {
+    const h = harness();
+    const id = await drafted(h);
+
+    // No lines: not an offer, and the aggregate refuses it. Nothing should
+    // have reached the client's inbox on the way to finding that out.
+    const sent = await h.manage.send(id, { deliver: true });
+    expect(sent.ok).toBe(false);
+    expect(h.delivery.sent).toHaveLength(0);
   });
 });

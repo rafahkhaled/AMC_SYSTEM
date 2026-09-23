@@ -185,6 +185,11 @@ export const quotationSchema = z.object({
   total: moneySchema,
   validUntil: z.string().nullable(),
   sentAt: z.string().nullable(),
+  /**
+   * How it reached the client. `by_hand` means somebody printed it, which is
+   * a real answer and a different claim from "we emailed it".
+   */
+  sentVia: z.enum(['email', 'by_hand']).nullable(),
   decidedAt: z.string().nullable(),
   notesEn: z.string().nullable(),
   notesAr: z.string().nullable(),
@@ -341,3 +346,9 @@ export const firmProfileSchema = z.object({
   stampUrl: z.string().nullable(),
 });
 export type FirmProfile = z.infer<typeof firmProfileSchema>;
+
+/** Whether the system should send the quotation, or only record that it went. */
+export const sendQuotationSchema = z.object({
+  deliver: z.boolean().optional(),
+});
+export type SendQuotationRequest = z.infer<typeof sendQuotationSchema>;

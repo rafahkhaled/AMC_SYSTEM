@@ -5,6 +5,11 @@ import { AlertLog } from './handlers/alerts.js';
 import { DAILY_SWEEP, runDailySweep, scheduleNextDailySweep } from './handlers/daily.js';
 import { ESCALATION_JOB, type EscalationPayload, fireEscalation } from './handlers/escalations.js';
 import type { EscalationNotifier } from './handlers/notify-escalation.js';
+import {
+  QUOTATION_EMAIL_JOB,
+  type QuotationEmailPayload,
+  sendQuotationEmail,
+} from './handlers/quotation-email.js';
 import type { OutboxPublisher } from './outbox-publisher.js';
 
 /**
@@ -27,6 +32,11 @@ export function registerJobHandlers(
      * a smaller failure than a worker that will not start.
      */
     notifier?: EscalationNotifier | undefined;
+    /**
+     * How a quotation reaches the client. Optional for the same reason the
+     * notifier is: a worker that will not start is the worse failure.
+     */
+    email?: import('@amc/notifications').EmailSender | undefined;
     log: (message: string, detail: Record<string, unknown>) => void;
   },
 ): JobRunner {
@@ -50,6 +60,19 @@ export function registerJobHandlers(
         project: job.payload.projectId,
         stage: job.payload.stage,
         outcome,
+      });
+    })
+    .register<QuotationEmailPayload>(QUOTATION_EMAIL_JOB, async (job) => {
+      if (!context.email) {
+        // Nothing to send with. Thrown rather than swallowed so the job
+        // retries once a sender exists, instead of being marked done while
+        // the client waits for a quotation nobody posted.
+        throw new Error('no email sender is configured for quotation delivery');
+      }
+      await sendQuotationEmail(context.email, job.payload);
+      context.log('quotation emailed', {
+        quotation: job.payload.quotationId,
+        reference: job.payload.reference,
       });
     });
 }

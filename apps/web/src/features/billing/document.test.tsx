@@ -73,6 +73,7 @@ const quotation = (over: Partial<QuotationView> = {}): QuotationView => ({
   total: aed(175_000),
   validUntil: null,
   sentAt: null,
+  sentVia: null,
   decidedAt: null,
   notesEn: null,
   notesAr: null,

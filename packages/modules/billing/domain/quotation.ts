@@ -24,6 +24,9 @@ import {
  * and whether they said yes.
  */
 
+/** How a quotation reached the client. */
+export type SentVia = 'email' | 'by_hand';
+
 export type QuotationState = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
 
 /**
@@ -57,6 +60,15 @@ export interface QuotationSnapshot {
   readonly lines: readonly QuotationLine[];
   readonly validUntil: Date | null;
   readonly sentAt: Date | null;
+  /**
+   * How it reached the client, or null while it is a draft.
+   *
+   * `by_hand` is a real answer — printing the sheet and handing it over is
+   * how half of these go out — but it is a different claim from "we emailed
+   * it", and the difference is what somebody needs a fortnight later when
+   * they ask whether the client ever actually saw it.
+   */
+  readonly sentVia: SentVia | null;
   readonly decidedAt: Date | null;
   readonly notesEn: string | null;
   readonly notesAr: string | null;
@@ -111,6 +123,7 @@ export class Quotation extends AggregateRoot {
         lines: [],
         validUntil: params.validUntil ?? null,
         sentAt: null,
+        sentVia: null,
         decidedAt: null,
         notesEn: params.notesEn?.trim() || null,
         notesAr: params.notesAr?.trim() || null,
@@ -180,17 +193,20 @@ export class Quotation extends AggregateRoot {
   }
 
   /**
-   * Sends it to the client.
+   * Whether this could go to the client right now, changing nothing.
    *
-   * From here the document is fixed. An empty quotation cannot be sent, because
-   * a document offering nothing for nothing is not an offer and the client will
-   * read it as a mistake — which it is.
+   * Asked before anything is actually delivered. Emailing a client and then
+   * discovering the quotation had no lines on it sends them an offer the firm
+   * then refuses to stand behind, and no amount of tidying up afterwards
+   * un-sends it. The guards live here, once, and `send` uses the same ones.
    */
-  send(now: Date): Result<void, Conflict> {
+  canSend(now: Date): Result<void, Conflict> {
     if (this.state.state !== 'draft') {
       return err(new Conflict('Only a draft can be sent'));
     }
     if (this.state.lines.length === 0) {
+      // A document offering nothing for nothing is not an offer, and the
+      // client reads it as a mistake — which it is.
       return err(new Conflict('A quotation with no lines is not an offer'));
     }
     if (this.state.validUntil && this.state.validUntil.getTime() <= now.getTime()) {
@@ -198,8 +214,21 @@ export class Quotation extends AggregateRoot {
       // and the firm's credibility.
       return err(new Conflict('That quotation has already expired; change the date first'));
     }
+    return ok(undefined);
+  }
 
-    this.state = { ...this.state, state: 'sent', sentAt: now };
+  /**
+   * With the client now (FR-30).
+   *
+   * From here the document is fixed. `via` is required rather than defaulted,
+   * because the whole point of it is that the state can no longer be reached
+   * without somebody saying how the client was told.
+   */
+  send(now: Date, via: SentVia): Result<void, Conflict> {
+    const allowed = this.canSend(now);
+    if (!allowed.ok) return allowed;
+
+    this.state = { ...this.state, state: 'sent', sentAt: now, sentVia: via };
     this.record(
       domainEvent('billing.quotation.sent', this.id, now, {
         quotationId: this.id,

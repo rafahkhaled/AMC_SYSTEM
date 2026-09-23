@@ -31,6 +31,7 @@ type QuotationRow = {
   currency: string;
   valid_until: string | null;
   sent_at: string | null;
+  sent_via: string | null;
   decided_at: string | null;
   notes_en: string | null;
   notes_ar: string | null;
@@ -115,6 +116,7 @@ export class DrizzleQuotationRepository implements QuotationRepository {
         ? new Date(`${row.valid_until.slice(0, 10)}T00:00:00.000Z`)
         : null,
       sentAt: at(row.sent_at),
+      sentVia: row.sent_via as 'email' | 'by_hand' | null,
       decidedAt: at(row.decided_at),
       notesEn: row.notes_en,
       notesAr: row.notes_ar,
@@ -136,12 +138,12 @@ export class DrizzleQuotationRepository implements QuotationRepository {
 
     await this.db.execute(sql`
       INSERT INTO quotations
-        (id, client_id, reference, state, currency, valid_until, sent_at,
+        (id, client_id, reference, state, currency, valid_until, sent_at, sent_via,
          decided_at, notes_en, notes_ar, created_by, created_at)
       VALUES (
         ${state.id}, ${state.clientId}, ${state.reference}, ${state.state}, ${state.currency},
         ${state.validUntil ? state.validUntil.toISOString().slice(0, 10) : null},
-        ${state.sentAt?.toISOString() ?? null},
+        ${state.sentAt?.toISOString() ?? null}, ${state.sentVia},
         ${state.decidedAt?.toISOString() ?? null},
         ${state.notesEn}, ${state.notesAr}, ${state.createdBy},
         ${state.createdAt.toISOString()}
@@ -150,6 +152,7 @@ export class DrizzleQuotationRepository implements QuotationRepository {
         state       = excluded.state,
         valid_until = excluded.valid_until,
         sent_at     = excluded.sent_at,
+        sent_via    = excluded.sent_via,
         decided_at  = excluded.decided_at,
         notes_en    = excluded.notes_en,
         notes_ar    = excluded.notes_ar

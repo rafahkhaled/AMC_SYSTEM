@@ -25,6 +25,7 @@
     "@amc/kernel": "workspace:*",
     "@amc/notifications": "workspace:*",
     "@amc/projects": "workspace:*",
+    "@amc/queue": "workspace:*",
     "@amc/storage": "workspace:*",
     "@amc/time-tracking": "workspace:*",
     "@amc/vault": "workspace:*",

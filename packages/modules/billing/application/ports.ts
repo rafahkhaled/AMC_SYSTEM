@@ -165,3 +165,32 @@ export interface ReportReader {
     params: { from: Date; to: Date },
   ): Promise<ProfitabilityReport>;
 }
+
+/**
+ * Getting a document to the client (FR-30, FR-06).
+ *
+ * Supplied by the composition root, because the client's contacts belong to
+ * another module and the mail itself belongs to none of them. The adapter is
+ * also what writes the contact log: sending a quotation to a client is a
+ * contact, and a contact that is not logged is one nobody can find later.
+ *
+ * WhatsApp is deliberately not offered. Meta allows free text only inside the
+ * twenty-four hours after the client last wrote, and a quotation is something
+ * the firm initiates — which needs an approved template, and none are
+ * approved yet. Offering a button that fails for most clients is worse than
+ * not offering it.
+ */
+export interface DocumentDelivery {
+  /**
+   * Returns how it went, or null when the client has no address on file —
+   * which is a normal state for a client the firm only ever meets in person,
+   * and not an error.
+   */
+  quotation(params: {
+    quotationId: string;
+    clientId: string;
+    reference: string;
+    total: Money;
+    validUntil: Date | null;
+  }): Promise<'email' | null>;
+}

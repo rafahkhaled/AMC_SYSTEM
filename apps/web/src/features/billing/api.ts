@@ -127,11 +127,18 @@ export async function removeQuotationLine(id: string, lineId: string): Promise<Q
  * decisions with three different consequences, and a body carrying a state
  * invites this function to send whichever one it happens to hold.
  */
+/**
+ * `deliver` decides whether the system emails the client or only records that
+ * somebody sent it. Absent claims less, which is the safer default.
+ */
 export async function answerQuotation(
   id: string,
   act: 'send' | 'accept' | 'decline',
+  options: { deliver?: boolean } = {},
 ): Promise<QuotationView> {
-  return quotationSchema.parse(await send(`/billing/quotations/${encodeURIComponent(id)}/${act}`));
+  return quotationSchema.parse(
+    await send(`/billing/quotations/${encodeURIComponent(id)}/${act}`, options),
+  );
 }
 
 /* ------------------------------------------------------------------ reports */

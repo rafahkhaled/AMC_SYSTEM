@@ -119,6 +119,14 @@ async function bootstrap(): Promise<void> {
           { next: () => ulid() },
         ),
       ),
+      // The same sender the escalations use: SES when a verified address is
+      // configured, the log otherwise, so the path runs either way.
+      email: environment.NOTIFICATION_FROM
+        ? sesEmailSender({
+            region: environment.SES_REGION,
+            from: environment.NOTIFICATION_FROM,
+          })
+        : loggingEmailSender(logger),
       log: (message, detail) => logger.info(detail, message),
     },
   );

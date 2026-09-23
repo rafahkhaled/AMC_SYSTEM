@@ -16,6 +16,7 @@ import {
   recordPaymentRequestSchema,
   releaseStatementRequestSchema,
   reviseLineRequestSchema,
+  sendQuotationSchema,
 } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import { Money, actorFrom } from '@amc/kernel';
@@ -159,12 +160,18 @@ export class BillingController {
     @CurrentCaller() caller: Caller,
     @Param('id') id: string,
     @Param('act') act: string,
+    @Body() body?: unknown,
   ): Promise<QuotationView> {
     await this.mustReadQuotation(caller, id);
 
+    // `deliver` says whether the system sends it or only records that
+    // somebody did. Absent means by hand, which is the safer default: it
+    // claims less.
+    const deliver = sendQuotationSchema.safeParse(body ?? {}).data?.deliver === true;
+
     const done =
       act === 'send'
-        ? await this.quotations.send(id)
+        ? await this.quotations.send(id, { deliver })
         : act === 'accept'
           ? await this.quotations.accept(id)
           : act === 'decline'

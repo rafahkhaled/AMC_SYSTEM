@@ -447,6 +447,12 @@ export const translations = {
           noHoursHint: 'لم تُسجَّل ساعات على هذا العميل، فلا سعر فعلي يُحتسب.',
         },
       },
+      emailQuotation: 'إرسال بالبريد للعميل',
+      markSent: 'تسجيل أنه أُرسل',
+      sentVia: {
+        email: 'أُرسل بالبريد الإلكتروني إلى العميل في',
+        by_hand: 'سُلِّم للعميل يدوياً في',
+      },
       newQuotation: {
         open: 'عرض سعر جديد',
         title: 'عرض سعر جديد',
@@ -470,7 +476,6 @@ export const translations = {
         declined: 'مرفوض',
         expired: 'منتهي الصلاحية',
       },
-      sendQuotation: 'إرسال للعميل',
       clientAccepted: 'العميل وافق',
       clientDeclined: 'العميل رفض',
       quotationExpired: 'انتهت صلاحية هذا العرض. أصدروا عرضاً جديداً بدلاً من الالتزام بسعر منتهٍ.',
@@ -1083,6 +1088,12 @@ export const translations = {
           noHoursHint: 'Nobody recorded time for this client, so there is no rate to work out.',
         },
       },
+      emailQuotation: 'Email it to the client',
+      markSent: 'Mark as sent',
+      sentVia: {
+        email: 'Emailed to the client on',
+        by_hand: 'Given to the client by hand on',
+      },
       newQuotation: {
         open: 'New quotation',
         title: 'New quotation',
@@ -1106,7 +1117,6 @@ export const translations = {
         declined: 'Declined',
         expired: 'Expired',
       },
-      sendQuotation: 'Send to client',
       clientAccepted: 'Client accepted',
       clientDeclined: 'Client declined',
       quotationExpired:

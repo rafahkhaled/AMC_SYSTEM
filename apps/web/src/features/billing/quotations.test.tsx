@@ -52,6 +52,7 @@ function quotationOf(over: Partial<QuotationView> = {}): QuotationView {
     total: aed(543_208),
     validUntil: '2026-10-22',
     sentAt: null,
+    sentVia: null,
     decidedAt: null,
     notesEn: null,
     notesAr: null,
@@ -97,8 +98,34 @@ describe('how a line was priced', () => {
 describe('while it is a draft', () => {
   it('offers to send it, and not to answer for the client', async () => {
     show();
-    expect(await screen.findByRole('button', { name: 'Send to client' })).toBeVisible();
+    // Two ways out, because they are two different claims about what the
+    // client has actually seen.
+    expect(await screen.findByRole('button', { name: 'Email it to the client' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mark as sent' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Client accepted' })).not.toBeInTheDocument();
+  });
+
+  it('emailing it asks the server to deliver; marking it sent does not', async () => {
+    answerQuotation.mockResolvedValue(quotationOf({ state: 'sent' }));
+    show();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Email it to the client' }));
+    expect(answerQuotation).toHaveBeenCalledWith('q-1', 'send', { deliver: true });
+
+    answerQuotation.mockClear();
+    show();
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as sent' }));
+    // No delivery asked for: somebody printed it and handed it over.
+    expect(answerQuotation).toHaveBeenCalledWith('q-1', 'send', {});
+  });
+
+  it('says how it reached the client once it has gone', async () => {
+    quotations.mockResolvedValue([
+      quotationOf({ state: 'sent', sentAt: '2026-09-22T08:00:00.000Z', sentVia: 'email' }),
+    ]);
+    show();
+
+    expect(await screen.findByText(/Emailed to the client on/)).toBeInTheDocument();
   });
 
   it('adds a fixed line in whole fils', async () => {
@@ -188,7 +215,7 @@ describe('once it is with the client', () => {
     show();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Client accepted' }));
-    await waitFor(() => expect(answerQuotation).toHaveBeenCalledWith('q-1', 'accept'));
+    await waitFor(() => expect(answerQuotation).toHaveBeenCalledWith('q-1', 'accept', {}));
   });
 });
 
@@ -200,7 +227,9 @@ describe('once it has lapsed', () => {
     // Standing behind a price that expired is the thing to avoid.
     expect(await screen.findByText(/Re-quote rather than standing behind/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Client accepted' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Send to client' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Email it to the client' }),
+    ).not.toBeInTheDocument();
   });
 });
 

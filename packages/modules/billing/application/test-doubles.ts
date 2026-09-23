@@ -3,6 +3,7 @@ import { Money } from '@amc/kernel';
 import type { Invoice, Quotation, Statement } from '../domain/index.js';
 import type {
   BillableWork,
+  DocumentDelivery,
   InvoiceNumbering,
   InvoiceRepository,
   QuotationRepository,
@@ -189,5 +190,28 @@ export class CountingNumbers implements InvoiceNumbering {
     const issued = this.value;
     this.value += 1;
     return String(issued);
+  }
+}
+
+/**
+ * Delivery that succeeds, and remembers what it was asked to send.
+ *
+ * Constructed with `null` for a client with no address on file, which is the
+ * case that has to refuse rather than quietly mark a quotation sent.
+ */
+export class FakeDelivery implements DocumentDelivery {
+  readonly sent: { quotationId: string; reference: string }[] = [];
+  constructor(private readonly channel: 'email' | null = 'email') {}
+
+  async quotation(params: {
+    quotationId: string;
+    clientId: string;
+    reference: string;
+    total: Money;
+    validUntil: Date | null;
+  }): Promise<'email' | null> {
+    if (this.channel === null) return null;
+    this.sent.push({ quotationId: params.quotationId, reference: params.reference });
+    return this.channel;
   }
 }
