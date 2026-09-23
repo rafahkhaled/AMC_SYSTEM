@@ -122,6 +122,21 @@ The largest phase and the one that earns money, because it is the one that captu
 
 **Phase exit:** SRS P2 accepted. The figures match a hand calculation, and invoiced hours can no longer be edited.
 
+**Four gaps closed after P2, found by asking what a person can actually do:**
+
+- **Opening work by hand.** `Project.fromTemplate` had one caller, the
+  recurrence sweep, which returns early for a template that happens once — so
+  de-registration, penalty waiver, VAT refund and tax profile update could not
+  be started by anybody.
+- **Creating a quotation.** The endpoint existed and no screen called it.
+  Quotations now take their number from the firm's own estimate sequence
+  rather than a typed reference.
+- **Sending one.** `send` changed a state and recorded an event nothing
+  subscribed to. It queues an email to the client's contact and writes the
+  contact log now, or records that somebody handed it over — two different
+  claims, and the quotation keeps which.
+- **X-01, the employees tab.**
+
 **P2-01 to P2-13 are done.** `node scripts/acceptance-p2.mjs` walks it against a
 running server and passes 26 of 26. The run found that time approval — the step
 between a timesheet and a statement — had no route, no use case and no screen,
@@ -237,7 +252,7 @@ work in front of them is done.
 
 | ID | Task | Note |
 |---|---|---|
-| X-01 | An employees tab: the staff list with each person's own data — role, working hours, assigned clients, tasks in hand, hours booked this month and last, leave, and when their own documents expire | The data mostly exists already. `users`, `user_working_hours`, `project_assignments` and `time_entries` between them answer all of it; what is missing is a screen and one read model that joins them. A manager currently has to open four screens to ask "what is this person doing this week". Scoped by role: everyone sees the directory, only the Manager sees hours and value |
+| X-01 | **Done.** An employees tab: the staff list with each person's own data — role, working hours, assigned clients, tasks in hand, hours booked this month and last. Leave and staff document expiry are *not* built, because the system holds neither; empty columns would have suggested the data was coming | The data mostly exists already. `users`, `user_working_hours`, `project_assignments` and `time_entries` between them answer all of it; what is missing is a screen and one read model that joins them. A manager currently has to open four screens to ask "what is this person doing this week". Scoped by role: everyone sees the directory, only the Manager sees hours and value |
 | X-02 | Analytics on the home screen | Overlaps C-01 and C-02, which already specify a role-aware dashboard shell and a card registry. Build it there rather than as a second thing. The request adds what the cards should show first: work in hand, deadlines inside thirty days, hours booked against hours expected, and which clients have gone quiet |
 
 Neither is blocked on anything. Both are behind the phase in flight.
