@@ -11,6 +11,7 @@ import { ClientsPage } from '../features/clients/clients-page.js';
 import { InboxPage } from '../features/inbox/inbox-page.js';
 import { ProjectPage } from '../features/projects/project-page.js';
 import { ProjectsPage } from '../features/projects/projects-page.js';
+import { StaffPage } from '../features/staff/staff-page.js';
 import { TimerPage } from '../features/timer/timer-page.js';
 import { WhatsAppPage } from '../features/whatsapp/whatsapp-page.js';
 import { AppShell } from './app-shell.js';
@@ -34,6 +35,7 @@ type View =
   | { name: 'timer' }
   | { name: 'billing' }
   | { name: 'whatsapp' }
+  | { name: 'staff' }
   | { name: 'inbox' }
   | { name: 'client'; id: string };
 
@@ -45,7 +47,16 @@ type View =
  */
 function activeNav(
   view: View,
-): 'clients' | 'projects' | 'calendar' | 'timer' | 'billing' | 'whatsapp' | 'inbox' | 'home' {
+):
+  | 'clients'
+  | 'projects'
+  | 'calendar'
+  | 'timer'
+  | 'billing'
+  | 'whatsapp'
+  | 'staff'
+  | 'inbox'
+  | 'home' {
   if (view.name === 'client') return 'clients';
   if (view.name === 'project') return 'projects';
   return view.name;
@@ -115,6 +126,8 @@ function Screen({
       return <BillingPage />;
     case 'whatsapp':
       return <WhatsAppPage />;
+    case 'staff':
+      return <StaffPage />;
     case 'inbox':
       return <InboxPage />;
   }

@@ -13,6 +13,7 @@ type NavView =
   | 'timer'
   | 'billing'
   | 'whatsapp'
+  | 'staff'
   | 'inbox'
   | 'home';
 
@@ -23,6 +24,7 @@ const VIEWS = [
   'timer',
   'billing',
   'whatsapp',
+  'staff',
   'inbox',
   'home',
 ] as const;

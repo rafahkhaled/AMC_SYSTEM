@@ -21,7 +21,19 @@ export function hoursAndMinutes(seconds: number): string {
   return `${hours}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}`;
 }
 
-/** h:mm, except that anything under a minute says so rather than rounding away. */
+/**
+ * h:mm, except at the two ends.
+ *
+ * Nothing recorded is an em dash, the way every other empty cell in the
+ * system reads. It is not "less than a minute": a directory row saying a
+ * colleague worked under a minute this month, when they have booked nothing
+ * at all, is a different and worse claim than saying nothing.
+ *
+ * Anything between one second and a minute does say so rather than rounding
+ * away, because a row of 0:00 above a non-zero total looks like broken
+ * arithmetic to the one profession least willing to overlook it.
+ */
 export function duration(seconds: number, t: (key: string) => string): string {
+  if (seconds === 0) return '—';
   return seconds < 60 ? t('timer.underAMinute') : hoursAndMinutes(seconds);
 }

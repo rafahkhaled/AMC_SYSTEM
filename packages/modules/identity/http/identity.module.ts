@@ -15,6 +15,7 @@ import type {
   TwoFactorService,
   UserRepository,
 } from '../application/ports.js';
+import { ReadStaff, type StaffReader } from '../application/read-staff.js';
 import { RegisterUser } from '../application/register-user.js';
 import { SignIn } from '../application/sign-in.js';
 import { SignOut } from '../application/sign-out.js';
@@ -29,6 +30,7 @@ import { PermissionsGuard } from './permissions.guard.js';
 import { COOKIE_SETTINGS, type CookieSettings } from './session-cookie.js';
 import { SessionGuard } from './session.guard.js';
 import { SignInThrottle } from './sign-in-throttle.js';
+import { StaffController } from './staff.controller.js';
 import { TwoFactorController } from './two-factor.controller.js';
 
 export interface IdentityModuleOptions {
@@ -45,6 +47,11 @@ export interface IdentityModuleOptions {
   readonly ids: IdGenerator;
   readonly limits: SessionLimits;
   readonly cookies: CookieSettings;
+  /**
+   * The staff directory's counts (X-01). Supplied by the composition root
+   * because they join projects and time entries, which identity does not see.
+   */
+  readonly staff: StaffReader;
 }
 
 /**
@@ -82,7 +89,7 @@ export class IdentityModule {
 
     return {
       module: IdentityModule,
-      controllers: [AuthController, TwoFactorController],
+      controllers: [AuthController, TwoFactorController, StaffController],
       providers: [
         SignInThrottle,
         {
@@ -91,6 +98,7 @@ export class IdentityModule {
           useFactory: options.useFactory as (...args: unknown[]) => IdentityModuleOptions,
         },
         { provide: COOKIE_SETTINGS, ...from((o) => o.cookies) },
+        { provide: ReadStaff, ...from((o) => new ReadStaff(o.staff)) },
         {
           provide: SignIn,
           ...from(

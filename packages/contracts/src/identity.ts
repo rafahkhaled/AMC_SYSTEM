@@ -49,3 +49,45 @@ export type TwoFactorEnrolment = z.infer<typeof twoFactorEnrolmentSchema>;
 
 /** The cookie the browser never reads, because it cannot. */
 export const SESSION_COOKIE = 'amc_session';
+
+/**
+ * The staff directory (X-01).
+ *
+ * One row per person, answering "what is this person doing this week" without
+ * opening four screens. Scoped by role: everybody sees who works here and
+ * when they work, and only somebody who manages people sees the hours.
+ *
+ * Not here, because the system does not hold it: leave, and the expiry of a
+ * member of staff's own documents. Both were asked for. Inventing empty
+ * columns for them would suggest the data is coming.
+ */
+export const staffMemberSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  email: z.string(),
+  roles: z.array(z.string()),
+  status: z.string(),
+  /** When this person works, which is what "after hours" is measured against. */
+  workingHours: z
+    .object({
+      startsAt: z.string(),
+      endsAt: z.string(),
+      /** ISO weekday numbers: 1 is Monday. */
+      days: z.array(z.number().int()),
+    })
+    .nullable(),
+  clients: z.number().int().nonnegative(),
+  openProjects: z.number().int().nonnegative(),
+  overdueProjects: z.number().int().nonnegative(),
+  /**
+   * Null for anybody who may not see other people's hours, rather than zero:
+   * a nought is a claim about the person, and absence is a claim about the
+   * reader.
+   */
+  thisMonthSeconds: z.number().int().nonnegative().nullable(),
+  lastMonthSeconds: z.number().int().nonnegative().nullable(),
+});
+export type StaffMember = z.infer<typeof staffMemberSchema>;
+
+export const staffDirectorySchema = z.object({ staff: z.array(staffMemberSchema) });
+export type StaffDirectory = z.infer<typeof staffDirectorySchema>;
