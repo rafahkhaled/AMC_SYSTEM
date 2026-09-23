@@ -1407,6 +1407,18 @@ a {
      one long line is not a menu. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /*
+   * Each message finds its own direction from its own first letter.
+   *
+   * Clients write in both languages, often in one thread. An English message
+   * inside this RTL page rendered as "?thanks, and when is the VAT due" —
+   * the question mark reordered to the front, because the paragraph took the
+   * page's direction rather than its own. `plaintext` is the rule that exists
+   * for exactly this: quoted text whose language nobody knew when the page
+   * was built.
+   */
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 .bubble__foot {
   display: block;
