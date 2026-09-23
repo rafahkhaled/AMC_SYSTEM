@@ -285,12 +285,12 @@ function StatementLineRow({
 
       {line.excludedReason ? (
         <p className="u-text-soft">
-          {t('billing.excludedBecause')}: {line.excludedReason}
+          {t('billing.excludedBecause')}: <span className="u-typed">{line.excludedReason}</span>
         </p>
       ) : null}
       {line.adjustedReason ? (
         <p className="u-text-soft">
-          {t('billing.adjustedBecause')}: {line.adjustedReason}
+          {t('billing.adjustedBecause')}: <span className="u-typed">{line.adjustedReason}</span>
         </p>
       ) : null}
 

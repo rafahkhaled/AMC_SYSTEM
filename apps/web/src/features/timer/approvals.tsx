@@ -134,7 +134,7 @@ function ApprovalRow({
         </span>
         {/* The reason is required on a manual entry, and it is the thing a
             manager is actually reading before saying yes. */}
-        {entry.reason ? <span className="u-text-soft">{entry.reason}</span> : null}
+        {entry.reason ? <span className="u-text-soft u-typed">{entry.reason}</span> : null}
       </span>
 
       <span className="u-row u-row--tight">

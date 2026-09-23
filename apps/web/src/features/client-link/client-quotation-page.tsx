@@ -75,7 +75,7 @@ export function ClientQuotationPage({ token }: { token: string }) {
                   {/* Whichever description the client can read. Falling back
                       rather than showing an empty cell: a line with no words
                       on it is a line they cannot agree to. */}
-                  <th scope="row">
+                  <th scope="row" className="u-typed">
                     {arabic
                       ? line.descriptionAr || line.descriptionEn
                       : line.descriptionEn || line.descriptionAr}
@@ -100,7 +100,7 @@ export function ClientQuotationPage({ token }: { token: string }) {
         {arabic ? (
           view.notesAr
         ) : view.notesEn ? (
-          <p className="u-text-soft">{arabic ? view.notesAr : view.notesEn}</p>
+          <p className="u-text-soft u-typed">{arabic ? view.notesAr : view.notesEn}</p>
         ) : null}
 
         {view.state === 'accepted' ? (

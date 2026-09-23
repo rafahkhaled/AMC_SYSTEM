@@ -283,7 +283,7 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
         {quotation.lines.map((line) => (
           <li key={line.id} className="u-row u-spread">
             <span className="row__main">
-              <span>
+              <span className="u-typed">
                 {i18n.language === 'ar'
                   ? line.descriptionAr || line.descriptionEn
                   : line.descriptionEn || line.descriptionAr}

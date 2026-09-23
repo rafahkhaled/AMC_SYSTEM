@@ -135,7 +135,9 @@ function Sheet({
         <tbody>
           {lines.map((line) => (
             <tr key={line.key}>
-              <td className="doc__description">
+              {/* The sheet runs left to right; the Arabic second line does
+                  not, and takes its own direction from its own first letter. */}
+              <td className="doc__description u-typed">
                 {line.description}
                 {line.note ? (
                   <>

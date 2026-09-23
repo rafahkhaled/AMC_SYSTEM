@@ -69,7 +69,7 @@ function EntryRow({ clientId, entry }: { clientId: string; entry: ContactLogEntr
         <span className="u-grow" />
         <span className="u-text-faint">{when}</span>
       </div>
-      <p className="contact-entry__summary">{entry.summary}</p>
+      <p className="contact-entry__summary u-typed">{entry.summary}</p>
       {entry.attachments.length > 0 ? (
         <div className="u-row">
           {entry.attachments.map((file) => (

@@ -1813,3 +1813,22 @@ a {
   font-weight: 620;
   color: var(--text);
 }
+
+/*
+ * Words somebody else typed.
+ *
+ * Any run of text whose language was unknown when the page was built: a
+ * client's name, the reason on a manual time entry, a line description, a
+ * note. Each takes its direction from its own first letter, so an English
+ * sentence inside the Arabic interface — or an Arabic one inside the printed
+ * English document — reads the way it was written rather than the way the
+ * page around it happens to run.
+ *
+ * Without it a trailing question mark or full stop jumps to the far end of
+ * the sentence, which is how "thanks, and when is the VAT due?" reached the
+ * WhatsApp thread as "?thanks, and when is the VAT due".
+ */
+.u-typed {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
