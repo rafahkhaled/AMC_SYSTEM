@@ -5,31 +5,25 @@ import {
   Module,
   type OptionalFactoryDependency,
 } from '@nestjs/common';
-import { ClientQuotation } from '../application/client-quotation.js';
-import { GenerateStatement } from '../application/generate-statement.js';
-import { ManageQuotations } from '../application/manage-quotations.js';
-import type { StatementRepository } from '../application/ports.js';
-import { RaiseInvoice } from '../application/raise-invoice.js';
+import { BillingOperations } from '../application/billing-operations.js';
 import { ReadBilling } from '../application/read-billing.js';
-import { ReleaseFromStatement } from '../application/release-from-statement.js';
-import { SettleInvoice } from '../application/settle-invoice.js';
 import { BillingController } from './billing.controller.js';
 import { ClientQuotationController } from './client-quotation.controller.js';
-import { FirmProfileToken, StatementRepositoryToken } from './tokens.js';
+import { FirmProfileToken } from './tokens.js';
 
 /** What the composition root has to supply for billing to work. */
 export interface BillingParts {
   readonly read: ReadBilling;
-  readonly generate: GenerateStatement;
-  readonly quotations: ManageQuotations;
-  readonly raise: RaiseInvoice;
-  readonly settle: SettleInvoice;
-  readonly release: ReleaseFromStatement;
-  readonly statements: StatementRepository;
+  /**
+   * Everything that changes something, and the transaction it changes it in.
+   *
+   * The services used to be provided one by one and constructed against a
+   * bare database handle, which is how this module wrote nothing to the audit
+   * log for an entire phase.
+   */
+  readonly operations: BillingOperations;
   /** What goes on a printed quotation or invoice. */
   readonly firmProfile: FirmProfile;
-  /** The client's own view of a quotation, reached by link and no account. */
-  readonly clientQuotations: ClientQuotation;
 }
 
 @Module({})
@@ -54,46 +48,17 @@ export class BillingModule {
         },
         { provide: ReadBilling, inject: [PARTS], useFactory: (p: BillingParts) => p.read },
         {
-          provide: GenerateStatement,
+          provide: BillingOperations,
           inject: [PARTS],
-          useFactory: (p: BillingParts) => p.generate,
-        },
-        {
-          provide: ManageQuotations,
-          inject: [PARTS],
-          useFactory: (p: BillingParts) => p.quotations,
-        },
-        { provide: RaiseInvoice, inject: [PARTS], useFactory: (p: BillingParts) => p.raise },
-        { provide: SettleInvoice, inject: [PARTS], useFactory: (p: BillingParts) => p.settle },
-        {
-          provide: ReleaseFromStatement,
-          inject: [PARTS],
-          useFactory: (p: BillingParts) => p.release,
-        },
-        {
-          provide: StatementRepositoryToken,
-          inject: [PARTS],
-          useFactory: (p: BillingParts) => p.statements,
+          useFactory: (p: BillingParts) => p.operations,
         },
         {
           provide: FirmProfileToken,
           inject: [PARTS],
           useFactory: (p: BillingParts) => p.firmProfile,
         },
-        {
-          provide: ClientQuotation,
-          inject: [PARTS],
-          useFactory: (p: BillingParts) => p.clientQuotations,
-        },
       ],
-      exports: [
-        ReadBilling,
-        GenerateStatement,
-        ManageQuotations,
-        RaiseInvoice,
-        SettleInvoice,
-        ReleaseFromStatement,
-      ],
+      exports: [ReadBilling, BillingOperations],
     };
   }
 }

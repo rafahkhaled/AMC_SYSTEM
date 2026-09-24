@@ -1,4 +1,4 @@
-import { type CurrencyCode, Duration, Money } from '@amc/kernel';
+import { type CurrencyCode, Duration, type EventCollector, Money } from '@amc/kernel';
 import { sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { InvoiceNumbering, InvoiceRepository } from '../application/ports.js';
@@ -48,7 +48,17 @@ type PaymentRow = {
 };
 
 export class DrizzleInvoiceRepository implements InvoiceRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    /**
+     * Where this aggregate's events go.
+     *
+     * Absent for a read-only caller and for the expiry sweep's own queries.
+     * Present for anything inside a unit of work, which is what turns each
+     * event into an audit row in the same transaction as the change.
+     */
+    private readonly collector?: EventCollector,
+  ) {}
 
   async findById(id: string): Promise<Invoice | null> {
     const rows = await this.db.execute<InvoiceRow>(sql`
@@ -137,6 +147,7 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
    * payment, and leaves the billed lines exactly as they were.
    */
   async save(invoice: Invoice): Promise<void> {
+    this.collector?.collect(invoice.pullEvents());
     const state = invoice.snapshot();
 
     await this.db.execute(sql`

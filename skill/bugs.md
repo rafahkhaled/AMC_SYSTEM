@@ -677,9 +677,18 @@ operation, and the P2 acceptance run does not either.
 **Found by:** looking for a client's acceptance in the log after building the
 client link, and finding no billing rows of any kind.
 
-**Not yet fixed.** It is the whole phase rather than one call, and doing half
-of it is worse than none: a module that audits its quotations and not its
-invoices reads as though the invoices were checked.
+**Fixed.** The repositories take an `EventCollector` and hand over what the
+aggregate recorded; every write in the module runs inside `BillingOperations`,
+which is one wrapper rather than a method per operation, so a new operation
+cannot be added outside the trail by forgetting to wrap it. The client
+answering their own quotation is audited too, with a null `actor_user_id` and
+a `client` role, because there is no user and the row should say so.
+
+**What proved it:** three integration tests that read `audit_log` rather than
+the billing tables, plus a run against the server — a quotation sent by a
+manager and accepted by a client produced four rows naming each of them
+correctly. Deleting the `collect` call makes two of the three fail with an
+empty trail, which is the symptom the original bug had.
 
 **Lesson:** ADR-0004 is only true where something wires it. "Every write lands
 in the audit log" was proved for the phase that built the audit log and assumed

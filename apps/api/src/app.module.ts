@@ -1,6 +1,8 @@
 import { AuditModule } from '@amc/audit/http';
 import { DrizzleAuditReader, DrizzleUnitOfWork } from '@amc/audit/infrastructure';
 import {
+  BillingOperations,
+  type BillingServices,
   ClientQuotation,
   GenerateStatement,
   ManageQuotations,
@@ -338,9 +340,6 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
       useFactory: (db: Database, environment: Environment) => {
         const ids = { next: () => ulid() };
         const clock = new SystemClock();
-        const statements = new DrizzleStatementRepository(db);
-        const invoices = new DrizzleInvoiceRepository(db);
-        const attachment = workAttachment(db);
         const rates = rateReader(db, {
           perHourMinor: environment.BILLING_DEFAULT_RATE_MINOR,
           currency: environment.DEFAULT_CURRENCY,
@@ -350,8 +349,71 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
           paymentTermsDays: environment.BILLING_PAYMENT_TERMS_DAYS,
         };
 
+        /*
+         * Built once per transaction, against that transaction's handle and
+         * its collector.
+         *
+         * Constructed once at start-up against a bare handle before, which is
+         * why nothing this module did ever reached the audit log: the
+         * repositories had nowhere to put the events their aggregates
+         * recorded, and no transaction to be part of.
+         */
+        const forTransaction = (handle: unknown, collector: unknown): BillingServices => {
+          const transaction = handle as Database;
+          const events = collector as EventCollector;
+          const statements = new DrizzleStatementRepository(transaction, events);
+          const invoices = new DrizzleInvoiceRepository(transaction, events);
+          const quotations = new DrizzleQuotationRepository(transaction, events);
+          const attachment = workAttachment(transaction);
+
+          return {
+            statements,
+            generate: new GenerateStatement(
+              unbilledWork(transaction, environment.BUSINESS_TIME_ZONE),
+              rates,
+              statements,
+              attachment,
+              clock,
+              ids,
+            ),
+            raise: new RaiseInvoice(
+              statements,
+              invoices,
+              new DrizzleDocumentNumbering(transaction),
+              settings,
+              clock,
+              ids,
+            ),
+            quotations: new ManageQuotations(
+              quotations,
+              rates,
+              clock,
+              ids,
+              // The firm's own estimate sequence, continuing from 192.
+              new DrizzleDocumentNumbering(transaction, 'quotation'),
+              quotationDelivery(transaction, ids, environment.PUBLIC_BASE_URL),
+              new CryptoSessionTokens(),
+            ),
+            settle: new SettleInvoice(invoices, clock, ids),
+            release: new ReleaseFromStatement(statements, attachment),
+            /*
+             * The client's link uses the same token service as a session: 32
+             * random bytes, stored only as a SHA-256. It is the same problem
+             * — a secret with full entropy that must not be readable from a
+             * backup — so it gets the same answer.
+             */
+            clientQuotations: new ClientQuotation(
+              quotations,
+              new CryptoSessionTokens(),
+              clock,
+              environment.FIRM_LEGAL_NAME,
+            ),
+          };
+        };
+
         return {
           read: new ReadBilling(new DrizzleBillingReader(db), new DrizzleReportReader(db), clock),
+          operations: new BillingOperations(new DrizzleUnitOfWork(db, ids, clock), forTransaction),
           /*
            * Straight from the environment, and nullable throughout. The
            * renderer prints a visible marker for anything missing rather than
@@ -359,18 +421,6 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
            * invoice that looks unfinished instead of one that looks finished
            * and cannot be paid.
            */
-          /*
-           * The client's link uses the same token service as a session: 32
-           * random bytes, stored only as a SHA-256. It is the same problem —
-           * a secret with full entropy that must not be readable from a
-           * backup — so it gets the same answer.
-           */
-          clientQuotations: new ClientQuotation(
-            new DrizzleQuotationRepository(db),
-            new CryptoSessionTokens(),
-            clock,
-            environment.FIRM_LEGAL_NAME,
-          ),
           firmProfile: {
             legalName: environment.FIRM_LEGAL_NAME,
             addresses: [
@@ -385,35 +435,6 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
             logoUrl: environment.FIRM_LOGO_URL ?? null,
             stampUrl: environment.FIRM_STAMP_URL ?? null,
           },
-          generate: new GenerateStatement(
-            unbilledWork(db, environment.BUSINESS_TIME_ZONE),
-            rates,
-            statements,
-            attachment,
-            clock,
-            ids,
-          ),
-          raise: new RaiseInvoice(
-            statements,
-            invoices,
-            new DrizzleDocumentNumbering(db),
-            settings,
-            clock,
-            ids,
-          ),
-          quotations: new ManageQuotations(
-            new DrizzleQuotationRepository(db),
-            rates,
-            clock,
-            ids,
-            // The firm's own estimate sequence, continuing from 192.
-            new DrizzleDocumentNumbering(db, 'quotation'),
-            quotationDelivery(db, ids, environment.PUBLIC_BASE_URL),
-            new CryptoSessionTokens(),
-          ),
-          settle: new SettleInvoice(invoices, clock, ids),
-          release: new ReleaseFromStatement(statements, attachment),
-          statements,
         };
       },
     }),

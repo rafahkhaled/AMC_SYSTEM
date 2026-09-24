@@ -33,14 +33,9 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { GenerateStatement } from '../application/generate-statement.js';
-import { ManageQuotations } from '../application/manage-quotations.js';
-import type { StatementRepository } from '../application/ports.js';
-import { RaiseInvoice } from '../application/raise-invoice.js';
+import { BillingOperations } from '../application/billing-operations.js';
 import { ReadBilling } from '../application/read-billing.js';
-import { ReleaseFromStatement } from '../application/release-from-statement.js';
-import { SettleInvoice } from '../application/settle-invoice.js';
-import { FirmProfileToken, StatementRepositoryToken } from './tokens.js';
+import { FirmProfileToken } from './tokens.js';
 
 /**
  * Billing (FR-31 to FR-33).
@@ -60,12 +55,8 @@ import { FirmProfileToken, StatementRepositoryToken } from './tokens.js';
 export class BillingController {
   constructor(
     @Inject(ReadBilling) private readonly read: ReadBilling,
-    @Inject(GenerateStatement) private readonly generate: GenerateStatement,
-    @Inject(ManageQuotations) private readonly quotations: ManageQuotations,
-    @Inject(RaiseInvoice) private readonly raise: RaiseInvoice,
-    @Inject(SettleInvoice) private readonly settle: SettleInvoice,
-    @Inject(ReleaseFromStatement) private readonly release: ReleaseFromStatement,
-    @Inject(StatementRepositoryToken) private readonly statements: StatementRepository,
+    @Inject(BillingOperations) private readonly billing: BillingOperations,
+
     @Inject(FirmProfileToken) private readonly firmProfile: FirmProfile,
   ) {}
 
@@ -100,13 +91,15 @@ export class BillingController {
     const parsed = draftQuotationRequestSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('Name a client and a reference');
 
-    const drafted = await this.quotations.draft(caller.userId, {
-      clientId: parsed.data.clientId,
-      reference: parsed.data.reference,
-      validUntil: parsed.data.validUntil ? day(parsed.data.validUntil) : null,
-      notesEn: parsed.data.notesEn ?? null,
-      notesAr: parsed.data.notesAr ?? null,
-    });
+    const drafted = await this.billing.run(caller, (billing) =>
+      billing.quotations.draft(caller.userId, {
+        clientId: parsed.data.clientId,
+        reference: parsed.data.reference,
+        validUntil: parsed.data.validUntil ? day(parsed.data.validUntil) : null,
+        notesEn: parsed.data.notesEn ?? null,
+        notesAr: parsed.data.notesAr ?? null,
+      }),
+    );
     if (!drafted.ok) throw new ConflictException(drafted.error.message);
 
     return this.mustReadQuotation(caller, drafted.value.quotationId);
@@ -127,7 +120,9 @@ export class BillingController {
     }
 
     await this.mustReadQuotation(caller, id);
-    const added = await this.quotations.addLine(id, parsed.data);
+    const added = await this.billing.run(caller, (billing) =>
+      billing.quotations.addLine(id, parsed.data),
+    );
     if (!added.ok) throw new ConflictException(added.error.message);
 
     return this.mustReadQuotation(caller, id);
@@ -141,7 +136,9 @@ export class BillingController {
     @Param('lineId') lineId: string,
   ): Promise<QuotationView> {
     await this.mustReadQuotation(caller, id);
-    const removed = await this.quotations.removeLine(id, lineId);
+    const removed = await this.billing.run(caller, (billing) =>
+      billing.quotations.removeLine(id, lineId),
+    );
     if (!removed.ok) throw new ConflictException(removed.error.message);
     return this.mustReadQuotation(caller, id);
   }
@@ -169,16 +166,20 @@ export class BillingController {
     // claims less.
     const deliver = sendQuotationSchema.safeParse(body ?? {}).data?.deliver === true;
 
-    const done =
-      act === 'send'
-        ? await this.quotations.send(id, { deliver })
-        : act === 'accept'
-          ? await this.quotations.accept(id)
-          : act === 'decline'
-            ? await this.quotations.decline(id)
-            : null;
+    if (act !== 'send' && act !== 'accept' && act !== 'decline') {
+      throw new BadRequestException('That is not something to do to a quotation');
+    }
 
-    if (done === null) throw new BadRequestException('That is not something to do to a quotation');
+    const done = await this.billing.run(caller, async (billing) => {
+      // `send` reports which channel it went by; the three answers are the
+      // same shape to this route, which only needs to know whether it worked.
+      if (act === 'send') {
+        const sent = await billing.quotations.send(id, { deliver });
+        return sent.ok ? sent : sent;
+      }
+      return act === 'accept' ? billing.quotations.accept(id) : billing.quotations.decline(id);
+    });
+
     if (!done.ok) throw new ConflictException(done.error.message);
 
     return this.mustReadQuotation(caller, id);
@@ -216,7 +217,7 @@ export class BillingController {
     @Param('id') id: string,
   ): Promise<QuotationView> {
     await this.mustReadQuotation(caller, id);
-    const again = await this.quotations.sendAgain(id);
+    const again = await this.billing.run(caller, (billing) => billing.quotations.sendAgain(id));
     if (!again.ok) throw new ConflictException(again.error.message);
     return this.mustReadQuotation(caller, id);
   }
@@ -285,11 +286,13 @@ export class BillingController {
     const parsed = generateStatementRequestSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('Name a client and a period');
 
-    const made = await this.generate.execute(caller.userId, {
-      clientId: parsed.data.clientId,
-      from: day(parsed.data.from),
-      to: day(parsed.data.to),
-    });
+    const made = await this.billing.run(caller, (billing) =>
+      billing.generate.execute(caller.userId, {
+        clientId: parsed.data.clientId,
+        from: day(parsed.data.from),
+        to: day(parsed.data.to),
+      }),
+    );
     if (!made.ok) throw new ConflictException(made.error.message);
 
     return this.mustRead(caller, made.value.statementId);
@@ -318,23 +321,29 @@ export class BillingController {
     const visible = await this.read.statement(caller, id);
     if (!visible) throw new NotFoundException('No such statement');
 
-    const statement = await this.statements.findById(id);
-    if (!statement) throw new NotFoundException('No such statement');
+    const revised = await this.billing.run(caller, async (billing) => {
+      const statement = await billing.statements.findById(id);
+      if (!statement) return null;
 
-    const now = new Date();
-    const revised =
-      parsed.data.adjustToMinor === undefined
-        ? statement.exclude(lineId, parsed.data.reason, now)
-        : statement.adjust(
-            lineId,
-            // The aggregate's own currency, not the one off the wire.
-            Money.ofMinor(parsed.data.adjustToMinor, statement.currency),
-            parsed.data.reason,
-            now,
-          );
+      const now = new Date();
+      const outcome =
+        parsed.data.adjustToMinor === undefined
+          ? statement.exclude(lineId, parsed.data.reason, now)
+          : statement.adjust(
+              lineId,
+              // The aggregate's own currency, not the one off the wire.
+              Money.ofMinor(parsed.data.adjustToMinor, statement.currency),
+              parsed.data.reason,
+              now,
+            );
+      if (!outcome.ok) return outcome;
+
+      await billing.statements.save(statement);
+      return outcome;
+    });
+
+    if (revised === null) throw new NotFoundException('No such statement');
     if (!revised.ok) throw new ConflictException(revised.error.message);
-
-    await this.statements.save(statement);
     return this.mustRead(caller, id);
   }
 
@@ -344,13 +353,19 @@ export class BillingController {
     const visible = await this.read.statement(caller, id);
     if (!visible) throw new NotFoundException('No such statement');
 
-    const statement = await this.statements.findById(id);
-    if (!statement) throw new NotFoundException('No such statement');
+    const approved = await this.billing.run(caller, async (billing) => {
+      const statement = await billing.statements.findById(id);
+      if (!statement) return null;
 
-    const approved = statement.approve(caller.userId, new Date());
+      const outcome = statement.approve(caller.userId, new Date());
+      if (!outcome.ok) return outcome;
+
+      await billing.statements.save(statement);
+      return outcome;
+    });
+
+    if (approved === null) throw new NotFoundException('No such statement');
     if (!approved.ok) throw new ConflictException(approved.error.message);
-
-    await this.statements.save(statement);
     return this.mustRead(caller, id);
   }
 
@@ -360,7 +375,9 @@ export class BillingController {
     const visible = await this.read.statement(caller, id);
     if (!visible) throw new NotFoundException('No such statement');
 
-    const raised = await this.raise.execute(caller.userId, id);
+    const raised = await this.billing.run(caller, (billing) =>
+      billing.raise.execute(caller.userId, id),
+    );
     if (!raised.ok) throw new ConflictException(raised.error.message);
 
     const invoice = await this.read.invoice(caller, raised.value.invoiceId);
@@ -388,10 +405,12 @@ export class BillingController {
     const visible = await this.read.statement(caller, id);
     if (!visible) throw new NotFoundException('No such statement');
 
-    const released = await this.release.execute(caller, {
-      statementId: id,
-      reason: parsed.data.reason,
-    });
+    const released = await this.billing.run(caller, (billing) =>
+      billing.release.execute(caller, {
+        statementId: id,
+        reason: parsed.data.reason,
+      }),
+    );
     if (!released.ok) throw new ConflictException(released.error.message);
     return released.value;
   }
@@ -428,13 +447,15 @@ export class BillingController {
     const visible = await this.read.invoice(caller, id);
     if (!visible) throw new NotFoundException('No such invoice');
 
-    const recorded = await this.settle.record(actorFrom(caller), {
-      invoiceId: id,
-      amountMinor: parsed.data.amountMinor,
-      receivedOn: new Date(parsed.data.receivedOn),
-      method: parsed.data.method,
-      reference: parsed.data.reference ?? null,
-    });
+    const recorded = await this.billing.run(caller, (billing) =>
+      billing.settle.record(actorFrom(caller), {
+        invoiceId: id,
+        amountMinor: parsed.data.amountMinor,
+        receivedOn: new Date(parsed.data.receivedOn),
+        method: parsed.data.method,
+        reference: parsed.data.reference ?? null,
+      }),
+    );
     if (!recorded.ok) throw new ConflictException(recorded.error.message);
 
     const invoice = await this.read.invoice(caller, id);

@@ -11,7 +11,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
-import { ClientQuotation } from '../application/client-quotation.js';
+import { BillingOperations } from '../application/billing-operations.js';
 
 /**
  * The quotation a client opens from the link they were sent (FR-30).
@@ -28,12 +28,21 @@ import { ClientQuotation } from '../application/client-quotation.js';
  */
 @Controller('public/quotations')
 export class ClientQuotationController {
-  constructor(@Inject(ClientQuotation) private readonly quotations: ClientQuotation) {}
+  constructor(@Inject(BillingOperations) private readonly billing: BillingOperations) {}
 
   @Public()
   @Get(':token')
   async open(@Param('token') token: string): Promise<ClientQuotationView> {
-    const opened = await this.quotations.open(token);
+    /*
+     * Inside a unit of work, like every other write here.
+     *
+     * Opening the link records that the client looked, and answering records
+     * their decision — both are changes, and a change a client made is the
+     * one the firm is most likely to be asked to evidence later.
+     */
+    const opened = await this.billing.runAsClient((billing) =>
+      billing.clientQuotations.open(token),
+    );
     if (!opened.ok) throw new NotFoundException(opened.error.message);
     return opened.value;
   }
@@ -44,7 +53,9 @@ export class ClientQuotationController {
     const parsed = answerQuotationSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('Say yes or no');
 
-    const answered = await this.quotations.answer(token, parsed.data.decision);
+    const answered = await this.billing.runAsClient((billing) =>
+      billing.clientQuotations.answer(token, parsed.data.decision),
+    );
     // Including "already answered": a client who presses accept twice should
     // see the accepted page, and somebody guessing should learn nothing.
     if (!answered.ok) throw new NotFoundException(answered.error.message);

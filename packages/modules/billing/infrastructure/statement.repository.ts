@@ -1,4 +1,4 @@
-import { type CurrencyCode, Duration, Money } from '@amc/kernel';
+import { type CurrencyCode, Duration, type EventCollector, Money } from '@amc/kernel';
 import { sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { StatementRepository } from '../application/ports.js';
@@ -47,7 +47,17 @@ type LineRow = {
 };
 
 export class DrizzleStatementRepository implements StatementRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    /**
+     * Where this aggregate's events go.
+     *
+     * Absent for a read-only caller and for the expiry sweep's own queries.
+     * Present for anything inside a unit of work, which is what turns each
+     * event into an audit row in the same transaction as the change.
+     */
+    private readonly collector?: EventCollector,
+  ) {}
 
   async findById(id: string): Promise<Statement | null> {
     const rows = await this.db.execute<StatementRow>(sql`
@@ -122,6 +132,7 @@ export class DrizzleStatementRepository implements StatementRepository {
    * who has already paid for them.
    */
   async save(statement: Statement): Promise<void> {
+    this.collector?.collect(statement.pullEvents());
     const state = statement.snapshot();
 
     await this.db.execute(sql`
