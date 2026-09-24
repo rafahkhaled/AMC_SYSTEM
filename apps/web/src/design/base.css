@@ -1832,3 +1832,9 @@ a {
   unicode-bidi: plaintext;
   text-align: start;
 }
+
+/* A row that wraps rather than overflowing: a handful of badges, a set of
+   counts. The plain .u-row holds its line and scrolls; this one folds. */
+.u-row--wrap {
+  flex-wrap: wrap;
+}

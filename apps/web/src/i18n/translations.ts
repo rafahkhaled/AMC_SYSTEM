@@ -30,6 +30,19 @@ export const translations = {
     },
     home: {
       welcome: 'أهلاً، {{name}}',
+      hint: 'ما يحتاج إليكم اليوم.',
+      deadlines: {
+        title: 'المواعيد القريبة',
+        hint: 'خلال ثلاثين يوماً، والمتأخر أولاً.',
+        none: 'لا مواعيد قريبة',
+        noneHint: 'لا شيء مستحق خلال ثلاثين يوماً.',
+        overdue: 'متأخر',
+      },
+      work: {
+        title: 'العمل بين أيديكم',
+        hint: '{{count}} عمل مفتوح.',
+        none: 'لا عمل مفتوح',
+      },
       role: 'الدور',
       collectionPending: 'قيد التحصيل',
       collectionPendingHint: 'فواتير لم تُسدَّد بعد، والعمل مستمر عليها.',
@@ -130,6 +143,13 @@ export const translations = {
       penalty_waiver: 'إلغاء الغرامات',
       emaratax_request: 'طلبات إماراتاكس',
       audit: 'التدقيق',
+    },
+    deadlineKinds: {
+      vat_return: 'إقرار القيمة المضافة',
+      ct_return: 'إقرار ضريبة الشركات',
+      document_expiry: 'انتهاء مستند',
+      project: 'عمل',
+      custom: 'موعد',
     },
     projectStates: {
       awaiting_documents: 'بانتظار المستندات',
@@ -783,6 +803,19 @@ export const translations = {
     },
     home: {
       welcome: 'Welcome, {{name}}',
+      hint: 'What needs you today.',
+      deadlines: {
+        title: 'Due soon',
+        hint: 'The next thirty days, with anything late first.',
+        none: 'Nothing due soon',
+        noneHint: 'Nothing falls due in the next thirty days.',
+        overdue: 'Overdue',
+      },
+      work: {
+        title: 'Work in hand',
+        hint: '{{count}} open.',
+        none: 'No open work',
+      },
       role: 'Role',
       collectionPending: 'Collection pending',
       collectionPendingHint: 'Unpaid, and the work is carrying on anyway.',
@@ -867,6 +900,13 @@ export const translations = {
       penalty_waiver: 'Penalty waiver',
       emaratax_request: 'EmaraTax request',
       audit: 'Audit',
+    },
+    deadlineKinds: {
+      vat_return: 'VAT return',
+      ct_return: 'Corporation tax return',
+      document_expiry: 'Document expiry',
+      project: 'Work',
+      custom: 'Deadline',
     },
     projectStates: {
       awaiting_documents: 'Awaiting documents',

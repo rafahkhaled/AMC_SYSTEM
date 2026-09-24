@@ -51,3 +51,20 @@ export const calendarMonthSchema = z.object({
   overdue: z.array(calendarEntrySchema),
 });
 export type CalendarMonth = z.infer<typeof calendarMonthSchema>;
+
+/**
+ * What is due soon and what is already late (FR-80).
+ *
+ * A flat list rather than a grid. The month view answers "what does October
+ * look like"; this answers "what do I have to do about it", and the two are
+ * different questions — the second one crosses the month boundary, which is
+ * exactly the join a grid hides.
+ */
+export const upcomingDeadlinesSchema = z.object({
+  /** How many days ahead this looked. */
+  within: z.number().int().positive(),
+  overdue: z.array(calendarEntrySchema),
+  /** Soonest first, with anything done or already late left out. */
+  soon: z.array(calendarEntrySchema),
+});
+export type UpcomingDeadlines = z.infer<typeof upcomingDeadlinesSchema>;

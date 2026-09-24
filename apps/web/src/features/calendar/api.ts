@@ -1,4 +1,9 @@
-import { type CalendarMonth, calendarMonthSchema } from '@amc/contracts';
+import {
+  type CalendarMonth,
+  type UpcomingDeadlines,
+  calendarMonthSchema,
+  upcomingDeadlinesSchema,
+} from '@amc/contracts';
 import { request } from '../auth/api.js';
 
 export async function calendarMonth(month: string): Promise<CalendarMonth> {
@@ -15,4 +20,9 @@ export function shiftMonth(month: string, task: number): string {
   const [year, index] = month.split('-').map(Number);
   const date = new Date(Date.UTC(year ?? 2026, (index ?? 1) - 1 + task, 1));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** What the home screen asks for: due soon, and already late. */
+export async function upcomingDeadlines(days = 30): Promise<UpcomingDeadlines> {
+  return upcomingDeadlinesSchema.parse(await request(`/calendar/upcoming?days=${days}`));
 }

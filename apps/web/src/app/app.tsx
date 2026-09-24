@@ -120,7 +120,7 @@ function Screen({
 }) {
   switch (view.name) {
     case 'home':
-      return <HomePage caller={caller} />;
+      return <HomePage caller={caller} onOpenProject={(id) => go({ name: 'project', id })} />;
     case 'clients':
       return <ClientsPage onOpen={(id) => go({ name: 'client', id })} />;
     case 'client':

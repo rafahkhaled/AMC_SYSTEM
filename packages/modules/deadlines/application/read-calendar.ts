@@ -1,4 +1,4 @@
-import type { CalendarEntry, CalendarMonth } from '@amc/contracts';
+import type { CalendarEntry, CalendarMonth, UpcomingDeadlines } from '@amc/contracts';
 import { type Clock, heldBy } from '@amc/kernel';
 import { BusinessCalendar, applyCalendar } from '../domain/index.js';
 import type {
@@ -88,6 +88,46 @@ export class ReadCalendar {
       month: isoDay(start).slice(0, 7),
       days,
       overdue: late.map((thing) => toEntry(thing, calendar, now)).sort(byClientThenKind),
+    };
+  }
+
+  /**
+   * What is due soon, and what is already late (FR-80).
+   *
+   * The month grid answers "what does October look like"; this answers "what
+   * do I have to do about it", which is the question somebody opens the
+   * system with. A flat list, soonest first, crossing the month boundary —
+   * because the last week of a month and the first of the next are one
+   * stretch of work to the person doing it, and a grid makes that the one
+   * thing hard to see.
+   */
+  async upcoming(caller: Viewer, days: number): Promise<UpcomingDeadlines> {
+    const scope = this.scope(caller);
+    if (scope.kind === 'none') return { within: days, overdue: [], soon: [] };
+
+    const now = this.clock.now();
+    const horizon = new Date(now.getTime() + days * 86_400_000);
+
+    const [things, holidays, late] = await Promise.all([
+      this.deadlines.between(scope, now, horizon),
+      // A week past, so a deadline the calendar pushes outward is still
+      // placed on the day it actually falls.
+      this.holidays.between(now, new Date(horizon.getTime() + 7 * 86_400_000)),
+      this.deadlines.overdue(scope, now),
+    ]);
+
+    const calendar = new BusinessCalendar(holidays);
+    const soon = things
+      .map((thing) => toEntry(thing, calendar, now))
+      // Done is not gone: it stays on the month grid as a record, but it is
+      // not something anybody has to do.
+      .filter((entry) => !entry.isDone && !entry.isOverdue)
+      .sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+
+    return {
+      within: days,
+      overdue: late.map((thing) => toEntry(thing, calendar, now)).sort(byClientThenKind),
+      soon,
     };
   }
 }
