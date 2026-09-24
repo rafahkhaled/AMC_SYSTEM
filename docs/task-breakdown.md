@@ -234,10 +234,10 @@ These are not a phase. Each card is built in the phase that produces its data, o
 
 | ID | Task | FR | Built during | d |
 |---|---|---|---|---|
-| C-01 | Dashboard shell, role-aware, card registry so each phase adds its own | FR-80 | P1 | 1.5 |
-| C-02 | Cards for tasks, deadlines and expiries | FR-80 | P1 | 1 |
+| C-01 | ~~Dashboard shell, role-aware, card registry so each phase adds its own~~ **done** | FR-80 | P1 | 1.5 |
+| C-02 | ~~Cards for tasks, deadlines and expiries~~ **done** | FR-80 | P1 | 1 |
 | C-03 | Hours this month: hours and value per client, billed against unbilled, for the Manager | FR-81 | P2 | 1.5 |
-| C-04 | Cards for receivables and collection pending | FR-80 | P2 | 1 |
+| C-04 | Cards for receivables and collection pending — collection pending **done**, receivables outstanding | FR-80 | P2 | 1 |
 | C-05 | Cards for batch status, exceptions and AI spend | FR-80, FR-90 | P3 | 1.5 |
 | C-06 | VAT report for the period, taxable separated from non-taxable, unusual treatment flagged, drill-down to the invoice | FR-82 | P3 | 2.5 |
 | C-07 | Export any report to Excel and PDF, one shared pipeline | FR-83 | P2 | 1.5 |
