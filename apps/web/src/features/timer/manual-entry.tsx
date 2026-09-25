@@ -2,7 +2,7 @@ import type { TimerState } from '@amc/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Card, Field } from '../../design/index.js';
+import { Alert, Button, Card, Field, Select } from '../../design/index.js';
 import { recordManual } from './api.js';
 
 interface Option {
@@ -70,9 +70,8 @@ export function ManualEntry({
         <Field
           label={t('timer.whichProject')}
           control={(props) => (
-            <select
+            <Select
               {...props}
-              className="input"
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
             >
@@ -82,7 +81,7 @@ export function ManualEntry({
                   {project.label}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
 

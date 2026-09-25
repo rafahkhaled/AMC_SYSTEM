@@ -2,6 +2,7 @@ import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
+  type SelectHTMLAttributes,
   forwardRef,
   useId,
 } from 'react';
@@ -85,6 +86,31 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
  * both hint and error are named in aria-describedby. Done by hand on every
  * form, one of those is always forgotten; done here, none of them is.
  */
+/**
+ * A dropdown, with a chevron this stylesheet drew.
+ *
+ * The browser draws its own hard against the border and there is no property
+ * that moves it — so every select in the interface had an arrow touching its
+ * edge. Replacing it needs this wrapper: a select is a replaced element and
+ * cannot carry a pseudo-element of its own, and the wrapper is what lets the
+ * chevron be placed with `inset-inline-end` rather than with a rule for
+ * Arabic and another for English.
+ *
+ * Sixteen selects were each repeating `className="input"` before this. One
+ * place to fix means the next one is right without anybody remembering.
+ */
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ className, children, ...rest }, ref) {
+    return (
+      <span className="select">
+        <select ref={ref} className={classes('input', 'select__control', className)} {...rest}>
+          {children}
+        </select>
+      </span>
+    );
+  },
+);
+
 export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
   { label, hint, error, ltr, affix, className, id, control, ...rest },
   ref,

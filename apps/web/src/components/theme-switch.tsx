@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Field } from '../design/index.js';
+import { Field, Select } from '../design/index.js';
 import { type ThemePreference, applyTheme, storedTheme, watchDevice } from '../design/theme.js';
 
 const CHOICES: ThemePreference[] = ['system', 'light', 'dark'];
@@ -27,9 +27,8 @@ export function ThemeSwitch() {
     <Field
       label={t('theme.label')}
       control={(props) => (
-        <select
+        <Select
           {...props}
-          className="input"
           value={preference}
           onChange={(event) => {
             const chosen = event.target.value as ThemePreference;
@@ -42,7 +41,7 @@ export function ThemeSwitch() {
               {t(`theme.${choice}`)}
             </option>
           ))}
-        </select>
+        </Select>
       )}
     />
   );

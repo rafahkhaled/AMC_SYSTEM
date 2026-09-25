@@ -2,7 +2,7 @@ import type { ContactLogEntryView } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { attachmentLink, contactLog, recordContact } from './api.js';
 
 const CHANNELS = ['call', 'whatsapp', 'email', 'meeting', 'portal', 'other'] as const;
@@ -163,32 +163,26 @@ function RecordContact({
         <Field
           label={t('contactLog.channel')}
           control={(props) => (
-            <select
-              {...props}
-              className="input"
-              value={channel}
-              onChange={(event) => setChannel(event.target.value)}
-            >
+            <Select {...props} value={channel} onChange={(event) => setChannel(event.target.value)}>
               {CHANNELS.map((code) => (
                 <option key={code} value={code}>
                   {t(`contactLog.channels.${code}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
         <Field
           label={t('contactLog.direction')}
           control={(props) => (
-            <select
+            <Select
               {...props}
-              className="input"
               value={direction}
               onChange={(event) => setDirection(event.target.value)}
             >
               <option value="outbound">{t('contactLog.directions.outbound')}</option>
               <option value="inbound">{t('contactLog.directions.inbound')}</option>
-            </select>
+            </Select>
           )}
         />
         <Field

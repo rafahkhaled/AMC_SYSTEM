@@ -2,7 +2,7 @@ import type { InvoiceView, StatementView } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import {
   approve,
   invoices as fetchInvoices,
@@ -594,18 +594,13 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <Field
             label={t('billing.method.label')}
             control={(props) => (
-              <select
-                {...props}
-                className="input"
-                value={method}
-                onChange={(event) => setMethod(event.target.value)}
-              >
+              <Select {...props} value={method} onChange={(event) => setMethod(event.target.value)}>
                 {(['bank_transfer', 'cheque', 'cash', 'card', 'other'] as const).map((which) => (
                   <option key={which} value={which}>
                     {t(`billing.method.${which}`)}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           />
           <Field

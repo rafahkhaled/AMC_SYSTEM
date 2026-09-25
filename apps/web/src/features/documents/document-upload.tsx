@@ -2,7 +2,7 @@ import type { DocumentSummary } from '@amc/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { type DragEvent, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Field } from '../../design/index.js';
+import { Alert, Button, Field, Select } from '../../design/index.js';
 import { uploadDocument } from './api.js';
 
 /**
@@ -123,18 +123,13 @@ export function DocumentUpload({
       <Field
         label={t('documents.type')}
         control={(props) => (
-          <select
-            {...props}
-            className="input"
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-          >
+          <Select {...props} value={type} onChange={(event) => setType(event.target.value)}>
             {TYPES.map((code) => (
               <option key={code} value={code}>
                 {t(`documentTypes.${code}`)}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       />
 

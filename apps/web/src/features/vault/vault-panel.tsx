@@ -2,7 +2,7 @@ import type { CredentialSummary } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Field } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Field, Select } from '../../design/index.js';
 import { listCredentials, retireCredential, revealCredential, storeCredential } from './api.js';
 
 const KINDS = ['emaratax', 'ftaportal', 'bank_portal', 'other'] as const;
@@ -205,18 +205,13 @@ function StoreCredential({
       <Field
         label={t('vault.portal')}
         control={(props) => (
-          <select
-            {...props}
-            className="input"
-            value={kind}
-            onChange={(event) => setKind(event.target.value)}
-          >
+          <Select {...props} value={kind} onChange={(event) => setKind(event.target.value)}>
             {KINDS.map((code) => (
               <option key={code} value={code}>
                 {t(`vault.kinds.${code}`)}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       />
       <Field

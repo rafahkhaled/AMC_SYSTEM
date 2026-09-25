@@ -2,7 +2,7 @@ import type { ClientSummary } from '@amc/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Card, Empty, Field, Loading } from '../../design/index.js';
+import { Badge, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { LeadsBoard } from '../leads/leads-board.js';
 import { listClients } from './api.js';
 
@@ -88,16 +88,15 @@ function ClientList({ onOpen }: { onOpen: (id: string) => void }) {
         <Field
           label={t('clients.showing')}
           control={(props) => (
-            <select
+            <Select
               {...props}
-              className="input"
               value={filter}
               onChange={(event) => setFilter(event.target.value as Filter)}
             >
               <option value="all">{t('clients.filters.all')}</option>
               <option value="documents">{t('clients.filters.documents')}</option>
               <option value="work">{t('clients.filters.work')}</option>
-            </select>
+            </Select>
           )}
         />
       </div>

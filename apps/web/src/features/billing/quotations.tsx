@@ -2,7 +2,7 @@ import type { QuotationView } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { listClients } from '../clients/api.js';
 import {
   addQuotationLine,
@@ -136,9 +136,8 @@ function NewQuotation({ onDrafted }: { onDrafted: (id: string) => void }) {
         <Field
           label={t('billing.newQuotation.client')}
           control={(props) => (
-            <select
+            <Select
               {...props}
-              className="input"
               value={clientId}
               onChange={(event) => setClientId(event.target.value)}
             >
@@ -148,7 +147,7 @@ function NewQuotation({ onDrafted }: { onDrafted: (id: string) => void }) {
                   {client.legalName}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
 

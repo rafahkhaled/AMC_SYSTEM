@@ -3,7 +3,7 @@ import { staffRoles } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
 import { addStaff, setStaffStatus, staffDirectory, updateStaff } from './api.js';
 
@@ -224,18 +224,13 @@ function AddStaff() {
         <Field
           label={t('staff.add.role')}
           control={(props) => (
-            <select
-              {...props}
-              className="input"
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-            >
+            <Select {...props} value={role} onChange={(event) => setRole(event.target.value)}>
               {staffRoles.map((name) => (
                 <option key={name} value={name}>
                   {t(`roles.${name}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
 
@@ -313,18 +308,13 @@ function EditStaff({ person, onDone }: { person: StaffMember | null; onDone: () 
         <Field
           label={t('staff.add.role')}
           control={(props) => (
-            <select
-              {...props}
-              className="input"
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-            >
+            <Select {...props} value={role} onChange={(event) => setRole(event.target.value)}>
               {staffRoles.map((name) => (
                 <option key={name} value={name}>
                   {t(`roles.${name}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
 

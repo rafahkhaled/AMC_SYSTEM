@@ -2,7 +2,7 @@ import type { LeadBoard, LeadView } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { captureLead, convertLead, leadBoard, moveLead } from './api.js';
 
 const SOURCES = ['whatsapp', 'phone', 'referral', 'advertisement', 'walk_in', 'other'] as const;
@@ -234,18 +234,13 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
           <Field
             label={t('leads.source')}
             control={(props) => (
-              <select
-                {...props}
-                className="input"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-              >
+              <Select {...props} value={source} onChange={(e) => setSource(e.target.value)}>
                 {SOURCES.map((code) => (
                   <option key={code} value={code}>
                     {t(`leads.sources.${code}`)}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           />
           <Field

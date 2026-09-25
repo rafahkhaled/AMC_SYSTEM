@@ -2,7 +2,7 @@ import type { Letter, LetterTemplate } from '@amc/contracts';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Card, Field } from '../../design/index.js';
+import { Alert, Button, Card, Field, Select } from '../../design/index.js';
 import { generateLetter, letterTemplates, lettersFor } from './api.js';
 
 /**
@@ -44,33 +44,27 @@ export function LettersPanel({ clientId }: { clientId: string }) {
         <Field
           label={t('letters.which')}
           control={(props) => (
-            <select
-              {...props}
-              className="input"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-            >
+            <Select {...props} value={code} onChange={(event) => setCode(event.target.value)}>
               <option value="">{t('letters.choose')}</option>
               {(templates.data ?? []).map((template: LetterTemplate) => (
                 <option key={template.code} value={template.code}>
                   {i18n.language === 'ar' ? template.nameAr : template.nameEn}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
         <Field
           label={t('letters.language')}
           control={(props) => (
-            <select
+            <Select
               {...props}
-              className="input"
               value={language}
               onChange={(event) => setLanguage(event.target.value as 'en' | 'ar')}
             >
               <option value="ar">العربية</option>
               <option value="en">English</option>
-            </select>
+            </Select>
           )}
         />
       </div>

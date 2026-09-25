@@ -2,7 +2,7 @@ import { serviceCodes } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Card, Field } from '../../design/index.js';
+import { Alert, Button, Card, Field, Select } from '../../design/index.js';
 import { listClients } from '../clients/api.js';
 import { startProject } from './api.js';
 
@@ -60,9 +60,8 @@ export function StartProjectForm({ onStarted }: { onStarted: (id: string) => voi
         <Field
           label={t('projects.start.client')}
           control={(props) => (
-            <select
+            <Select
               {...props}
-              className="input"
               value={clientId}
               onChange={(event) => setClientId(event.target.value)}
             >
@@ -72,25 +71,20 @@ export function StartProjectForm({ onStarted }: { onStarted: (id: string) => voi
                   {client.legalName}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
 
         <Field
           label={t('projects.start.service')}
           control={(props) => (
-            <select
-              {...props}
-              className="input"
-              value={service}
-              onChange={(event) => setService(event.target.value)}
-            >
+            <Select {...props} value={service} onChange={(event) => setService(event.target.value)}>
               {serviceCodes.map((code) => (
                 <option key={code} value={code}>
                   {t(`services.${code}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         />
 

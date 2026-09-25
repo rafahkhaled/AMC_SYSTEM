@@ -1838,3 +1838,42 @@ a {
 .u-row--wrap {
   flex-wrap: wrap;
 }
+
+/*
+ * A select's chevron.
+ *
+ * The browser draws its own at the very edge of the control with nothing that
+ * will move it, so every dropdown had an arrow touching its border. This one
+ * is drawn here, which also means it can be placed with `inset-inline-end` —
+ * `background-position` has no logical form, and an arrow positioned with
+ * `right` would need a second rule for Arabic, which this file does not have
+ * anywhere.
+ *
+ * A clipped triangle rather than a rotated bordered square: a chevron points
+ * down in both languages, and a shape built from physical borders has to be
+ * reasoned about twice to know that it still does.
+ */
+.select {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+}
+
+.select__control {
+  appearance: none;
+  /* Room for the chevron, so a long option never runs underneath it. */
+  padding-inline-end: var(--space-6);
+}
+
+.select::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: var(--space-3);
+  inset-block-start: calc(50% - 0.1rem);
+  inline-size: 0.6rem;
+  block-size: 0.35rem;
+  background: var(--text-soft);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  /* The arrow is decoration; the click belongs to the select under it. */
+  pointer-events: none;
+}
