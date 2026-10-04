@@ -166,6 +166,17 @@ services:
       context: ..
       target: server
     restart: "no"
+    # Root, for this step only.
+    #
+    # Every other container drops to the unprivileged `amc` user, and this one
+    # would too — except a named volume is created owned by root, so the first
+    # copy into it failed on every single file with "permission denied" and
+    # left Caddy serving an empty directory. The site answered 404 with a
+    # valid certificate, which looks like a routing problem and is not one.
+    #
+    # It writes files and exits. Nothing listens on a port, nothing of the
+    # client's passes through it.
+    user: root
     command: ["sh", "-c", "rm -rf /srv/* && cp -r /app/apps/web/dist/. /srv/"]
     volumes:
       - web-dist:/srv

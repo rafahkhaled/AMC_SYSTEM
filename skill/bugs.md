@@ -721,6 +721,46 @@ quietly measures the wrong thing and reports success, because from then on
 the suite is evidence for a claim nobody is testing. Any script that locates
 its data by string position needs to assert it found it.
 
+### A valid certificate in front of an empty directory
+
+The first real deploy finished with every container up, all 33 migrations
+applied, a healthy API over HTTPS, and `https://app.activemc.ae` answering
+**404**. Everything that reports a status reported success.
+
+**Cause:** `web-publish` copies the built browser application into the named
+volume Caddy serves. Every other container drops to the unprivileged `amc`
+user, and a named volume is created owned by root — so the copy failed with
+"permission denied" on every single file and left `/srv` empty. `docker
+compose up` runs a one-shot service and carries on regardless of what it
+returns, so nothing said a word.
+
+**Why it looked like something else:** a 404 from a correctly configured
+reverse proxy reads as a routing fault. The Caddyfile, the certificate and the
+API were all checked before anybody looked inside the volume.
+
+**Fixed:** `user: root` on that one service — it writes files and exits,
+nothing listens on a port — and bootstrap now runs it explicitly and stops if
+it fails, instead of letting `up` swallow the result.
+
+**Lesson:** a one-shot container in a compose file has no supervisor. If its
+output matters, run it as its own step and check it. "Every container is up"
+and "the deploy worked" are different claims, and only the first one is what
+`ps` tells you.
+
+### Caddy does not retry a certificate it has given up on
+
+The server was deployed before its DNS record existed, so the first ACME
+attempt failed. Three days later the record was added and resolved correctly
+everywhere — and there was still no certificate, with nothing in the log.
+Caddy had backed off, and the backoff is hours.
+
+**Fix:** restart it. The certificate issued in about four seconds.
+
+**Lesson:** worth adding the DNS record before the first boot. Where that is
+not possible — and it usually is not, since the Elastic IP does not exist
+until the instance does — restart Caddy once the name resolves rather than
+waiting for a retry that is hours away.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`

@@ -190,6 +190,16 @@ say "Building and starting"
 # shell until the next login.
 sg docker -c "${COMPOSE} up -d --build"
 
+# The browser application, checked rather than assumed.
+#
+# `up` runs this one-shot service and carries on whatever it returns, so the
+# first deploy finished with a healthy API, a valid certificate, and an empty
+# directory where the site should be — a 404 that looks like a routing fault
+# and is not one. If the copy fails, say so here, where somebody is watching.
+say "Publishing the browser application"
+sg docker -c "${COMPOSE} run --rm --no-deps web-publish" \
+  || die "the browser application did not publish; the site would answer 404"
+
 say "What is running"
 sg docker -c "${COMPOSE} ps"
 
@@ -215,7 +225,12 @@ Done. Next:
   1. Point ${SITE} at this instance's Elastic IP, if you have not already.
      Caddy cannot get a certificate until the DNS record resolves here.
 
-  2. Watch it get one:
+  2. If the record was added after this ran, restart Caddy rather than wait.
+     Having failed once it backs off for hours, so a server deployed before
+     its DNS sits there with no certificate long after the name resolves:
+       cd ${DIRECTORY} && ${COMPOSE} restart caddy
+
+     Then watch it get one:
        cd ${DIRECTORY} && ${COMPOSE} logs -f caddy
 
   3. Create the first user, since the screen that creates users is behind the
