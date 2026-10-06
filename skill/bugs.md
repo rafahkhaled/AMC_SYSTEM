@@ -778,6 +778,31 @@ to whatever change happened to be in flight — which is how an hour goes into
 the wrong diff. Anything asserting on a month, a quarter, a VAT period or an
 age wants a frozen clock.
 
+### The database caught what the unit tests could not
+
+"Make a quote" from an enquiry creates the client the quotation belongs to and
+marks the lead quoted. Every unit test passed. The first real call returned
+500: `leads_converted_is_confirmed`, a check constraint saying a client id may
+only exist on a confirmed lead.
+
+**Cause:** `converted_client_id` meant "won the work", written when that was
+the only way to get a client. Quoting needs one earlier.
+
+**Why the tests missed it:** they drive in-memory repository doubles, which
+hold whatever the aggregate hands them. Constraints live in Postgres, and
+nothing in that path touches Postgres.
+
+**Fixed:** the constraint now allows a client on a quoted or confirmed lead
+and still refuses one on a new, contacted or declined enquiry. `convertTo`
+reuses the client made at quote time rather than onboarding a second — which
+was the real bug underneath, and the one that would have put the quotation
+against one company and the invoice against another.
+
+**Lesson:** a check constraint is a design review that runs. The in-memory
+double is the right tool for aggregate rules and says nothing about the rules
+the schema holds, so a use case that writes a new combination of columns
+wants one run against a real database before it is believed.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`

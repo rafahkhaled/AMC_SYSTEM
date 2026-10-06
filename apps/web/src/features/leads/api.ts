@@ -31,3 +31,18 @@ export async function convertLead(
     .object({ clientId: z.string(), board: leadBoardSchema })
     .parse(await send(`/leads/${encodeURIComponent(id)}/convert`, { legalName }));
 }
+
+/**
+ * Quoting an enquiry (FR-01, FR-30).
+ *
+ * Creates the client the quotation will belong to and marks the enquiry
+ * quoted. The quotation itself is drafted against the id this returns.
+ */
+export async function quoteLead(
+  id: string,
+  legalName: string,
+): Promise<{ clientId: string; board: LeadBoard }> {
+  return z
+    .object({ clientId: z.string(), board: leadBoardSchema })
+    .parse(await send(`/leads/${encodeURIComponent(id)}/quote`, { legalName }));
+}

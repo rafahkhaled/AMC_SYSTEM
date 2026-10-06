@@ -27,12 +27,14 @@ import { Reports } from './reports.js';
  * A browser that did its own arithmetic would eventually disagree with the
  * invoice, and the client would find the difference before the firm did.
  */
-export function BillingPage() {
+export function BillingPage({ openQuotation }: { openQuotation?: string | undefined } = {}) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<'quotations' | 'statements' | 'invoices' | 'reports'>(
     'quotations',
   );
-  const [openId, setOpenId] = useState<string | null>(null);
+  // Opened straight from an enquiry: somebody pressed "make a quote" and
+  // should land on the quotation, not on a list to find it in.
+  const [openId, setOpenId] = useState<string | null>(openQuotation ?? null);
 
   return (
     <div className="u-stack">

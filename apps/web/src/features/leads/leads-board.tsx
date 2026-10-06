@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
-import { captureLead, convertLead, leadBoard, moveLead } from './api.js';
+import { draftQuotation } from '../billing/api.js';
+import { captureLead, convertLead, leadBoard, moveLead, quoteLead } from './api.js';
 
 const SOURCES = ['whatsapp', 'phone', 'referral', 'advertisement', 'walk_in', 'other'] as const;
 
@@ -15,7 +16,14 @@ const SOURCES = ['whatsapp', 'phone', 'referral', 'advertisement', 'walk_in', 'o
  * become a client and lives on the clients list; a declined one is worth
  * seeing for a while, because it is the column that says what is being lost.
  */
-export function LeadsBoard({ onOpenClient }: { onOpenClient: (clientId: string) => void }) {
+export function LeadsBoard({
+  onOpenClient,
+  onQuoted,
+}: {
+  onOpenClient: (clientId: string) => void;
+  /** The new quotation, so the caller can open it rather than a list. */
+  onQuoted: (quotationId: string) => void;
+}) {
   const { t } = useTranslation();
   const queries = useQueryClient();
   const board = useQuery({ queryKey: ['leads'], queryFn: leadBoard });
@@ -52,6 +60,7 @@ export function LeadsBoard({ onOpenClient }: { onOpenClient: (clientId: string) 
                     lead={lead}
                     onChanged={settle}
                     onConverted={onOpenClient}
+                    onQuoted={onQuoted}
                   />
                 ))
               )}
@@ -67,13 +76,24 @@ function LeadCard({
   lead,
   onChanged,
   onConverted,
+  onQuoted,
 }: {
   lead: LeadView;
   onChanged: (board: LeadBoard) => void;
   onConverted: (clientId: string) => void;
+  /** The new quotation, so the caller can open it rather than a list. */
+  onQuoted: (quotationId: string) => void;
 }) {
   const { t } = useTranslation();
   const [converting, setConverting] = useState(false);
+  /*
+   * One form, two outcomes.
+   *
+   * Both quoting and converting need the legal name and nothing else, so they
+   * share the field and differ only in what happens on submit — two near
+   * identical forms is how one of them quietly stops matching the other.
+   */
+  const [intent, setIntent] = useState<'convert' | 'quote'>('convert');
   const [legalName, setLegalName] = useState(lead.name);
 
   const move = useMutation({
@@ -81,10 +101,29 @@ function LeadCard({
     onSuccess: onChanged,
   });
   const convert = useMutation({
-    mutationFn: () => convertLead(lead.id, legalName.trim()),
+    mutationFn: async () => {
+      if (intent !== 'quote') {
+        const converted = await convertLead(lead.id, legalName.trim());
+        return { board: converted.board, quotationId: null, clientId: converted.clientId };
+      }
+
+      /*
+       * Two calls, in order, because they belong to different modules.
+       *
+       * If the draft fails the enquiry is still quoted and the client exists,
+       * which is recoverable — somebody drafts the quotation from the billing
+       * screen. The other order would leave a quotation against a client
+       * nobody had agreed to create.
+       */
+      const quoted = await quoteLead(lead.id, legalName.trim());
+      const quotation = await draftQuotation({ clientId: quoted.clientId });
+      return { board: quoted.board, quotationId: quotation.id, clientId: null };
+    },
     onSuccess: (result) => {
       onChanged(result.board);
-      onConverted(result.clientId);
+      // A conversion opens the client; a quotation opens the quotation.
+      if (result.quotationId) onQuoted(result.quotationId);
+      else if (result.clientId) onConverted(result.clientId);
     },
   });
 
@@ -121,8 +160,27 @@ function LeadCard({
             {t(`leads.statuses.${status}`)}
           </Button>
         ))}
+        {/* Quoting is offered where the state machine allows it: somebody
+            nobody has spoken to does not get a price. */}
+        {lead.allowedNext.includes('quoted') ? (
+          <Button
+            small
+            onClick={() => {
+              setIntent('quote');
+              setConverting(true);
+            }}
+          >
+            {t('leads.quote')}
+          </Button>
+        ) : null}
         {lead.status === 'quoted' ? (
-          <Button small onClick={() => setConverting(!converting)}>
+          <Button
+            small
+            onClick={() => {
+              setIntent('convert');
+              setConverting(!converting);
+            }}
+          >
             {t('leads.convert')}
           </Button>
         ) : null}
@@ -144,7 +202,8 @@ function LeadCard({
           />
           <div className="u-row">
             <Button type="submit" small disabled={!legalName.trim()} busy={convert.isPending}>
-              {t('leads.makeClient')}
+              {/* The same form does both, so the button has to say which. */}
+              {intent === 'quote' ? t('leads.makeQuote') : t('leads.makeClient')}
             </Button>
             <Button type="button" small tone="quiet" onClick={() => setConverting(false)}>
               {t('documents.clear')}

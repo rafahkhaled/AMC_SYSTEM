@@ -9,7 +9,11 @@ const leadBoard = vi.hoisted(() => vi.fn());
 const captureLead = vi.hoisted(() => vi.fn());
 const moveLead = vi.hoisted(() => vi.fn());
 const convertLead = vi.hoisted(() => vi.fn());
-vi.mock('./api.js', () => ({ leadBoard, captureLead, moveLead, convertLead }));
+const quoteLead = vi.hoisted(() => vi.fn());
+vi.mock('./api.js', () => ({ leadBoard, captureLead, moveLead, convertLead, quoteLead }));
+
+const draftQuotation = vi.hoisted(() => vi.fn());
+vi.mock('../billing/api.js', () => ({ draftQuotation }));
 
 function lead(over: Partial<LeadView> = {}): LeadView {
   return {
@@ -37,7 +41,7 @@ function board(byStatus: Partial<Record<LeadView['status'], LeadView[]>> = {}): 
 
 function show(view: LeadBoard, onOpenClient = vi.fn()) {
   leadBoard.mockResolvedValue(view);
-  renderScreen(<LeadsBoard onOpenClient={onOpenClient} />);
+  renderScreen(<LeadsBoard onOpenClient={onOpenClient} onQuoted={vi.fn()} />);
   return onOpenClient;
 }
 
@@ -174,5 +178,40 @@ describe('the enquiry pipeline (FR-01)', () => {
   it('says the pipeline is empty rather than showing four blank columns', async () => {
     show(board());
     expect(await screen.findByText('No enquiries')).toBeInTheDocument();
+  });
+});
+
+describe('quoting an enquiry', () => {
+  it('creates the client, marks it quoted, and opens the new quotation', async () => {
+    const contacted = board({
+      contacted: [lead({ status: 'contacted', allowedNext: ['quoted', 'declined'] })],
+    });
+    leadBoard.mockResolvedValue(contacted);
+    quoteLead.mockResolvedValue({ clientId: 'c-new', board: contacted });
+    draftQuotation.mockResolvedValue({ id: 'q-new' });
+
+    const onQuoted = vi.fn();
+    renderScreen(<LeadsBoard onOpenClient={vi.fn()} onQuoted={onQuoted} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Make a quote' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create client and quotation' }));
+
+    expect(quoteLead).toHaveBeenCalledWith('lead-1', 'Al Manara Foodstuff');
+    // Against the client the first call created, not the lead.
+    expect(draftQuotation).toHaveBeenCalledWith({ clientId: 'c-new' });
+    // Straight to the quotation, rather than a list to find it in.
+    expect(onQuoted).toHaveBeenCalledWith('q-new');
+  });
+
+  it('does not offer a quote to somebody nobody has spoken to', async () => {
+    leadBoard.mockResolvedValue(
+      board({ new: [lead({ status: 'new', allowedNext: ['contacted'] })] }),
+    );
+    renderScreen(<LeadsBoard onOpenClient={vi.fn()} onQuoted={vi.fn()} />);
+
+    expect(await screen.findByText('Al Manara Foodstuff')).toBeInTheDocument();
+    // A price going out before a conversation is the thing the lead state
+    // machine exists to prevent.
+    expect(screen.queryByRole('button', { name: 'Make a quote' })).not.toBeInTheDocument();
   });
 });

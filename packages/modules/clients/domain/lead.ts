@@ -148,19 +148,66 @@ export class Lead extends AggregateRoot<LeadId> {
    * months later the question "where did this client come from?" has an
    * answer, which is the only reason to record a source in the first place.
    */
-  convertTo(clientId: string, now: Date): Result<true, Conflict> {
+  /**
+   * Quoted, which needs a client record to put the quotation against (FR-30).
+   *
+   * A formal quotation names a company, and that name is a client. So quoting
+   * creates the client here and links the lead to it — the alternative is a
+   * quotation belonging to nobody, which cannot be invoiced if it is accepted
+   * and cannot be found if it is not.
+   *
+   * The status becomes `quoted`, not `confirmed`: an offer is not a yes. If
+   * they decline, the lead says so and the client sits there with no work
+   * against it, which is a true record of what happened rather than a tidy
+   * one.
+   */
+  quotedAs(clientId: string, now: Date): Result<true, Conflict> {
     if (this.state.convertedClientId) {
+      return err(new Conflict('This enquiry already has a client record'));
+    }
+    if (!ALLOWED[this.state.status].includes('quoted')) {
+      // From `new` this is refused on purpose: quoting somebody nobody has
+      // spoken to is how a price goes out without a conversation behind it.
+      return err(
+        new Conflict(`An enquiry that is ${this.state.status} cannot be quoted yet`, {
+          status: this.state.status,
+        }),
+      );
+    }
+
+    this.state = { ...this.state, status: 'quoted', convertedClientId: clientId };
+    this.record(
+      domainEvent('clients.lead.quoted', this.id, now, {
+        leadId: this.id,
+        clientId,
+        source: this.state.source,
+      }),
+    );
+    return ok(true);
+  }
+
+  convertTo(clientId: string, now: Date): Result<true, Conflict> {
+    if (this.state.status === 'confirmed') {
       return err(new Conflict('This enquiry has already become a client'));
     }
+    /*
+     * A quoted enquiry already has its client, and keeps it.
+     *
+     * Creating a second one here would leave the quotation pointing at a
+     * company the confirmed client is not — the invoice would be raised
+     * against one record and the offer would live on another.
+     */
+    const existing = this.state.convertedClientId;
+    const client = existing ?? clientId;
     if (this.state.status === 'declined') {
       return err(new Conflict('A declined enquiry cannot become a client'));
     }
 
-    this.state = { ...this.state, status: 'confirmed', convertedClientId: clientId };
+    this.state = { ...this.state, status: 'confirmed', convertedClientId: client };
     this.record(
       domainEvent('clients.lead.converted', this.id, now, {
         leadId: this.id,
-        clientId,
+        clientId: client,
         source: this.state.source,
       }),
     );

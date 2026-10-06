@@ -35,7 +35,7 @@ type View =
   | { name: 'project'; id: string }
   | { name: 'calendar' }
   | { name: 'timer' }
-  | { name: 'billing' }
+  | { name: 'billing'; quotationId?: string }
   | { name: 'whatsapp' }
   | { name: 'staff' }
   | { name: 'settings' }
@@ -125,7 +125,12 @@ function Screen({
     case 'home':
       return <HomePage caller={caller} onOpenProject={(id) => go({ name: 'project', id })} />;
     case 'clients':
-      return <ClientsPage onOpen={(id) => go({ name: 'client', id })} />;
+      return (
+        <ClientsPage
+          onOpen={(id) => go({ name: 'client', id })}
+          onQuoted={(quotationId) => go({ name: 'billing', quotationId })}
+        />
+      );
     case 'client':
       return <ClientPage id={view.id} onBack={() => go({ name: 'clients' })} />;
     case 'projects':
@@ -137,7 +142,7 @@ function Screen({
     case 'timer':
       return <TimerPage canApprove={caller.permissions.includes('time.edit.any')} />;
     case 'billing':
-      return <BillingPage />;
+      return <BillingPage openQuotation={view.quotationId} />;
     case 'whatsapp':
       return <WhatsAppPage />;
     case 'settings':

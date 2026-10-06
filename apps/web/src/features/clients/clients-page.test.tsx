@@ -34,7 +34,7 @@ function client(over: Partial<ClientSummary> = {}): ClientSummary {
 function show(clients: ClientSummary[], onOpen = vi.fn()) {
   listClients.mockResolvedValue(clients);
   leadBoard.mockResolvedValue({ columns: [] });
-  renderScreen(<ClientsPage onOpen={onOpen} />);
+  renderScreen(<ClientsPage onOpen={onOpen} onQuoted={vi.fn()} />);
   return onOpen;
 }
 

@@ -23,7 +23,14 @@ type Filter = 'all' | 'documents' | 'work';
  * attention and how much work is open. A list that only names things makes
  * somebody open every row to find out where the problem is.
  */
-export function ClientsPage({ onOpen }: { onOpen: (id: string) => void }) {
+export function ClientsPage({
+  onOpen,
+  onQuoted,
+}: {
+  onOpen: (id: string) => void;
+  /** Opens the quotation an enquiry just produced. */
+  onQuoted: (quotationId: string) => void;
+}) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<'clients' | 'leads'>('clients');
 
@@ -43,7 +50,11 @@ export function ClientsPage({ onOpen }: { onOpen: (id: string) => void }) {
         ))}
       </div>
 
-      {tab === 'clients' ? <ClientList onOpen={onOpen} /> : <LeadsBoard onOpenClient={onOpen} />}
+      {tab === 'clients' ? (
+        <ClientList onOpen={onOpen} />
+      ) : (
+        <LeadsBoard onOpenClient={onOpen} onQuoted={onQuoted} />
+      )}
     </div>
   );
 }
