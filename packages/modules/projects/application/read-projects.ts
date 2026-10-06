@@ -111,6 +111,7 @@ export class ReadProjects {
           order: task.order,
           titleEn: named?.nameEn ?? `Task ${task.order}`,
           titleAr: named?.nameAr ?? `خطوة ${task.order}`,
+          dueOn: task.dueOn?.toISOString().slice(0, 10) ?? null,
           doneAt: task.doneAt?.toISOString() ?? null,
         };
       }),

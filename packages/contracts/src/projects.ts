@@ -64,6 +64,8 @@ export const taskSchema = z.object({
   order: z.number().int(),
   titleEn: z.string(),
   titleAr: z.string(),
+  /** When this step should be finished. Null where only the project's date matters. */
+  dueOn: z.string().nullable(),
   doneAt: z.string().nullable(),
 });
 
@@ -81,8 +83,26 @@ export const projectDetailSchema = boardProjectSchema.extend({
 });
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;
 
-export const moveProjectSchema = z.object({ to: projectStateSchema });
+export const moveProjectSchema = z.object({
+  to: projectStateSchema,
+  /**
+   * Required when the work goes backwards, ignored when it goes on.
+   *
+   * Moving on is routine; moving back is a correction, and "why did this go
+   * back to awaiting documents" is a question somebody answers to a client
+   * six weeks later.
+   */
+  reason: z.string().trim().max(300).optional(),
+});
 export const completeTaskSchema = z.object({ order: z.number().int().nonnegative() });
+
+/** When a step should be finished. Null clears it. */
+export const taskDueSchema = z.object({
+  dueOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+});
 export const attachDocumentSchema = z.object({
   type: z.string().min(1),
   documentId: z.string().min(1),

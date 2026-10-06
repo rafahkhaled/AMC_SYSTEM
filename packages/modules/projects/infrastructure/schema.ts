@@ -57,6 +57,7 @@ export const tasks = pgTable(
   {
     projectId: text('project_id').notNull(),
     order: integer('order').notNull(),
+    dueOn: date('due_on'),
     doneAt: timestamp('done_at', { withTimezone: true }),
   },
   (table) => [primaryKey({ columns: [table.projectId, table.order] })],

@@ -236,3 +236,73 @@ describe('what a project tells the rest of the system', () => {
     expect(subject.detachDocument(subject.requirements[0]?.type ?? '', NOW).ok).toBe(false);
   });
 });
+
+/** A project with its documents in and the work under way. */
+function inProgress() {
+  const subject = satisfy(project());
+  subject.start(NOW);
+  subject.pullEvents();
+  return subject;
+}
+
+describe('going back a step', () => {
+  it('asks why, because a correction nobody wrote down cannot be explained', () => {
+    const subject = inProgress();
+    subject.moveTo('waiting_for_client', NOW);
+
+    const refused = subject.moveTo('awaiting_documents', NOW);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('Say why');
+
+    expect(
+      subject.moveTo('awaiting_documents', NOW, 'the trade licence they sent had expired').ok,
+    ).toBe(true);
+    expect(subject.status).toBe('awaiting_documents');
+  });
+
+  it('does not ask when the work simply carries on', () => {
+    const subject = inProgress();
+    subject.moveTo('waiting_for_client', NOW);
+
+    /*
+     * The client replied. That is the ordinary course of things, not a
+     * correction — asking every time is how people learn to type "ok".
+     */
+    expect(subject.moveTo('in_progress', NOW).ok).toBe(true);
+  });
+
+  it('refuses a reason that says nothing', () => {
+    const subject = inProgress();
+    expect(subject.moveTo('awaiting_documents', NOW, '  ').ok).toBe(false);
+    expect(subject.moveTo('awaiting_documents', NOW, 'x').ok).toBe(false);
+  });
+
+  it('carries the reason into the event, which is what the audit log keeps', () => {
+    const subject = inProgress();
+    subject.pullEvents();
+    subject.moveTo('awaiting_documents', NOW, 'filed before the licence arrived');
+
+    const [event] = subject.pullEvents();
+    expect(event?.payload).toMatchObject({
+      to: 'awaiting_documents',
+      reason: 'filed before the licence arrived',
+    });
+  });
+});
+
+describe('a due date on a step', () => {
+  it('is set and cleared freely, because a date a client agreed can move', () => {
+    const subject = inProgress();
+    const due = new Date('2026-11-15T00:00:00.000Z');
+
+    expect(subject.setTaskDueOn(1, due, NOW).ok).toBe(true);
+    expect(subject.snapshot().tasks.find((task) => task.order === 1)?.dueOn).toEqual(due);
+
+    expect(subject.setTaskDueOn(1, null, NOW).ok).toBe(true);
+    expect(subject.snapshot().tasks.find((task) => task.order === 1)?.dueOn).toBeNull();
+  });
+
+  it('says so when there is no such step', () => {
+    expect(inProgress().setTaskDueOn(99, new Date(), NOW).ok).toBe(false);
+  });
+});

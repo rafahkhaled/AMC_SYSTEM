@@ -28,12 +28,48 @@ export type ProjectState =
  * can be read in one place and an impossible move is a typed failure rather
  * than a state nobody expected.
  */
+/**
+ * How far along each state is.
+ *
+ * Only used to tell a step forward from a step back, which is the difference
+ * that decides whether a reason is required: going on is routine, going back
+ * is a correction, and a correction nobody wrote down is one nobody can
+ * explain when the client asks why the work stalled.
+ */
+const PROGRESS: Readonly<Record<ProjectState, number>> = {
+  awaiting_documents: 0,
+  ready: 1,
+  /*
+   * The two waits sit level with in_progress, not beyond it.
+   *
+   * They are pauses inside the work, not stages after it — so coming back
+   * from "waiting for the client" to "in progress" is the client replying,
+   * which is the ordinary course of things and not a correction anybody
+   * should have to justify. Ranked above, every resumption would demand a
+   * reason, which is how people learn to type "ok" into a box.
+   */
+  in_progress: 2,
+  waiting_for_client: 2,
+  waiting_for_authority: 2,
+  completed: 3,
+  cancelled: 3,
+};
+
 const ALLOWED: Readonly<Record<ProjectState, readonly ProjectState[]>> = {
   awaiting_documents: ['ready', 'cancelled'],
   ready: ['in_progress', 'awaiting_documents', 'cancelled'],
-  in_progress: ['waiting_for_client', 'waiting_for_authority', 'completed', 'cancelled'],
-  waiting_for_client: ['in_progress', 'cancelled'],
-  waiting_for_authority: ['in_progress', 'completed', 'cancelled'],
+  in_progress: [
+    'waiting_for_client',
+    'waiting_for_authority',
+    'completed',
+    'cancelled',
+    // Backwards, because a document turns out to be missing after the work
+    // has started more often than anybody plans for.
+    'ready',
+    'awaiting_documents',
+  ],
+  waiting_for_client: ['in_progress', 'cancelled', 'awaiting_documents', 'ready'],
+  waiting_for_authority: ['in_progress', 'completed', 'cancelled', 'ready'],
   // Both are ends. Work that resumes after completion is new work, and a
   // reopened project would quietly detach the hours already invoiced against it.
   completed: [],
@@ -50,6 +86,14 @@ export interface ProjectRequirement {
 
 export interface TaskProgress {
   readonly order: number;
+  /**
+   * When this step should be finished.
+   *
+   * Null for most of them. A VAT return has one statutory deadline; the step
+   * that matters a fortnight earlier — documents from the client — is a date
+   * the firm sets for itself, and only some steps are worth one.
+   */
+  readonly dueOn: Date | null;
   readonly doneAt: Date | null;
 }
 
@@ -112,7 +156,7 @@ export class Project extends AggregateRoot<ProjectId> {
         : 'ready',
       dueAt: params.dueAt ?? null,
       requirements,
-      tasks: template.tasks.map((task) => ({ order: task.order, doneAt: null })),
+      tasks: template.tasks.map((task) => ({ order: task.order, dueOn: null, doneAt: null })),
       startedAt: null,
       completedAt: null,
       createdAt: params.now,
@@ -261,7 +305,7 @@ export class Project extends AggregateRoot<ProjectId> {
     return ALLOWED[this.state.state];
   }
 
-  moveTo(next: ProjectState, now: Date): Result<true, Conflict> {
+  moveTo(next: ProjectState, now: Date, reason?: string): Result<true, Conflict> {
     if (!ALLOWED[this.state.state].includes(next)) {
       return err(
         new Conflict(`This work cannot go from ${this.state.state} to ${next}`, {
@@ -277,7 +321,56 @@ export class Project extends AggregateRoot<ProjectId> {
         }),
       );
     }
-    this.transitionTo(next, now);
+
+    /*
+     * A step back needs a reason; a step forward does not.
+     *
+     * Work moving on is the ordinary case and asking every time would train
+     * people to type anything. Work moving back is a correction — a document
+     * that turned out to be missing, something filed too early — and six
+     * weeks later "why did this go back to awaiting documents" is a question
+     * somebody has to answer to a client.
+     */
+    const backwards = PROGRESS[next] < PROGRESS[this.state.state];
+    const said = reason?.trim() ?? '';
+    if (backwards && said.length < 3) {
+      return err(
+        new Conflict('Say why this is going back, in a few words', {
+          from: this.state.state,
+          to: next,
+        }),
+      );
+    }
+
+    this.transitionTo(next, now, backwards ? said : null);
+    return ok(true);
+  }
+
+  /**
+   * When a step is expected to be finished (FR-11).
+   *
+   * Set and cleared freely: a date somebody agreed with a client moves when
+   * the client moves it, and refusing would send them back to a notebook.
+   * A date in the past is allowed, because work is often late before anybody
+   * records that it is.
+   */
+  setTaskDueOn(order: number, dueOn: Date | null, now: Date): Result<true, Conflict> {
+    const task = this.state.tasks.find((candidate) => candidate.order === order);
+    if (!task) return err(new Conflict('No such step', { order }));
+
+    this.state = {
+      ...this.state,
+      tasks: this.state.tasks.map((candidate) =>
+        candidate.order === order ? { ...candidate, dueOn } : candidate,
+      ),
+    };
+    this.record(
+      domainEvent('services.task.due_changed', this.id, now, {
+        projectId: this.id,
+        order,
+        dueOn: dueOn ? dueOn.toISOString().slice(0, 10) : null,
+      }),
+    );
     return ok(true);
   }
 
@@ -324,7 +417,7 @@ export class Project extends AggregateRoot<ProjectId> {
     );
   }
 
-  private transitionTo(next: ProjectState, now: Date): void {
+  private transitionTo(next: ProjectState, now: Date, reason: string | null = null): void {
     const from = this.state.state;
     this.state = {
       ...this.state,
@@ -339,6 +432,7 @@ export class Project extends AggregateRoot<ProjectId> {
         service: this.state.service,
         from,
         to: next,
+        reason,
       }),
     );
   }

@@ -4,6 +4,7 @@ import {
   completeTaskSchema,
   moveProjectSchema,
   startProjectSchema,
+  taskDueSchema,
 } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import {
@@ -16,6 +17,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ProjectWorkflow, scopeFor } from '../application/project-workflow.js';
@@ -115,9 +117,40 @@ export class ProjectsController {
     const parsed = moveProjectSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('Move it to what?');
 
-    const outcome = await this.workflow.move(caller, id, parsed.data.to);
+    const outcome = await this.workflow.move(caller, id, parsed.data.to, parsed.data.reason);
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
     return this.mustRead(caller, id);
+  }
+
+  /**
+   * When a step should be finished (FR-11).
+   *
+   * A PATCH, not a POST: this corrects a date rather than recording that
+   * something happened, and the same step can be re-dated as often as the
+   * client moves it.
+   */
+  @Patch(':id/tasks/:order/due')
+  @RequirePermissions('projects.edit')
+  async setTaskDue(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Param('order') order: string,
+    @Body() body: unknown,
+  ): Promise<ProjectDetail> {
+    const parsed = taskDueSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('Give a date, or null to clear it');
+
+    const outcome = await this.workflow.setTaskDue(
+      caller,
+      id,
+      Number(order),
+      parsed.data.dueOn ? new Date(`${parsed.data.dueOn}T00:00:00.000Z`) : null,
+    );
+    if (!outcome.ok) throw new ConflictException(outcome.error.message);
+
+    const detail = await this.projects.detail(caller, id);
+    if (!detail) throw new NotFoundException('No such project');
+    return detail;
   }
 
   @Post(':id/tasks/:order')

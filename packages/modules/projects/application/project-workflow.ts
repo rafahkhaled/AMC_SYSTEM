@@ -31,12 +31,27 @@ export class ProjectWorkflow {
     private readonly repositories: ProjectRepositoryFactory,
   ) {}
 
-  move(caller: CallerLike, id: string, to: ProjectState): Promise<Result<true, Conflict>> {
+  /** When a step should be finished (FR-11). Null clears it. */
+  setTaskDue(
+    caller: CallerLike,
+    id: string,
+    order: number,
+    dueOn: Date | null,
+  ): Promise<Result<true, Conflict>> {
+    return this.change(caller, id, (project, now) => project.setTaskDueOn(order, dueOn, now));
+  }
+
+  move(
+    caller: CallerLike,
+    id: string,
+    to: ProjectState,
+    reason?: string,
+  ): Promise<Result<true, Conflict>> {
     return this.change(caller, id, (project, now) =>
       // `start` rather than `moveTo` for the one transition with a gate in
       // front of it, so the missing documents come back in the refusal
       // instead of the screen having to work out why it was refused.
-      to === 'in_progress' ? project.start(now) : project.moveTo(to, now),
+      to === 'in_progress' ? project.start(now) : project.moveTo(to, now, reason),
     );
   }
 

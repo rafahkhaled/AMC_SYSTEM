@@ -109,10 +109,18 @@ export class DrizzleProjectRepository implements ProjectRepository {
     for (const task of state.tasks) {
       await this.db
         .insert(tasks)
-        .values({ projectId: state.id, order: task.order, doneAt: task.doneAt })
+        .values({
+          projectId: state.id,
+          order: task.order,
+          dueOn: task.dueOn ? task.dueOn.toISOString().slice(0, 10) : null,
+          doneAt: task.doneAt,
+        })
         .onConflictDoUpdate({
           target: [tasks.projectId, tasks.order],
-          set: { doneAt: task.doneAt },
+          set: {
+            doneAt: task.doneAt,
+            dueOn: task.dueOn ? task.dueOn.toISOString().slice(0, 10) : null,
+          },
         });
     }
   }
@@ -142,10 +150,14 @@ export class DrizzleProjectRepository implements ProjectRepository {
       })),
       tasks:
         taskRows.length > 0
-          ? taskRows.map((task) => ({ order: task.order, doneAt: task.doneAt }))
+          ? taskRows.map((task) => ({
+              order: task.order,
+              dueOn: task.dueOn ? new Date(task.dueOn) : null,
+              doneAt: task.doneAt,
+            }))
           : // A project saved before its tasks were written still knows what its
             // template says, rather than appearing to have none.
-            template.tasks.map((task) => ({ order: task.order, doneAt: null })),
+            template.tasks.map((task) => ({ order: task.order, dueOn: null, doneAt: null })),
       startedAt: row.startedAt,
       completedAt: row.completedAt,
       createdAt: row.createdAt,
