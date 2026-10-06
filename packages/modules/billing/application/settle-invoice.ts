@@ -17,6 +17,12 @@ export interface RecordPaymentCommand {
   readonly receivedOn: Date;
   readonly method: string;
   readonly reference?: string | null;
+  readonly chequeNumber?: string | undefined;
+  readonly chequeDate?: Date | undefined;
+  readonly bankName?: string | undefined;
+  /** What the firm agreed to drop, with the reason that justifies it. */
+  readonly discountMinor?: number | undefined;
+  readonly discountReason?: string | undefined;
 }
 
 /**
@@ -47,6 +53,11 @@ export class SettleInvoice {
       receivedOn: command.receivedOn,
       method: command.method,
       reference: command.reference?.trim() || null,
+      chequeNumber: command.chequeNumber?.trim() || null,
+      chequeDate: command.chequeDate ?? null,
+      bankName: command.bankName?.trim() || null,
+      discount: Money.ofMinor(command.discountMinor ?? 0, currency),
+      discountReason: command.discountReason?.trim() || null,
       recordedBy: actor.userId,
     };
 

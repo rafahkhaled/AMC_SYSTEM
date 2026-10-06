@@ -46,6 +46,11 @@ const payment = (over: Partial<Payment> = {}): Payment => ({
   receivedOn: afterDue(-5),
   method: 'bank_transfer',
   reference: 'FT2026100112',
+  chequeNumber: null,
+  chequeDate: null,
+  bankName: null,
+  discount: Money.zero('AED'),
+  discountReason: null,
   recordedBy: 'u-1',
   ...over,
 });
@@ -268,5 +273,51 @@ describe('cancelling', () => {
     const invoice = raise();
     invoice.cancel('duplicate', issued);
     expect(invoice.recordPayment(payment()).ok).toBe(false);
+  });
+});
+
+describe('a payment with a discount', () => {
+  it('settles the invoice when the money and the discount cover it', () => {
+    const invoice = raise();
+    const total = invoice.total().minorUnits;
+
+    const recorded = invoice.recordPayment(
+      payment({
+        amount: Money.ofMinor(total - 10_000, 'AED'),
+        discount: aed(10_000),
+        discountReason: 'agreed 100 off with Layla',
+      }),
+    );
+    expect(recorded.ok).toBe(true);
+
+    /*
+     * Counting only the money would leave this on the chase list for ever,
+     * which is the thing recording a discount exists to prevent.
+     */
+    expect(invoice.balance().isZero()).toBe(true);
+    expect(invoice.snapshot().settlement).toBe('paid');
+  });
+
+  it('keeps what was forgiven out of what was received', () => {
+    const invoice = raise();
+    invoice.recordPayment(
+      payment({ amount: aed(50_000), discount: aed(10_000), discountReason: 'goodwill' }),
+    );
+
+    // A report of what the practice took in must not include the part it
+    // dropped: the two are different numbers and one of them is not income.
+    expect(invoice.paid().minorUnits).toBe(50_000);
+    expect(invoice.discounted().minorUnits).toBe(10_000);
+  });
+
+  it('carries a cheque its own number and date, which is what gets chased', () => {
+    const invoice = raise();
+    invoice.recordPayment(
+      payment({ method: 'cheque', chequeNumber: '004412', bankName: 'Emirates NBD' }),
+    );
+
+    const [recorded] = invoice.snapshot().payments;
+    expect(recorded?.chequeNumber).toBe('004412');
+    expect(recorded?.bankName).toBe('Emirates NBD');
   });
 });

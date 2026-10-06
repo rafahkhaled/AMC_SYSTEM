@@ -1,7 +1,7 @@
 import type { ClientDetail, ClientSummary, DocumentSummary, ProjectSummary } from '@amc/contracts';
 import { type Clock } from '@amc/kernel';
 import { scopeFor } from '../domain/index.js';
-import type { CallerLike, ClientRepository, DocumentRepository } from './ports.js';
+import type { CallerLike, ClientRepository, DocumentRepository, PeopleDirectory } from './ports.js';
 
 /**
  * As much of a caller as a read needs.
@@ -30,6 +30,8 @@ export class ReadClients {
     private readonly documents: DocumentRepository,
     private readonly projects: ProjectSummaryReader,
     private readonly clock: Clock,
+    /** Turns the uploader's id into a name. Absent in tests that do not need it. */
+    private readonly people?: PeopleDirectory,
   ) {}
 
   async list(caller: Viewer, limit?: number): Promise<ClientSummary[]> {
@@ -70,6 +72,19 @@ export class ReadClients {
     const documents = await this.documents.currentFor(clientId, scope);
     const projects = await this.projects.forClient(clientId, scope);
 
+    /*
+     * One lookup for the whole list rather than one per row.
+     *
+     * Three documents uploaded by the same person is one name, and a query
+     * per row is how a client file with forty documents becomes forty
+     * queries.
+     */
+    const uploaderIds = [
+      ...new Set(documents.map((d) => d.snapshot().uploadedBy).filter((id): id is string => !!id)),
+    ];
+    const names = uploaderIds.length > 0 ? await this.people?.namesFor(uploaderIds) : undefined;
+    const day = (value: Date | null) => value?.toISOString().slice(0, 10) ?? null;
+
     const documentSummaries: DocumentSummary[] = documents.map((document) => {
       const detail = document.snapshot();
       return {
@@ -77,6 +92,10 @@ export class ReadClients {
         type: detail.type,
         authority: detail.authority,
         status: detail.status,
+        label: detail.label,
+        issuedOn: day(detail.issuedOn),
+        uploadedAt: detail.uploadedAt?.toISOString() ?? null,
+        uploadedBy: detail.uploadedBy ? (names?.get(detail.uploadedBy) ?? null) : null,
         expiresOn: detail.expiresOn?.toISOString().slice(0, 10) ?? null,
         expiryState: document.expiryStateOn(today),
         daysUntilExpiry: document.daysUntilExpiry(today),

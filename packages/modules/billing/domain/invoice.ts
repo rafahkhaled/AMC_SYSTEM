@@ -64,6 +64,18 @@ export interface Payment {
   readonly receivedOn: Date;
   readonly method: string;
   readonly reference: string | null;
+  /** A cheque's own number and date, which is what gets chased. */
+  readonly chequeNumber: string | null;
+  readonly chequeDate: Date | null;
+  readonly bankName: string | null;
+  /**
+   * What the firm agreed to drop, and why.
+   *
+   * Separate from the amount so a write-off is not mistaken for a debt: an
+   * invoice that is simply short looks unpaid for ever.
+   */
+  readonly discount: Money;
+  readonly discountReason: string | null;
   readonly recordedBy: string;
 }
 
@@ -201,9 +213,23 @@ export class Invoice extends AggregateRoot {
     );
   }
 
+  /**
+   * What the firm agreed to drop.
+   *
+   * Settles the invoice without money arriving, which is why it is counted
+   * separately from `paid()`: a report of what the practice actually received
+   * must not include the part it forgave.
+   */
+  discounted(): Money {
+    return Money.sum(
+      this.state.payments.map((payment) => payment.discount),
+      this.state.currency,
+    );
+  }
+
   /** What is still owed. Never negative: an overpayment is shown as settled. */
   balance(): Money {
-    const outstanding = this.total().subtract(this.paid());
+    const outstanding = this.total().subtract(this.paid()).subtract(this.discounted());
     return outstanding.isNegative() ? Money.zero(this.state.currency) : outstanding;
   }
 
@@ -252,11 +278,18 @@ export class Invoice extends AggregateRoot {
     }
 
     const payments = [...this.state.payments, payment];
-    const paid = Money.sum(
-      payments.map((item) => item.amount),
+    /*
+     * Money received plus anything forgiven.
+     *
+     * A client who pays 900 of 1,000 and has the rest dropped has settled the
+     * invoice; counting only the 900 would leave it on the chase list for
+     * ever, which is the thing recording a discount exists to prevent.
+     */
+    const covered = Money.sum(
+      payments.flatMap((item) => [item.amount, item.discount]),
       this.state.currency,
     );
-    const settled = paid.compare(this.total()) >= 0;
+    const settled = covered.compare(this.total()) >= 0;
 
     this.state = {
       ...this.state,

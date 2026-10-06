@@ -24,6 +24,8 @@ function letter(over: Partial<Letter> = {}): Letter {
     body: 'To: Gulf Trading LLC\nTrade licence: CN-1234567\n\nDear Sirs,',
     language: 'en',
     createdAt: '2026-09-17T06:00:00.000Z',
+    authority: null,
+    generatedBy: 'Wael Ajam',
     missing: [],
     ...over,
   };

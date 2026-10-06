@@ -45,6 +45,11 @@ type PaymentRow = {
   method: string;
   reference: string | null;
   recorded_by: string;
+  cheque_number: string | null;
+  cheque_date: string | null;
+  bank_name: string | null;
+  discount_minor: string | null;
+  discount_reason: string | null;
 };
 
 export class DrizzleInvoiceRepository implements InvoiceRepository {
@@ -115,6 +120,11 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
       receivedOn: new Date(payment.received_on),
       method: payment.method,
       reference: payment.reference,
+      chequeNumber: payment.cheque_number,
+      chequeDate: payment.cheque_date ? new Date(payment.cheque_date) : null,
+      bankName: payment.bank_name,
+      discount: Money.ofMinor(Number(payment.discount_minor ?? 0), currency),
+      discountReason: payment.discount_reason,
       recordedBy: payment.recorded_by,
     }));
 
@@ -187,11 +197,15 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
     for (const payment of state.payments) {
       await this.db.execute(sql`
         INSERT INTO payments
-          (id, invoice_id, amount_minor, currency, received_on, method, reference, recorded_by)
+          (id, invoice_id, amount_minor, currency, received_on, method, reference,
+           cheque_number, cheque_date, bank_name, discount_minor, discount_reason, recorded_by)
         VALUES (
           ${payment.id}, ${state.id}, ${payment.amount.minorUnits}, ${state.currency},
           ${payment.receivedOn.toISOString()}, ${payment.method},
-          ${payment.reference}, ${payment.recordedBy}
+          ${payment.reference}, ${payment.chequeNumber},
+          ${payment.chequeDate ? payment.chequeDate.toISOString().slice(0, 10) : null},
+          ${payment.bankName}, ${payment.discount.minorUnits}, ${payment.discountReason},
+          ${payment.recordedBy}
         )
         ON CONFLICT (id) DO NOTHING
       `);

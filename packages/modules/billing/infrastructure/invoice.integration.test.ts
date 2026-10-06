@@ -237,6 +237,11 @@ describe('invoices, against a real database', () => {
         receivedOn: new Date('2026-10-10T00:00:00Z'),
         method: 'bank_transfer',
         reference: 'FT123',
+        chequeNumber: null,
+        chequeDate: null,
+        bankName: null,
+        discount: Money.zero('AED'),
+        discountReason: null,
         recordedBy: 'b-u1',
       });
       await invoices.save(invoice);
@@ -267,6 +272,11 @@ describe('invoices, against a real database', () => {
         receivedOn: new Date('2026-11-06T00:00:00Z'),
         method: 'cash',
         reference: null,
+        chequeNumber: null,
+        chequeDate: null,
+        bankName: null,
+        discount: Money.zero('AED'),
+        discountReason: null,
         recordedBy: 'b-u1',
       });
       await invoices.save(invoice);

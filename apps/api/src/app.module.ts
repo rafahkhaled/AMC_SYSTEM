@@ -88,6 +88,7 @@ import {
   type NestModule,
 } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ulid } from 'ulid';
 import { rateReader, unbilledWork, workAttachment } from './billing/adapters.js';
@@ -123,6 +124,25 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
  * The composition root. This is the only file allowed to know which adapter
  * implements which port; every module below it sees interfaces only.
  */
+/**
+ * Names for the people who filed or generated things.
+ *
+ * The users table belongs to identity; the clients module asks for a
+ * directory and this is where the two are introduced. Shared by the document
+ * list and the letter history, which both show an id otherwise.
+ */
+function peopleDirectory(db: Database) {
+  return {
+    async namesFor(userIds: readonly string[]): Promise<Map<string, string>> {
+      if (userIds.length === 0) return new Map();
+      const rows = await db.execute<{ id: string; display_name: string }>(
+        sql`SELECT id, display_name FROM users WHERE id = ANY(${sql.param(userIds)})`,
+      );
+      return new Map(rows.map((row) => [row.id, row.display_name]));
+    },
+  };
+}
+
 @Module({
   imports: [
     ConfigModule,
@@ -140,6 +160,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
           new DrizzleDocumentRepository(db),
           projectSummaries(db),
           new SystemClock(),
+          peopleDirectory(db),
         ),
         documents: new ReceiveDocument(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
@@ -175,6 +196,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
           // Who the firm signs as. Configuration, not a client fact.
           { name: environment.FIRM_NAME, signatory: environment.FIRM_SIGNATORY },
           { next: () => ulid() },
+          peopleDirectory(db),
         ),
         leadWorkflow: new LeadWorkflow(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),

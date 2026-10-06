@@ -8,7 +8,7 @@ import {
   ok,
 } from '@amc/kernel';
 import { type LetterFacts, placeholdersIn, scopeFor } from '../domain/index.js';
-import type { CallerLike, ClientRepository, LetterRepository } from './ports.js';
+import type { CallerLike, ClientRepository, LetterRepository, PeopleDirectory } from './ports.js';
 
 /**
  * What the firm signs its own name as. Configuration rather than a client
@@ -38,6 +38,8 @@ export class GenerateLetter {
     private readonly clients: ClientRepository,
     private readonly firm: FirmDetails,
     private readonly ids: IdGenerator,
+    /** Names for whoever generated each letter. An id is no use on a screen. */
+    private readonly people?: PeopleDirectory,
   ) {}
 
   async templates(): Promise<LetterTemplate[]> {
@@ -60,12 +62,21 @@ export class GenerateLetter {
     if (!client) return [];
 
     const letters = await this.letters.forClient(clientId);
+
+    // One lookup for the list, not one per row.
+    const authors = [
+      ...new Set(letters.map((l) => l.generatedBy).filter((id): id is string => !!id)),
+    ];
+    const names = authors.length > 0 ? await this.people?.namesFor(authors) : undefined;
+
     return letters.map((letter) => ({
       id: letter.id,
       title: letter.title,
       body: letter.body,
       language: letter.language,
       createdAt: letter.createdAt.toISOString(),
+      authority: letter.authority ?? null,
+      generatedBy: letter.generatedBy ? (names?.get(letter.generatedBy) ?? null) : null,
       missing: [],
     }));
   }
@@ -77,6 +88,8 @@ export class GenerateLetter {
       templateCode: string;
       language: 'en' | 'ar';
       projectId?: string | undefined;
+      /** Who it is addressed to, from the authority list. */
+      authority?: string | undefined;
     },
   ): Promise<Result<Letter, Conflict>> {
     const client = await this.clients.findById(params.clientId, scopeFor(caller));
@@ -112,6 +125,7 @@ export class GenerateLetter {
       title: rendered.title,
       body: rendered.body,
       generatedBy: caller.userId,
+      authority: params.authority ?? null,
       createdAt: new Date(),
     };
     await this.letters.record(letter);
@@ -122,7 +136,10 @@ export class GenerateLetter {
       body: letter.body,
       language: letter.language,
       createdAt: letter.createdAt.toISOString(),
-      missing,
+      authority: letter.authority ?? null,
+      // The person generating it, who is standing right there.
+      generatedBy: caller.displayName,
+      missing: [...missing],
     });
   }
 

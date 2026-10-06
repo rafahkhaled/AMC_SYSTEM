@@ -31,7 +31,14 @@ export const documentSummarySchema = z.object({
    */
   authority: z.string().nullable(),
   status: z.enum(['required', 'held', 'renewing']),
+  /** What somebody called this one, where the type alone would not tell them apart. */
+  label: z.string().nullable(),
+  /** The day printed on the document, not the day it was filed. */
+  issuedOn: z.string().nullable(),
   expiresOn: z.string().nullable(),
+  /** When it was filed, and by whom. Null on a document nobody has sent yet. */
+  uploadedAt: z.string().nullable(),
+  uploadedBy: z.string().nullable(),
   /** never_expires, valid, expiring, expired — computed, never stored. */
   expiryState: z.enum(['never_expires', 'valid', 'expiring', 'expired']),
   daysUntilExpiry: z.number().int().nullable(),
@@ -229,6 +236,10 @@ export const letterSchema = z.object({
   body: z.string(),
   language: z.enum(['en', 'ar']),
   createdAt: z.string(),
+  /** Who it was addressed to, as a code from the authority list. */
+  authority: z.string().nullable(),
+  /** Who generated it. A name, because an id is no use on a screen. */
+  generatedBy: z.string().nullable(),
   /**
    * Facts the letter wanted and the client record could not supply. Returned
    * rather than refused: a letter with a gap is often exactly what somebody
@@ -242,6 +253,8 @@ export const generateLetterSchema = z.object({
   templateCode: z.string().min(1),
   language: z.enum(['en', 'ar']),
   projectId: z.string().optional(),
+  /** Who it is addressed to, from the authority list. */
+  authority: z.string().trim().max(40).optional(),
 });
 
 /* ------------------------------------------------- lists an admin can edit */

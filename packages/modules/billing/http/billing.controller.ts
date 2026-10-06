@@ -454,6 +454,13 @@ export class BillingController {
         receivedOn: new Date(parsed.data.receivedOn),
         method: parsed.data.method,
         reference: parsed.data.reference ?? null,
+        ...(parsed.data.chequeNumber ? { chequeNumber: parsed.data.chequeNumber } : {}),
+        ...(parsed.data.chequeDate
+          ? { chequeDate: new Date(`${parsed.data.chequeDate}T00:00:00.000Z`) }
+          : {}),
+        ...(parsed.data.bankName ? { bankName: parsed.data.bankName } : {}),
+        ...(parsed.data.discountMinor ? { discountMinor: parsed.data.discountMinor } : {}),
+        ...(parsed.data.discountReason ? { discountReason: parsed.data.discountReason } : {}),
       }),
     );
     if (!recorded.ok) throw new ConflictException(recorded.error.message);

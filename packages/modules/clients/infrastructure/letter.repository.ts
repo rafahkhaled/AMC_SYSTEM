@@ -40,6 +40,7 @@ export class DrizzleLetterRepository implements LetterRepository {
       body: letter.body,
       generatedBy: letter.generatedBy,
       createdAt: letter.createdAt,
+      authority: letter.authority ?? null,
     });
   }
 
@@ -57,6 +58,7 @@ export class DrizzleLetterRepository implements LetterRepository {
       templateId: row.templateId,
       projectId: row.projectId,
       language: row.language as 'en' | 'ar',
+      authority: row.authority,
       title: row.title,
       body: row.body,
       generatedBy: row.generatedBy,

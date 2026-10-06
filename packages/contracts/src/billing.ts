@@ -146,12 +146,37 @@ export const reviseLineRequestSchema = z.object({
 });
 export type ReviseLineRequest = z.infer<typeof reviseLineRequestSchema>;
 
-export const recordPaymentRequestSchema = z.object({
-  amountMinor: z.number().int().positive(),
-  receivedOn: z.string(),
-  method: z.enum(['bank_transfer', 'cheque', 'cash', 'card', 'other']),
-  reference: z.string().trim().max(120).optional(),
-});
+export const recordPaymentRequestSchema = z
+  .object({
+    amountMinor: z.number().int().positive(),
+    receivedOn: z.string(),
+    method: z.enum(['bank_transfer', 'cheque', 'cash', 'card', 'other']),
+    reference: z.string().trim().max(120).optional(),
+    /** A cheque's own number and date, which is what gets chased. */
+    chequeNumber: z.string().trim().max(60).optional(),
+    chequeDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    bankName: z.string().trim().max(120).optional(),
+    /**
+     * What the firm agreed to drop.
+     *
+     * Recorded rather than folded into a smaller payment: an invoice that is
+     * simply short looks like a debt for ever, and nobody can tell a
+     * write-off from somebody who has not paid.
+     */
+    discountMinor: z.number().int().nonnegative().optional(),
+    discountReason: z.string().trim().max(300).optional(),
+  })
+  .refine((payment) => !payment.discountMinor || Boolean(payment.discountReason?.trim()), {
+    message: 'Say why the amount was reduced',
+    path: ['discountReason'],
+  })
+  .refine((payment) => payment.method === 'cheque' || !payment.chequeNumber, {
+    message: 'A cheque number belongs to a cheque',
+    path: ['chequeNumber'],
+  });
 export type RecordPaymentRequest = z.infer<typeof recordPaymentRequestSchema>;
 
 export const releaseStatementRequestSchema = z.object({

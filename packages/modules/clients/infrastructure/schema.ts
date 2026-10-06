@@ -216,5 +216,6 @@ export const generatedDocuments = pgTable('generated_documents', {
   title: text('title').notNull(),
   body: text('body').notNull(),
   generatedBy: text('generated_by'),
+  authority: text('authority'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

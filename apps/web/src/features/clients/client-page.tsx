@@ -110,10 +110,32 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
         {detail.documents.length === 0 ? (
           <Empty title={t('clients.noDocuments')} />
         ) : (
-          <div className="u-stack-tight">
-            {detail.documents.map((document) => (
-              <DocumentRow key={document.id} document={document} />
-            ))}
+          /*
+           * A table, because the question is comparative: which of these
+           * expires first, which has no issue date, who filed the one that
+           * looks wrong. A stack of cards answers one document at a time.
+           */
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('documents.columns.name')}</th>
+                  <th scope="col">{t('documents.columns.authority')}</th>
+                  <th scope="col">{t('documents.columns.issued')}</th>
+                  <th scope="col">{t('documents.columns.expires')}</th>
+                  <th scope="col" className="table__figure">
+                    {t('documents.columns.inDays')}
+                  </th>
+                  <th scope="col">{t('documents.columns.filed')}</th>
+                  <th scope="col">{t('documents.columns.open')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.documents.map((document) => (
+                  <DocumentRow key={document.id} document={document} />
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
@@ -195,39 +217,81 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
         : undefined;
 
   return (
-    <div className="line">
-      <span>
+    <tr>
+      <th scope="row">
         {/* From the list an administrator maintains, which also resolves the
             codes of options since retired. */}
         <span className="u-typed">{documentTypes.label(document.type)}</span>
-        {document.authority ? (
-          <span className="u-block u-text-faint u-typed">
-            {authorities.label(document.authority)}
+        {document.label ? (
+          <span className="u-block u-text-faint u-typed">{document.label}</span>
+        ) : null}
+        {document.status === 'required' ? (
+          <span className="u-block">
+            <Badge tone="warning">{t('clients.awaited')}</Badge>
           </span>
         ) : null}
-      </span>
-      <span className="u-grow" />
-      {document.status === 'required' ? <Badge tone="warning">{t('clients.awaited')}</Badge> : null}
-      {failed ? <span className="u-danger">{t('documents.openFailed')}</span> : null}
-      {document.expiresOn ? (
-        <>
-          <span className="u-text-faint u-ltr u-numeric">{document.expiresOn}</span>
-          {tone ? (
-            <Badge tone={tone}>
-              {document.expiryState === 'expired'
-                ? t('clients.expired')
-                : t('clients.expiresIn', { days: document.daysUntilExpiry })}
-            </Badge>
-          ) : null}
-        </>
-      ) : null}
-      {document.status !== 'required' ? (
-        <Button small tone="quiet" busy={opening} onClick={() => void open()}>
-          {opening ? t('documents.opening') : t('documents.open')}
-        </Button>
-      ) : null}
-    </div>
+      </th>
+
+      <td className="u-typed">
+        {document.authority ? authorities.label(document.authority) : <Dash />}
+      </td>
+
+      <td>{document.issuedOn ? <Day value={document.issuedOn} /> : <Dash />}</td>
+
+      <td>{document.expiresOn ? <Day value={document.expiresOn} /> : <Dash />}</td>
+
+      <td className="table__figure">
+        {/*
+         * The number somebody acts on. A date needs subtracting from today
+         * before it means anything; "in 12 days" does not.
+         */}
+        {document.daysUntilExpiry === null ? (
+          <Dash />
+        ) : (
+          <Badge {...(tone ? { tone } : {})}>
+            {document.expiryState === 'expired'
+              ? t('clients.expired')
+              : t('clients.expiresIn', { days: document.daysUntilExpiry })}
+          </Badge>
+        )}
+      </td>
+
+      <td>
+        {document.uploadedAt ? (
+          <>
+            <Day value={document.uploadedAt.slice(0, 10)} />
+            {document.uploadedBy ? (
+              <span className="u-block u-text-faint u-typed">{document.uploadedBy}</span>
+            ) : null}
+          </>
+        ) : (
+          <Dash />
+        )}
+      </td>
+
+      <td>
+        {failed ? <span className="u-danger u-block">{t('documents.openFailed')}</span> : null}
+        {document.status !== 'required' ? (
+          <Button small tone="quiet" busy={opening} onClick={() => void open()}>
+            {opening ? t('documents.opening') : t('documents.open')}
+          </Button>
+        ) : (
+          <Dash />
+        )}
+      </td>
+    </tr>
   );
+}
+
+/** A calendar day, read left to right whichever language the page is in. */
+function Day({ value }: { value: string }) {
+  return <span className="u-ltr u-numeric">{value}</span>;
+}
+
+/** Nothing recorded. An em dash rather than a blank, so the cell reads as empty
+    on purpose rather than as a column that failed to render. */
+function Dash() {
+  return <span className="u-text-faint">—</span>;
 }
 
 function ProjectRow({ project }: { project: ProjectSummary }) {

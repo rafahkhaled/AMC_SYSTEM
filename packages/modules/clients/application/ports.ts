@@ -75,6 +75,8 @@ export interface GeneratedLetter {
   readonly body: string;
   readonly generatedBy: string | null;
   readonly createdAt: Date;
+  /** Who it was addressed to, from the authority list. */
+  readonly authority?: string | null;
 }
 
 export interface LetterRepository {
@@ -111,3 +113,14 @@ export interface DocumentRepository {
 
 /** The caller. Re-exported so modules import their ports, not the kernel. */
 export type { CallerLike } from '@amc/kernel';
+
+/**
+ * Names for the people who filed things.
+ *
+ * A document row says who uploaded it, and an id is no use on a screen.
+ * Declared here rather than reaching into identity: a module never imports
+ * another's, and the composition root is where the two meet.
+ */
+export interface PeopleDirectory {
+  namesFor(userIds: readonly string[]): Promise<Map<string, string>>;
+}
