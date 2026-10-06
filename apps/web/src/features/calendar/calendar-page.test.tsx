@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setUpI18n } from '../../i18n/index.js';
 import { shiftMonth } from './api.js';
 import { CalendarPage } from './calendar-page.js';
@@ -61,6 +61,23 @@ function show(view: CalendarMonth, onOpenProject = vi.fn()) {
 }
 
 describe('the month ahead', () => {
+  /*
+   * A fixed today.
+   *
+   * This suite asserted that "next" reaches 2026-10, which was true in the
+   * month it was written and false in the one after: the test passed all
+   * September and failed on the first of October, with nothing changed. A
+   * test that depends on the real clock is a test that reports the date.
+   */
+  beforeAll(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-09-15T08:00:00.000Z'));
+  });
+
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.setItem('amc.language', 'en');

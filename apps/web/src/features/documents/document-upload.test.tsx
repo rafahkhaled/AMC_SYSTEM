@@ -9,6 +9,36 @@ import { DocumentUpload } from './document-upload.js';
 const uploadDocument = vi.hoisted(() => vi.fn());
 vi.mock('./api.js', () => ({ uploadDocument, documentLink: vi.fn() }));
 
+/*
+ * The types come from the list an administrator maintains, so the form now
+ * reads them rather than holding a constant. Stubbed here with the rows the
+ * migration seeds, which is what a real screen sees.
+ */
+const referenceOptions = vi.hoisted(() => vi.fn());
+vi.mock('../lists/api.js', () => ({
+  referenceOptions,
+  addOption: vi.fn(),
+  updateOption: vi.fn(),
+}));
+
+const option = (code: string, nameEn: string, position: number) => ({
+  id: `ro-${code}`,
+  list: 'document_type' as const,
+  code,
+  nameEn,
+  nameAr: nameEn,
+  position,
+  retired: false,
+});
+
+beforeEach(() => {
+  referenceOptions.mockResolvedValue([
+    option('trade_licence', 'Trade licence', 10),
+    option('bank_letter', 'Bank letter', 90),
+    option('other', 'Other', 999),
+  ]);
+});
+
 function show(onUploaded = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
@@ -104,6 +134,9 @@ describe('adding a document', () => {
   it('asks for a description only when the type would not tell them apart', async () => {
     const user = userEvent.setup();
     show();
+
+    // The types arrive from the server now, so wait for them before choosing.
+    await screen.findByRole('option', { name: 'Other' });
 
     expect(screen.queryByLabelText('Description')).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Document type'), 'other');

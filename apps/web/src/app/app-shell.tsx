@@ -15,6 +15,7 @@ type NavView =
   | 'billing'
   | 'whatsapp'
   | 'staff'
+  | 'settings'
   | 'inbox'
   | 'home';
 
@@ -26,6 +27,7 @@ const VIEWS = [
   'billing',
   'whatsapp',
   'staff',
+  'settings',
   'inbox',
   'home',
 ] as const;
@@ -104,7 +106,11 @@ export function AppShell({
         <strong className="shell__brand">{t('appName')}</strong>
 
         <ul className="shell__list">
-          {VIEWS.map((view) => (
+          {/* Settings is the manager's: everything on it changes what the
+              rest of the firm sees in a dropdown. */}
+          {VIEWS.filter(
+            (view) => view !== 'settings' || caller.permissions.includes('users.manage'),
+          ).map((view) => (
             <li key={view}>
               <button
                 type="button"

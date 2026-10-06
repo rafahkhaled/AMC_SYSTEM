@@ -1,8 +1,9 @@
 import type { DocumentSummary } from '@amc/contracts';
 import { useMutation } from '@tanstack/react-query';
-import { type DragEvent, useId, useRef, useState } from 'react';
+import { type DragEvent, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Field, Select } from '../../design/index.js';
+import { useOptions } from '../lists/use-options.js';
 import { uploadDocument } from './api.js';
 
 /**
@@ -13,19 +14,6 @@ import { uploadDocument } from './api.js';
  * as a required field rather than letting someone find out by being refused.
  */
 const EXPIRES = new Set(['trade_licence', 'emirates_id', 'passport', 'visa', 'tenancy_contract']);
-
-const TYPES = [
-  'trade_licence',
-  'emirates_id',
-  'passport',
-  'visa',
-  'memorandum',
-  'tenancy_contract',
-  'vat_certificate',
-  'corporate_tax_certificate',
-  'bank_letter',
-  'other',
-] as const;
 
 /** What the server will keep. Anything else is a mistake or an attempt. */
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.tif,.tiff';
@@ -41,10 +29,24 @@ export function DocumentUpload({
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
 
+  const documentTypes = useOptions('document_type');
   const [file, setFile] = useState<File | null>(null);
-  const [type, setType] = useState<string>('trade_licence');
+  /*
+   * Empty until the list arrives, then the first option.
+   *
+   * Defaulting to a hardcoded code would quietly reintroduce the thing this
+   * change removes: an administrator who retires `trade_licence` would find
+   * the form still selecting it.
+   */
+  const [type, setType] = useState<string>('');
   const [issuedOn, setIssuedOn] = useState('');
   const [expiresOn, setExpiresOn] = useState('');
+
+  // The list decides the default, so retiring an option retires it everywhere.
+  const firstType = documentTypes.live[0]?.code;
+  useEffect(() => {
+    if (type === '' && firstType) setType(firstType);
+  }, [type, firstType]);
   const [label, setLabel] = useState('');
   const [dragging, setDragging] = useState(false);
 
@@ -124,9 +126,12 @@ export function DocumentUpload({
         label={t('documents.type')}
         control={(props) => (
           <Select {...props} value={type} onChange={(event) => setType(event.target.value)}>
-            {TYPES.map((code) => (
-              <option key={code} value={code}>
-                {t(`documentTypes.${code}`)}
+            {/* From the list an administrator maintains, not from a constant
+                in this file: a practice learns a new document type when a
+                client walks in holding one. */}
+            {documentTypes.live.map((option) => (
+              <option key={option.code} value={option.code}>
+                {documentTypes.label(option.code)}
               </option>
             ))}
           </Select>

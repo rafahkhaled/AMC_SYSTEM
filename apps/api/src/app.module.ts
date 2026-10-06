@@ -100,6 +100,7 @@ import { contactFileStore, documentFileStore } from './documents/adapters.js';
 import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { staffReader } from './identity/staff.js';
+import { ListsModule } from './lists/lists.module.js';
 import { LOGGER } from './observability/logger.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
@@ -128,6 +129,7 @@ import { cloudApiTransport, loggingTransport } from './whatsapp/transport.js';
     LoggerModule,
     DatabaseModule,
     HealthModule,
+    ListsModule,
     StorageModule,
     ClientsModule.forRootAsync({
       imports: [StorageModule],

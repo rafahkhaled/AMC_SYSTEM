@@ -761,6 +761,23 @@ not possible — and it usually is not, since the Elastic IP does not exist
 until the instance does — restart Caddy once the name resolves rather than
 waiting for a retry that is hours away.
 
+### A test that reported the date
+
+`calendar-page.test.tsx` asserted that pressing "Next" asks the server for
+`2026-10`. True in September, when it was written. False on the first of
+October, with nothing changed and nobody touching the calendar.
+
+**Cause:** the component derives its starting month from the real clock, and
+the test hardcoded where "next" would land.
+
+**Fixed:** `vi.setSystemTime` pins the suite to a fixed day.
+
+**Lesson:** a test that reads the real clock is a test that reports the date.
+It passes for a month, fails on a boundary, and the failure arrives attached
+to whatever change happened to be in flight — which is how an hour goes into
+the wrong diff. Anything asserting on a month, a quarter, a VAT period or an
+age wants a frozen clock.
+
 ## Smaller ones worth remembering
 
 - **`classes()` took a union of string and false.** `affix && 'with-affix'`

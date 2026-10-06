@@ -10,6 +10,7 @@ import { ClientQuotationPage } from '../features/client-link/client-quotation-pa
 import { ClientPage } from '../features/clients/client-page.js';
 import { ClientsPage } from '../features/clients/clients-page.js';
 import { InboxPage } from '../features/inbox/inbox-page.js';
+import { SettingsPage } from '../features/lists/settings-page.js';
 import { ProjectPage } from '../features/projects/project-page.js';
 import { ProjectsPage } from '../features/projects/projects-page.js';
 import { StaffPage } from '../features/staff/staff-page.js';
@@ -37,6 +38,7 @@ type View =
   | { name: 'billing' }
   | { name: 'whatsapp' }
   | { name: 'staff' }
+  | { name: 'settings' }
   | { name: 'inbox' }
   | { name: 'client'; id: string };
 
@@ -56,6 +58,7 @@ function activeNav(
   | 'billing'
   | 'whatsapp'
   | 'staff'
+  | 'settings'
   | 'inbox'
   | 'home' {
   if (view.name === 'client') return 'clients';
@@ -137,6 +140,8 @@ function Screen({
       return <BillingPage />;
     case 'whatsapp':
       return <WhatsAppPage />;
+    case 'settings':
+      return <SettingsPage />;
     case 'staff':
       return <StaffPage canManage={caller.permissions.includes('users.manage')} />;
     case 'inbox':

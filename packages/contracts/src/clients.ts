@@ -234,3 +234,51 @@ export const generateLetterSchema = z.object({
   language: z.enum(['en', 'ar']),
   projectId: z.string().optional(),
 });
+
+/* ------------------------------------------------- lists an admin can edit */
+
+/**
+ * The dropdowns an administrator may extend (FR-03).
+ *
+ * A closed set on purpose. Project states drive a state machine, roles decide
+ * permissions, and services carry a task template and a deadline rule — a new
+ * row in any of those is a name with no behaviour behind it, which is worse
+ * than refusing to add one.
+ */
+export const referenceLists = ['document_type', 'authority', 'payment_method'] as const;
+export type ReferenceList = (typeof referenceLists)[number];
+
+export const referenceOptionSchema = z.object({
+  id: z.string(),
+  list: z.enum(referenceLists),
+  /** The stored value. Never changes once written; rename the labels instead. */
+  code: z.string(),
+  nameEn: z.string(),
+  nameAr: z.string(),
+  position: z.number().int(),
+  /** Out of new dropdowns, still readable on everything already filed. */
+  retired: z.boolean(),
+});
+export type ReferenceOption = z.infer<typeof referenceOptionSchema>;
+
+export const referenceOptionsSchema = z.object({ options: z.array(referenceOptionSchema) });
+
+export const addReferenceOptionSchema = z.object({
+  /** Lower case, digits and underscores: it is stored on every row that uses it. */
+  code: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9_]{1,40}$/, 'Use lower case letters, digits and underscores'),
+  nameEn: z.string().trim().min(1).max(120),
+  nameAr: z.string().trim().min(1).max(120),
+  position: z.number().int().min(0).max(9999).optional(),
+});
+export type AddReferenceOptionRequest = z.infer<typeof addReferenceOptionSchema>;
+
+export const updateReferenceOptionSchema = z.object({
+  nameEn: z.string().trim().min(1).max(120).optional(),
+  nameAr: z.string().trim().min(1).max(120).optional(),
+  position: z.number().int().min(0).max(9999).optional(),
+  retired: z.boolean().optional(),
+});
+export type UpdateReferenceOptionRequest = z.infer<typeof updateReferenceOptionSchema>;
