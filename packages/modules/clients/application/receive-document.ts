@@ -45,6 +45,7 @@ export interface UploadCommand {
   readonly clientId: string;
   readonly type: string;
   readonly label?: string | undefined;
+  readonly authority?: string | undefined;
   readonly issuedOn?: string | undefined;
   readonly expiresOn?: string | undefined;
   readonly replacesId?: string | undefined;
@@ -142,6 +143,7 @@ export class ReceiveDocument {
         storageKey: stored.value.storageKey,
         originalName: command.filename,
         checksum: stored.value.checksum,
+        authority: command.authority?.trim() || null,
         issuedOn,
         expiresOn,
         uploadedBy: caller.userId,

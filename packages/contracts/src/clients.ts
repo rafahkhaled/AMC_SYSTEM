@@ -22,6 +22,14 @@ export type ClientSummary = z.infer<typeof clientSummarySchema>;
 export const documentSummarySchema = z.object({
   id: z.string(),
   type: z.string(),
+  /**
+   * Who issued it, as a code from the authority list.
+   *
+   * A trade licence from the DED and one from a free zone are the same type
+   * and not the same document, and which it is decides who a renewal is
+   * chased with. Null where nobody recorded it.
+   */
+  authority: z.string().nullable(),
   status: z.enum(['required', 'held', 'renewing']),
   expiresOn: z.string().nullable(),
   /** never_expires, valid, expiring, expired — computed, never stored. */
@@ -36,6 +44,7 @@ const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date in the f
 
 export const documentUploadSchema = z.object({
   type: z.string().min(1),
+  authority: z.string().trim().max(40).optional(),
   label: z.string().trim().max(200).optional(),
   issuedOn: calendarDay.optional(),
   expiresOn: calendarDay.optional(),

@@ -9,6 +9,8 @@ const uploadResultSchema = z.object({
 
 export interface UploadFields {
   readonly type: string;
+  /** A code from the authority list, when somebody said who issued it. */
+  readonly authority?: string;
   readonly label?: string;
   readonly issuedOn?: string;
   readonly expiresOn?: string;

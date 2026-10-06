@@ -75,6 +75,7 @@ export class ReadClients {
       return {
         id: document.id,
         type: detail.type,
+        authority: detail.authority,
         status: detail.status,
         expiresOn: detail.expiresOn?.toISOString().slice(0, 10) ?? null,
         expiryState: document.expiryStateOn(today),

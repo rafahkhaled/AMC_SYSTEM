@@ -136,6 +136,7 @@ export const clientDocuments = pgTable(
     storageKey: text('storage_key'),
     originalName: text('original_name'),
     checksum: text('checksum'),
+    authority: text('authority'),
     issuedOn: date('issued_on'),
     expiresOn: date('expires_on'),
     supersededById: text('superseded_by_id'),

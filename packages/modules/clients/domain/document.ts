@@ -72,6 +72,7 @@ export interface DocumentState {
   readonly storageKey: string | null;
   readonly originalName: string | null;
   readonly checksum: string | null;
+  readonly authority: string | null;
   readonly issuedOn: Date | null;
   readonly expiresOn: Date | null;
   readonly supersededById: DocumentId | null;
@@ -108,6 +109,8 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
       clientId: params.clientId,
       type: params.type,
       label: params.label?.trim() || null,
+      // Nobody has sent it, so nobody has said who issues it.
+      authority: null,
       status: 'required',
       storageKey: null,
       originalName: null,
@@ -164,6 +167,8 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
     storageKey: string;
     originalName: string;
     checksum: string;
+    /** Who issued it, as a code from the authority list. */
+    authority?: string | null;
     issuedOn?: Date | null;
     expiresOn?: Date | null;
     uploadedBy: string;
@@ -187,6 +192,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
       storageKey: params.storageKey,
       originalName: params.originalName,
       checksum: params.checksum,
+      authority: params.authority ?? null,
       issuedOn: params.issuedOn ?? null,
       expiresOn: params.expiresOn ?? null,
       uploadedBy: params.uploadedBy,

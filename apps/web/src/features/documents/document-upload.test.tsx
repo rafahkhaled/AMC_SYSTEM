@@ -21,9 +21,9 @@ vi.mock('../lists/api.js', () => ({
   updateOption: vi.fn(),
 }));
 
-const option = (code: string, nameEn: string, position: number) => ({
+const option = (list: string, code: string, nameEn: string, position: number) => ({
   id: `ro-${code}`,
-  list: 'document_type' as const,
+  list: list as 'document_type' | 'authority',
   code,
   nameEn,
   nameAr: nameEn,
@@ -32,11 +32,20 @@ const option = (code: string, nameEn: string, position: number) => ({
 });
 
 beforeEach(() => {
-  referenceOptions.mockResolvedValue([
-    option('trade_licence', 'Trade licence', 10),
-    option('bank_letter', 'Bank letter', 90),
-    option('other', 'Other', 999),
-  ]);
+  // Per list, because the form reads two of them and a shared stub puts the
+  // same "Other" in both dropdowns.
+  referenceOptions.mockImplementation(async (list: string) =>
+    list === 'authority'
+      ? [
+          option('authority', 'ded', 'DED', 10),
+          option('authority', 'free_zone', 'Free zone authority', 50),
+        ]
+      : [
+          option('document_type', 'trade_licence', 'Trade licence', 10),
+          option('document_type', 'bank_letter', 'Bank letter', 90),
+          option('document_type', 'other', 'Other', 999),
+        ],
+  );
 });
 
 function show(onUploaded = vi.fn()) {

@@ -30,6 +30,7 @@ export function DocumentUpload({
   const input = useRef<HTMLInputElement>(null);
 
   const documentTypes = useOptions('document_type');
+  const authorities = useOptions('authority');
   const [file, setFile] = useState<File | null>(null);
   /*
    * Empty until the list arrives, then the first option.
@@ -39,6 +40,7 @@ export function DocumentUpload({
    * the form still selecting it.
    */
   const [type, setType] = useState<string>('');
+  const [authority, setAuthority] = useState<string>('');
   const [issuedOn, setIssuedOn] = useState('');
   const [expiresOn, setExpiresOn] = useState('');
 
@@ -55,6 +57,7 @@ export function DocumentUpload({
       if (!file) throw new Error(t('documents.chooseFirst'));
       return uploadDocument(clientId, file, {
         type,
+        ...(authority ? { authority } : {}),
         ...(label.trim() ? { label: label.trim() } : {}),
         ...(issuedOn ? { issuedOn } : {}),
         ...(expiresOn ? { expiresOn } : {}),
@@ -63,6 +66,7 @@ export function DocumentUpload({
     onSuccess: (result) => {
       onUploaded(result.documents);
       setFile(null);
+      setAuthority('');
       setIssuedOn('');
       setExpiresOn('');
       setLabel('');
@@ -132,6 +136,28 @@ export function DocumentUpload({
             {documentTypes.live.map((option) => (
               <option key={option.code} value={option.code}>
                 {documentTypes.label(option.code)}
+              </option>
+            ))}
+          </Select>
+        )}
+      />
+
+      {/* Who issued it. A trade licence from the DED and one from a free zone
+          are the same type and not the same document, and which it is decides
+          who a renewal is chased with. */}
+      <Field
+        label={t('documents.authority')}
+        hint={t('documents.authorityHint')}
+        control={(props) => (
+          <Select
+            {...props}
+            value={authority}
+            onChange={(event) => setAuthority(event.target.value)}
+          >
+            <option value="">{t('documents.authorityUnknown')}</option>
+            {authorities.live.map((option) => (
+              <option key={option.code} value={option.code}>
+                {authorities.label(option.code)}
               </option>
             ))}
           </Select>

@@ -7,6 +7,7 @@ import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
 import { documentLink } from '../documents/api.js';
 import { DocumentUpload } from '../documents/document-upload.js';
 import { LettersPanel } from '../letters/letters-panel.js';
+import { useOptions } from '../lists/use-options.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import { VaultPanel } from '../vault/vault-panel.js';
 import { getClient } from './api.js';
@@ -163,6 +164,8 @@ function Fact({ label, value, mono }: { label: string; value: string | null; mon
 
 function DocumentRow({ document }: { document: DocumentSummary }) {
   const { t } = useTranslation();
+  const documentTypes = useOptions('document_type');
+  const authorities = useOptions('authority');
   const [opening, setOpening] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -193,7 +196,16 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
 
   return (
     <div className="line">
-      <span>{t(`documentTypes.${document.type}`)}</span>
+      <span>
+        {/* From the list an administrator maintains, which also resolves the
+            codes of options since retired. */}
+        <span className="u-typed">{documentTypes.label(document.type)}</span>
+        {document.authority ? (
+          <span className="u-block u-text-faint u-typed">
+            {authorities.label(document.authority)}
+          </span>
+        ) : null}
+      </span>
       <span className="u-grow" />
       {document.status === 'required' ? <Badge tone="warning">{t('clients.awaited')}</Badge> : null}
       {failed ? <span className="u-danger">{t('documents.openFailed')}</span> : null}
