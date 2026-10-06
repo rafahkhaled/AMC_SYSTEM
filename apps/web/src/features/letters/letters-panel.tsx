@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
+import { useOptions } from '../lists/use-options.js';
 import { generateLetter, letterTemplates, lettersFor } from './api.js';
 
 /**
@@ -22,6 +23,8 @@ export function LettersPanel({ clientId }: { clientId: string }) {
   const { t, i18n } = useTranslation();
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState<'en' | 'ar'>(i18n.language === 'ar' ? 'ar' : 'en');
+  const authorities = useOptions('authority');
+  const [authority, setAuthority] = useState('');
   const [letter, setLetter] = useState<Letter | null>(null);
 
   const templates = useQuery({ queryKey: ['letter-templates'], queryFn: letterTemplates });
@@ -31,7 +34,7 @@ export function LettersPanel({ clientId }: { clientId: string }) {
   });
 
   const generate = useMutation({
-    mutationFn: () => generateLetter(clientId, code, language),
+    mutationFn: () => generateLetter(clientId, code, language, authority || undefined),
     onSuccess: (produced) => {
       setLetter(produced);
       void history.refetch();
@@ -64,6 +67,26 @@ export function LettersPanel({ clientId }: { clientId: string }) {
             >
               <option value="ar">العربية</option>
               <option value="en">English</option>
+            </Select>
+          )}
+        />
+
+        {/* Who it is addressed to, so "what did we send the FTA, and when"
+            has an answer six months later. */}
+        <Field
+          label={t('letters.authority')}
+          control={(props) => (
+            <Select
+              {...props}
+              value={authority}
+              onChange={(event) => setAuthority(event.target.value)}
+            >
+              <option value="">{t('letters.authorityUnknown')}</option>
+              {authorities.live.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {authorities.label(option.code)}
+                </option>
+              ))}
             </Select>
           )}
         />
@@ -113,21 +136,51 @@ export function LettersPanel({ clientId }: { clientId: string }) {
       {(history.data ?? []).length > 0 ? (
         <div className="u-stack-tight">
           <span className="u-text-faint">{t('letters.previously')}</span>
-          {(history.data ?? []).slice(0, 5).map((previous) => (
-            <div key={previous.id} className="line">
-              <span>{previous.title}</span>
-              <span className="u-text-faint">
-                {previous.language === 'ar' ? 'العربية' : 'English'}
-              </span>
-              <span className="u-grow" />
-              <span className="u-text-faint u-ltr u-numeric">
-                {previous.createdAt.slice(0, 10)}
-              </span>
-              <Button small tone="quiet" onClick={() => setLetter(previous)}>
-                {t('letters.open')}
-              </Button>
-            </div>
-          ))}
+
+          {/* A table, because the question is "what did we send the FTA, and
+              when" — which is a comparison across rows, not one letter. */}
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('letters.columns.title')}</th>
+                  <th scope="col">{t('letters.columns.authority')}</th>
+                  <th scope="col">{t('letters.columns.language')}</th>
+                  <th scope="col">{t('letters.columns.created')}</th>
+                  <th scope="col">{t('letters.columns.by')}</th>
+                  <th scope="col">{t('letters.columns.open')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(history.data ?? []).map((previous) => (
+                  <tr key={previous.id}>
+                    <th scope="row" className="u-typed">
+                      {previous.title}
+                    </th>
+                    <td className="u-typed">
+                      {previous.authority ? (
+                        authorities.label(previous.authority)
+                      ) : (
+                        <span className="u-text-faint">—</span>
+                      )}
+                    </td>
+                    <td>{previous.language === 'ar' ? 'العربية' : 'English'}</td>
+                    <td>
+                      <span className="u-ltr u-numeric">{previous.createdAt.slice(0, 10)}</span>
+                    </td>
+                    <td className="u-typed">
+                      {previous.generatedBy ?? <span className="u-text-faint">—</span>}
+                    </td>
+                    <td>
+                      <Button small tone="quiet" onClick={() => setLetter(previous)}>
+                        {t('letters.open')}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
     </Card>

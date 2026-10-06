@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { useOptions } from '../lists/use-options.js';
 import {
   approve,
   invoices as fetchInvoices,
@@ -480,8 +481,14 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const [printing, setPrinting] = useState(false);
   const profile = useQuery({ queryKey: ['billing', 'firm-profile'], queryFn: firmProfile });
   const [amount, setAmount] = useState('');
+  const methods = useOptions('payment_method');
   const [method, setMethod] = useState('bank_transfer');
   const [reference, setReference] = useState('');
+  const [chequeNumber, setChequeNumber] = useState('');
+  const [chequeDate, setChequeDate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
 
   const list = useQuery({
     queryKey: ['billing', 'invoices', false],
@@ -490,18 +497,33 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const invoice = list.data?.find((candidate) => candidate.id === id);
 
   const pay = useMutation({
-    mutationFn: (body: { amountMinor: number; receivedOn: string; method: string }) =>
-      recordPayment(id, body),
+    mutationFn: (body: Parameters<typeof recordPayment>[1]) => recordPayment(id, body),
     onSuccess: () => {
       void queries.invalidateQueries({ queryKey: ['billing'] });
       setAmount('');
       setReference('');
+      setChequeNumber('');
+      setChequeDate('');
+      setBankName('');
+      setDiscount('');
+      setDiscountReason('');
     },
   });
 
   if (!invoice) return <Loading label={t('loading')} />;
 
   const typedAmount = minorUnitsFrom(amount);
+  /*
+   * A discount is optional and, once entered, needs a reason.
+   *
+   * The server refuses one without — a sum written off that nobody can
+   * answer for later is the thing the constraint exists to stop — so the
+   * button says so here rather than letting the request fail.
+   */
+  const typedDiscount = discount.trim() ? minorUnitsFrom(discount) : null;
+  const discountIsWrong = discount.trim() !== '' && typedDiscount === null;
+  const discountNeedsReason = Boolean(typedDiscount) && discountReason.trim() === '';
+
   const amountIsWrong = amount.trim() !== '' && typedAmount === null;
   const settled = invoice.balance.minorUnits === 0;
 
@@ -583,6 +605,18 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
               amountMinor: typedAmount,
               receivedOn: new Date().toISOString(),
               method,
+              // Sent now. The box was here and its contents were dropped:
+              // somebody typed a cheque number and nothing kept it.
+              ...(reference.trim() ? { reference: reference.trim() } : {}),
+              ...(method === 'cheque' && chequeNumber.trim()
+                ? { chequeNumber: chequeNumber.trim() }
+                : {}),
+              ...(method === 'cheque' && chequeDate ? { chequeDate } : {}),
+              ...(bankName.trim() ? { bankName: bankName.trim() } : {}),
+              ...(typedDiscount ? { discountMinor: typedDiscount } : {}),
+              ...(typedDiscount && discountReason.trim()
+                ? { discountReason: discountReason.trim() }
+                : {}),
             });
           }}
         >
@@ -597,24 +631,74 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
             label={t('billing.method.label')}
             control={(props) => (
               <Select {...props} value={method} onChange={(event) => setMethod(event.target.value)}>
-                {(['bank_transfer', 'cheque', 'cash', 'card', 'other'] as const).map((which) => (
-                  <option key={which} value={which}>
-                    {t(`billing.method.${which}`)}
+                {/* From the list an administrator maintains, so a new way of
+                    being paid does not need a deploy. */}
+                {methods.live.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {methods.label(option.code)}
                   </option>
                 ))}
               </Select>
             )}
           />
+          {/* A cheque's own number and date, which is what gets chased when it
+              does not clear. Shown only for a cheque: the server refuses them
+              on anything else. */}
+          {method === 'cheque' ? (
+            <>
+              <Field
+                label={t('billing.chequeNumber')}
+                ltr
+                value={chequeNumber}
+                onChange={(event) => setChequeNumber(event.target.value)}
+              />
+              <Field
+                label={t('billing.chequeDate')}
+                type="date"
+                value={chequeDate}
+                onChange={(event) => setChequeDate(event.target.value)}
+              />
+            </>
+          ) : null}
+
+          <Field
+            label={t('billing.bankName')}
+            value={bankName}
+            onChange={(event) => setBankName(event.target.value)}
+          />
+
           <Field
             label={t('billing.reference')}
             value={reference}
             onChange={(event) => setReference(event.target.value)}
           />
 
+          <Field
+            label={t('billing.discount')}
+            hint={t('billing.discountHint')}
+            inputMode="decimal"
+            value={discount}
+            onChange={(event) => setDiscount(event.target.value)}
+            {...(discountIsWrong ? { error: t('billing.notAnAmount') } : {})}
+          />
+          {typedDiscount ? (
+            <Field
+              label={t('billing.discountReason')}
+              hint={t('billing.discountReasonHint')}
+              value={discountReason}
+              onChange={(event) => setDiscountReason(event.target.value)}
+            />
+          ) : null}
+
           {pay.isError ? <Alert tone="error">{(pay.error as Error).message}</Alert> : null}
 
           <div className="u-row">
-            <Button type="submit" small busy={pay.isPending} disabled={typedAmount === null}>
+            <Button
+              type="submit"
+              small
+              busy={pay.isPending}
+              disabled={typedAmount === null || discountIsWrong || discountNeedsReason}
+            >
               {t('billing.recordPayment')}
             </Button>
           </div>

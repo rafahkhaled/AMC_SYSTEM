@@ -70,7 +70,17 @@ export async function invoices(outstandingOnly = false): Promise<InvoiceView[]> 
 
 export async function recordPayment(
   invoiceId: string,
-  body: { amountMinor: number; receivedOn: string; method: string; reference?: string },
+  body: {
+    amountMinor: number;
+    receivedOn: string;
+    method: string;
+    reference?: string;
+    chequeNumber?: string;
+    chequeDate?: string;
+    bankName?: string;
+    discountMinor?: number;
+    discountReason?: string;
+  },
 ): Promise<InvoiceView> {
   return invoiceSchema.parse(
     await send(`/billing/invoices/${encodeURIComponent(invoiceId)}/payments`, body),

@@ -65,7 +65,7 @@ describe('the firm’s letters (FR-15)', () => {
 
     await generate(user);
 
-    expect(generateLetter).toHaveBeenCalledWith('c-1', 'engagement_letter', 'en');
+    expect(generateLetter).toHaveBeenCalledWith('c-1', 'engagement_letter', 'en', undefined);
     expect(await screen.findByText(/Gulf Trading LLC/)).toBeInTheDocument();
   });
 

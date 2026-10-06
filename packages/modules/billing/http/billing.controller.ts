@@ -442,7 +442,14 @@ export class BillingController {
     @Body() body: unknown,
   ): Promise<InvoiceView> {
     const parsed = recordPaymentRequestSchema.safeParse(body);
-    if (!parsed.success) throw new BadRequestException('Say how much arrived, when, and how');
+    if (!parsed.success) {
+      // The schema's own words where it has them: "say why the amount was
+      // reduced" tells somebody what to do, and a generic sentence about
+      // how much arrived does not.
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Say how much arrived, when, and how',
+      );
+    }
 
     const visible = await this.read.invoice(caller, id);
     if (!visible) throw new NotFoundException('No such invoice');

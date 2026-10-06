@@ -23,8 +23,14 @@ export async function generateLetter(
   clientId: string,
   templateCode: string,
   language: 'en' | 'ar',
+  /** Who it is addressed to, from the authority list. */
+  authority?: string,
 ): Promise<Letter> {
   return letterSchema.parse(
-    await send(`/clients/${encodeURIComponent(clientId)}/letters`, { templateCode, language }),
+    await send(`/clients/${encodeURIComponent(clientId)}/letters`, {
+      templateCode,
+      language,
+      ...(authority ? { authority } : {}),
+    }),
   );
 }
