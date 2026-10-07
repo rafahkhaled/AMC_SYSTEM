@@ -1482,6 +1482,22 @@ a {
   padding: 0;
 }
 
+/*
+ * What a quotation line charges, with the discount and the VAT beneath it.
+ *
+ * Right-aligned against the inline end, in logical properties, so the column
+ * of figures lines up whichever way round the interface is. The figure leads
+ * and the parts follow it in smaller type: the charge is what the eye is
+ * looking for, and the parts are what it goes to next.
+ */
+.line__charge {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  justify-items: end;
+  text-align: end;
+}
+
 @media print {
   .shell__menu,
   .shell__bar,

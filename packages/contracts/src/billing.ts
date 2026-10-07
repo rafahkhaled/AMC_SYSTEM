@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { serviceCodes } from './projects.js';
 
 /** Money crosses the wire as whole minor units, never as a decimal. */
 const moneySchema = z.object({
@@ -188,13 +189,27 @@ export type ReleaseStatementRequest = z.infer<typeof releaseStatementRequestSche
 
 export const quotationLineSchema = z.object({
   id: z.string(),
+  /** Which of the firm's services this line is for, where it is one of them. */
+  serviceCode: z.string().nullable(),
   descriptionEn: z.string(),
   descriptionAr: z.string(),
   /** How it was priced, which still matters after the client says yes. */
   kind: z.enum(['hours', 'fixed']),
   hours: z.number().nullable(),
   perHour: moneySchema.nullable(),
+  /** The agreed price of the line, before anything is taken off it. */
   amount: moneySchema,
+  discount: moneySchema,
+  /**
+   * VAT on this line; 500 is five percent. Null is out of scope, which is a
+   * different claim from zero and sits in a different box on the return.
+   */
+  vatBasisPoints: z.number().int().nonnegative().nullable(),
+  /** After the discount, before VAT. */
+  net: moneySchema,
+  vat: moneySchema,
+  /** What this line charges the client. */
+  chargeable: moneySchema,
 });
 export type QuotationLineView = z.infer<typeof quotationLineSchema>;
 
@@ -207,6 +222,13 @@ export const quotationSchema = z.object({
   state: z.enum(['draft', 'sent', 'accepted', 'declined', 'expired']),
   currency: z.string(),
   lines: z.array(quotationLineSchema),
+  /** Every line at its agreed price, before discounts. */
+  subtotal: moneySchema,
+  discount: moneySchema,
+  /** After discounts, before VAT. */
+  net: moneySchema,
+  vat: moneySchema,
+  /** What the client is actually being charged: net plus VAT. */
   total: moneySchema,
   validUntil: z.string().nullable(),
   sentAt: z.string().nullable(),
@@ -251,11 +273,36 @@ export type DraftQuotationRequest = z.infer<typeof draftQuotationRequestSchema>;
  */
 export const addQuotationLineRequestSchema = z
   .object({
+    /**
+     * One of the eleven services, where the line is one of them.
+     *
+     * Checked against the list rather than taken as free text, so that a
+     * quotation line and the project eventually opened for it name the same
+     * service. Left out for a line that is not a service at all.
+     */
+    serviceCode: z.enum(serviceCodes).optional(),
     descriptionEn: z.string().trim().max(300).optional(),
     descriptionAr: z.string().trim().max(300).optional(),
     hours: z.number().positive().max(10_000).optional(),
     perHourMinor: z.number().int().nonnegative().optional(),
     amountMinor: z.number().int().nonnegative().optional(),
+    /** Off this line, before VAT. Never more than the line itself. */
+    discountMinor: z.number().int().nonnegative().optional(),
+    /**
+     * Whether VAT applies, rather than at what rate.
+     *
+     * The rate itself comes from the firm's own configuration, so a quotation
+     * and the invoice that eventually follows it cannot disagree about what
+     * five percent is. Required, with no default: a line that forgot to say
+     * quietly under-quotes the client by the VAT, and nobody notices until
+     * the invoice is five percent larger than the offer.
+     */
+    vat: z.enum(['standard', 'out_of_scope'], {
+      // Otherwise a line sent without it is refused with the word
+      // "Required", and the screen shows the client's accountant that.
+      required_error: 'Say whether VAT applies to this line, or that it is out of scope',
+      invalid_type_error: 'Say whether VAT applies to this line, or that it is out of scope',
+    }),
   })
   .refine(
     (line) =>
@@ -369,6 +416,18 @@ export const firmProfileSchema = z.object({
     .nullable(),
   logoUrl: z.string().nullable(),
   stampUrl: z.string().nullable(),
+  /**
+   * The firm's VAT rate, in basis points. 500 is five percent.
+   *
+   * Sent so that a screen offering "standard rate" can name the rate it is
+   * actually offering. A selector that says five percent while the server is
+   * configured at nothing quotes the client one figure and bills another,
+   * and nobody finds out until the invoice arrives.
+   *
+   * Zero for a firm that is not registered for VAT, which is why it is a
+   * number and not a flag.
+   */
+  vatBasisPoints: z.number().int().nonnegative(),
 });
 export type FirmProfile = z.infer<typeof firmProfileSchema>;
 
@@ -404,9 +463,28 @@ export const clientQuotationSchema = z.object({
     z.object({
       descriptionEn: z.string(),
       descriptionAr: z.string(),
+      /** The agreed price of the line, before anything is taken off. */
       amount: moneySchema,
+      discount: moneySchema,
+      /** Null where the line is out of the scope of VAT. */
+      vatBasisPoints: z.number().int().nonnegative().nullable(),
+      vat: moneySchema,
+      /** What this line charges them. */
+      chargeable: moneySchema,
     }),
   ),
+  /*
+   * The breakdown, because the client is being asked to agree to it.
+   *
+   * A page showing only a total asks somebody to accept a figure they cannot
+   * check. The discount in particular is the firm's own argument for the
+   * price and should be on the page it is making the argument on.
+   */
+  subtotal: moneySchema,
+  discount: moneySchema,
+  net: moneySchema,
+  vat: moneySchema,
+  /** Net plus VAT: what they pay if they say yes. */
   total: moneySchema,
   validUntil: z.string().nullable(),
   notesEn: z.string().nullable(),

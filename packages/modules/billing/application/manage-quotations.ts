@@ -10,6 +10,7 @@ import {
 } from '@amc/kernel';
 import { Quotation, type QuotationLine, type SentVia } from '../domain/index.js';
 import type {
+  BillingSettings,
   DocumentDelivery,
   InvoiceNumbering,
   LinkTokens,
@@ -26,11 +27,22 @@ export interface DraftQuotationCommand {
 }
 
 export interface AddLineCommand {
+  readonly serviceCode?: string | undefined;
   readonly descriptionEn?: string | undefined;
   readonly descriptionAr?: string | undefined;
   readonly hours?: number | undefined;
   readonly perHourMinor?: number | undefined;
   readonly amountMinor?: number | undefined;
+  readonly discountMinor?: number | undefined;
+  /**
+   * Whether VAT applies, not at what rate.
+   *
+   * The screen offers "5%" or "out of scope" and the rate behind the first
+   * comes from the firm's own configuration here, so that a quotation and the
+   * invoice that eventually follows it cannot disagree about what five
+   * percent is.
+   */
+  readonly vat: 'standard' | 'out_of_scope';
 }
 
 /**
@@ -54,6 +66,8 @@ export class ManageQuotations {
     private readonly numbering: InvoiceNumbering,
     private readonly delivery: DocumentDelivery,
     private readonly links: LinkTokens,
+    /** The firm's VAT rate, which a standard-rated line is quoted at. */
+    private readonly settings: BillingSettings,
     /** How long a client has to answer before the link stops working. */
     private readonly linkDays: number = 60,
   ) {}
@@ -113,9 +127,17 @@ export class ManageQuotations {
 
     const line: QuotationLine = {
       id: this.ids.next(),
+      serviceCode: command.serviceCode ?? null,
       descriptionEn: command.descriptionEn?.trim() ?? '',
       descriptionAr: command.descriptionAr?.trim() ?? '',
       pricing: pricing.value,
+      discount: Money.ofMinor(command.discountMinor ?? 0, currency),
+      /*
+       * Stamped now, from configuration. The rate the client was quoted at is
+       * the rate they agreed to, whatever the firm's rate becomes later —
+       * the same reason the invoice keeps its own.
+       */
+      vatBasisPoints: command.vat === 'standard' ? this.settings.vatBasisPoints : null,
     };
 
     const added = quotation.addLine(line);

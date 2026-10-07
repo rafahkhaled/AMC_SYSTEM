@@ -46,12 +46,15 @@ type QuotationRow = {
 type LineRow = {
   id: string;
   quotation_id: string;
+  service_code: string | null;
   description_en: string | null;
   description_ar: string | null;
   kind: string;
   hours_centi: number | null;
   per_hour_minor: string | null;
   amount_minor: string | null;
+  discount_minor: string | null;
+  vat_basis_points: number | null;
 };
 
 function toPricing(row: LineRow, currency: CurrencyCode): LinePricing {
@@ -125,9 +128,15 @@ export class DrizzleQuotationRepository implements QuotationRepository {
 
     const lines: QuotationLine[] = lineRows.map((line) => ({
       id: line.id,
+      serviceCode: line.service_code,
       descriptionEn: line.description_en ?? '',
       descriptionAr: line.description_ar ?? '',
       pricing: toPricing(line, currency),
+      discount: Money.ofMinor(Number(line.discount_minor ?? 0), currency),
+      // Null is out of scope. Zero would be a taxable supply at nothing,
+      // which is a different claim, so the null is carried through rather
+      // than defaulted away.
+      vatBasisPoints: line.vat_basis_points,
     }));
 
     return Quotation.rehydrate({
@@ -203,15 +212,17 @@ export class DrizzleQuotationRepository implements QuotationRepository {
       const pricing = line.pricing;
       await this.db.execute(sql`
         INSERT INTO quotation_lines
-          (id, quotation_id, position, description_en, description_ar,
-           kind, hours_centi, per_hour_minor, amount_minor)
+          (id, quotation_id, position, service_code, description_en, description_ar,
+           kind, hours_centi, per_hour_minor, amount_minor,
+           discount_minor, vat_basis_points)
         VALUES (
-          ${line.id}, ${state.id}, ${position},
+          ${line.id}, ${state.id}, ${position}, ${line.serviceCode},
           ${line.descriptionEn || null}, ${line.descriptionAr || null},
           ${pricing.kind},
           ${pricing.kind === 'hours' ? Math.round(pricing.hours * 100) : null},
           ${pricing.kind === 'hours' ? pricing.perHour.minorUnits : null},
-          ${pricing.kind === 'fixed' ? pricing.amount.minorUnits : null}
+          ${pricing.kind === 'fixed' ? pricing.amount.minorUnits : null},
+          ${line.discount.minorUnits}, ${line.vatBasisPoints}
         )
       `);
     }

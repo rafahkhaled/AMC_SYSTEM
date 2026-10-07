@@ -13,6 +13,9 @@ import {
 const now = new Date('2026-09-22T08:00:00.000Z');
 const days = (n: number) => new Date(now.getTime() + n * 86_400_000);
 
+/** The firm's own rate, as configuration supplies it. Five percent. */
+const VAT = { vatBasisPoints: 500, paymentTermsDays: 14 };
+
 function harness(at = now, delivery = new FakeDelivery()) {
   const quotations = new InMemoryQuotations();
   const manage = new ManageQuotations(
@@ -23,6 +26,7 @@ function harness(at = now, delivery = new FakeDelivery()) {
     new CountingNumbers(192),
     delivery,
     new CountingLinkTokens(),
+    VAT,
   );
   return { manage, quotations, delivery };
 }
@@ -70,6 +74,7 @@ describe('pricing a line', () => {
       descriptionEn: 'VAT registration',
       hours: 4,
       perHourMinor: 25_000,
+      vat: 'out_of_scope',
     });
     expect(added.ok).toBe(true);
     expect((await h.quotations.findById(id))?.total().minorUnits).toBe(100_000);
@@ -79,7 +84,11 @@ describe('pricing a line', () => {
     const h = harness();
     const id = await drafted(h);
 
-    await h.manage.addLine(id, { descriptionAr: 'التدقيق السنوي', amountMinor: 500_000 });
+    await h.manage.addLine(id, {
+      descriptionAr: 'التدقيق السنوي',
+      amountMinor: 500_000,
+      vat: 'out_of_scope',
+    });
     expect((await h.quotations.findById(id))?.total().minorUnits).toBe(500_000);
   });
 
@@ -92,17 +101,18 @@ describe('pricing a line', () => {
       hours: 4,
       perHourMinor: 25_000,
       amountMinor: 100_000,
+      vat: 'out_of_scope',
     });
     expect(both.ok).toBe(false);
 
-    const neither = await h.manage.addLine(id, { descriptionEn: 'Work' });
+    const neither = await h.manage.addLine(id, { descriptionEn: 'Work', vat: 'out_of_scope' });
     expect(neither.ok).toBe(false);
   });
 
   it('removes a line', async () => {
     const h = harness();
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
 
     const quotation = await h.quotations.findById(id);
     const lineId = quotation?.snapshot().lines[0]?.id;
@@ -117,7 +127,11 @@ describe('sending and answering', () => {
   async function sent() {
     const h = harness();
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 500_000 });
+    await h.manage.addLine(id, {
+      descriptionEn: 'Work',
+      amountMinor: 500_000,
+      vat: 'out_of_scope',
+    });
     const out = await h.manage.send(id);
     if (!out.ok) throw out.error;
     return { h, id };
@@ -136,7 +150,11 @@ describe('sending and answering', () => {
 
   it('cannot be edited once it is with the client', async () => {
     const { h, id } = await sent();
-    const refused = await h.manage.addLine(id, { descriptionEn: 'More', amountMinor: 1000 });
+    const refused = await h.manage.addLine(id, {
+      descriptionEn: 'More',
+      amountMinor: 1000,
+      vat: 'out_of_scope',
+    });
     expect(refused.ok).toBe(false);
   });
 
@@ -161,7 +179,7 @@ describe('the expiry sweep', () => {
   it('expires what lapsed and leaves what has not', async () => {
     const h = harness();
     const soon = await drafted(h, 'Q-SOON');
-    await h.manage.addLine(soon, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(soon, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
     await h.manage.send(soon);
 
     const later = new ManageQuotations(
@@ -172,6 +190,7 @@ describe('the expiry sweep', () => {
       new CountingNumbers(900),
       new FakeDelivery(),
       new CountingLinkTokens(),
+      VAT,
     );
     const swept = await later.sweepExpired();
 
@@ -182,7 +201,7 @@ describe('the expiry sweep', () => {
   it('leaves an accepted quotation accepted, however old', async () => {
     const h = harness();
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
     await h.manage.send(id);
     await h.manage.accept(id);
 
@@ -194,6 +213,7 @@ describe('the expiry sweep', () => {
       new CountingNumbers(900),
       new FakeDelivery(),
       new CountingLinkTokens(),
+      VAT,
     );
     // The client said yes. A sweep running later must not undo that.
     expect((await later.sweepExpired()).expired).toBe(0);
@@ -203,7 +223,7 @@ describe('the expiry sweep', () => {
   it('refuses to accept one that already lapsed, rather than honouring the price', async () => {
     const h = harness();
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
     await h.manage.send(id);
 
     const later = new ManageQuotations(
@@ -214,6 +234,7 @@ describe('the expiry sweep', () => {
       new CountingNumbers(900),
       new FakeDelivery(),
       new CountingLinkTokens(),
+      VAT,
     );
     await later.sweepExpired();
     expect((await later.accept(id)).ok).toBe(false);
@@ -224,7 +245,7 @@ describe('getting it to the client', () => {
   it('records that somebody sent it by hand, and sends nothing', async () => {
     const h = harness();
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
 
     const sent = await h.manage.send(id);
     expect(sent.ok).toBe(true);
@@ -239,7 +260,7 @@ describe('getting it to the client', () => {
   it('emails it when asked, and says so on the quotation', async () => {
     const h = harness();
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
 
     const sent = await h.manage.send(id, { deliver: true });
     expect(sent.ok).toBe(true);
@@ -254,7 +275,7 @@ describe('getting it to the client', () => {
   it('refuses when the client has no address, rather than marking it sent', async () => {
     const h = harness(now, new FakeDelivery(null));
     const id = await drafted(h);
-    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000 });
+    await h.manage.addLine(id, { descriptionEn: 'Work', amountMinor: 1000, vat: 'out_of_scope' });
 
     const sent = await h.manage.send(id, { deliver: true });
     expect(sent.ok).toBe(false);
@@ -277,5 +298,87 @@ describe('getting it to the client', () => {
     const sent = await h.manage.send(id, { deliver: true });
     expect(sent.ok).toBe(false);
     expect(h.delivery.sent).toHaveLength(0);
+  });
+});
+
+/*
+ * The firm's rate, not the screen's (feedback item 13).
+ *
+ * The browser sends "standard" or "out of scope" and the rate behind the
+ * first comes from configuration here. If the screen sent a number instead,
+ * a quotation could be offered at a rate the firm does not charge — and the
+ * invoice that followed it would say something else.
+ */
+describe('VAT and discounts on a line', () => {
+  async function lineOn(
+    h: ReturnType<typeof harness>,
+    command: Parameters<typeof h.manage.addLine>[1],
+  ) {
+    const id = await drafted(h);
+    const added = await h.manage.addLine(id, command);
+    if (!added.ok) throw added.error;
+    const quotation = await h.quotations.findById(id);
+    if (!quotation) throw new Error('no quotation');
+    return quotation;
+  }
+
+  it('stamps the configured rate on a standard-rated line', async () => {
+    const quotation = await lineOn(harness(), {
+      descriptionEn: 'VAT return',
+      amountMinor: 100_000,
+      vat: 'standard',
+    });
+
+    expect(quotation.snapshot().lines[0]?.vatBasisPoints).toBe(500);
+    expect(quotation.total().minorUnits).toBe(105_000);
+  });
+
+  it('leaves an out-of-scope line with no rate at all', async () => {
+    // Null rather than zero: a line at zero percent is a taxable supply
+    // charged at nothing, and these sit in different boxes on the return.
+    const quotation = await lineOn(harness(), {
+      descriptionEn: 'Authority fee',
+      amountMinor: 100_000,
+      vat: 'out_of_scope',
+    });
+
+    expect(quotation.snapshot().lines[0]?.vatBasisPoints).toBeNull();
+    expect(quotation.total().minorUnits).toBe(100_000);
+  });
+
+  it('takes the discount off before charging VAT on what is left', async () => {
+    const quotation = await lineOn(harness(), {
+      descriptionEn: 'Annual audit',
+      amountMinor: 500_000,
+      discountMinor: 50_000,
+      vat: 'standard',
+    });
+
+    expect(quotation.net().minorUnits).toBe(450_000);
+    expect(quotation.vatTotal().minorUnits).toBe(22_500);
+    expect(quotation.total().minorUnits).toBe(472_500);
+  });
+
+  it('keeps which service the line was for', async () => {
+    const quotation = await lineOn(harness(), {
+      serviceCode: 'vat_return',
+      descriptionEn: 'VAT return, Q3',
+      amountMinor: 100_000,
+      vat: 'standard',
+    });
+
+    expect(quotation.snapshot().lines[0]?.serviceCode).toBe('vat_return');
+  });
+
+  it('refuses a discount larger than the line, through this layer too', async () => {
+    const h = harness();
+    const id = await drafted(h);
+    const refused = await h.manage.addLine(id, {
+      descriptionEn: 'Work',
+      amountMinor: 1000,
+      discountMinor: 1001,
+      vat: 'standard',
+    });
+    expect(refused.ok).toBe(false);
   });
 });

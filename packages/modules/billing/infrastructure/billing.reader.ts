@@ -111,28 +111,13 @@ export class DrizzleBillingReader implements BillingReader {
       const currency = row.currency;
       const lines = lineRows
         .filter((line) => line.quotation_id === row.id)
-        .map((line) => {
-          // Hundredths of an hour, whole, so nothing in the billing path is a
-          // float — including the quantity.
-          const hours = line.hours_centi === null ? null : line.hours_centi / 100;
-          const amount =
-            line.kind === 'fixed'
-              ? Number(line.amount_minor ?? 0)
-              : roundHalfAway(
-                  BigInt(line.hours_centi ?? 0) * BigInt(line.per_hour_minor ?? 0),
-                  100n,
-                );
+        .map((line) => quotationLine(line, currency));
 
-          return {
-            id: line.id,
-            descriptionEn: line.description_en ?? '',
-            descriptionAr: line.description_ar ?? '',
-            kind: line.kind as 'hours' | 'fixed',
-            hours,
-            perHour: line.per_hour_minor === null ? null : money(line.per_hour_minor, currency),
-            amount: money(amount, currency),
-          };
-        });
+      const added = (pick: (line: (typeof lines)[number]) => { minorUnits: number }) =>
+        money(
+          lines.reduce((sum, line) => sum + pick(line).minorUnits, 0),
+          currency,
+        );
 
       return {
         id: row.id,
@@ -142,10 +127,11 @@ export class DrizzleBillingReader implements BillingReader {
         state: row.state as QuotationView['state'],
         currency,
         lines,
-        total: money(
-          lines.reduce((sum, line) => sum + line.amount.minorUnits, 0),
-          currency,
-        ),
+        subtotal: added((line) => line.amount),
+        discount: added((line) => line.discount),
+        net: added((line) => line.net),
+        vat: added((line) => line.vat),
+        total: added((line) => line.chargeable),
         validUntil: row.valid_until ? row.valid_until.slice(0, 10) : null,
         sentAt: row.sent_at ? new Date(row.sent_at).toISOString() : null,
         sentVia: row.sent_via as 'email' | 'by_hand' | null,
@@ -455,6 +441,50 @@ function roundHalfAway(product: bigint, divisor: bigint): number {
   return Number(remainder * 2n >= divisor ? whole + 1n : whole);
 }
 
+/**
+ * One quotation line, as a screen reads it.
+ *
+ * The arithmetic is the domain's, in the domain's order: the hours against
+ * the rate, the discount off that, VAT on what is left, rounded per line
+ * rather than once on the total. A reader that totalled it any other way
+ * would put a figure on the screen that the aggregate never put in the audit
+ * log, and the two would disagree by a fils nobody could account for.
+ */
+function quotationLine(line: QuotationLineRow, currency: string): QuotationView['lines'][number] {
+  // Hundredths of an hour, whole, so nothing in the billing path is a float —
+  // including the quantity.
+  const hours = line.hours_centi === null ? null : line.hours_centi / 100;
+  const amount =
+    line.kind === 'fixed'
+      ? Number(line.amount_minor ?? 0)
+      : roundHalfAway(BigInt(line.hours_centi ?? 0) * BigInt(line.per_hour_minor ?? 0), 100n);
+
+  const discount = Number(line.discount_minor ?? 0);
+  const net = amount - discount;
+  // Null is out of scope, and charges nothing. Carried as null rather than
+  // collapsed to zero: they sit in different boxes on the return.
+  const vat =
+    line.vat_basis_points === null
+      ? 0
+      : roundHalfAway(BigInt(net) * BigInt(line.vat_basis_points), 10_000n);
+
+  return {
+    id: line.id,
+    serviceCode: line.service_code,
+    descriptionEn: line.description_en ?? '',
+    descriptionAr: line.description_ar ?? '',
+    kind: line.kind as 'hours' | 'fixed',
+    hours,
+    perHour: line.per_hour_minor === null ? null : money(line.per_hour_minor, currency),
+    amount: money(amount, currency),
+    discount: money(discount, currency),
+    vatBasisPoints: line.vat_basis_points,
+    net: money(net, currency),
+    vat: money(vat, currency),
+    chargeable: money(net + vat, currency),
+  };
+}
+
 const QUOTATION_SELECT = sql`
   SELECT q.id, q.client_id, c.legal_name AS client_name, q.reference, q.state,
          q.currency, q.valid_until, q.sent_at, q.sent_via, q.decided_at,
@@ -482,10 +512,13 @@ type QuotationRow = {
 type QuotationLineRow = {
   id: string;
   quotation_id: string;
+  service_code: string | null;
   description_en: string | null;
   description_ar: string | null;
   kind: string;
   hours_centi: number | null;
   per_hour_minor: string | null;
   amount_minor: string | null;
+  discount_minor: string | null;
+  vat_basis_points: number | null;
 };

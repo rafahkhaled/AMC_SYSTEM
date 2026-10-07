@@ -12,6 +12,7 @@ const profile = (over: Partial<FirmProfile> = {}): FirmProfile => ({
   bank: { accountHolder: 'Active M Consultancy FZE LLC', iban: 'AE00', bic: 'ABCDAEAA' },
   logoUrl: null,
   stampUrl: null,
+  vatBasisPoints: 500,
   ...over,
 });
 
@@ -62,14 +63,26 @@ const quotation = (over: Partial<QuotationView> = {}): QuotationView => ({
   lines: [
     {
       id: 'ql-1',
+      serviceCode: null,
       descriptionEn: 'Tax-(VAT & CT)',
       descriptionAr: 'CT Re-turn 2025',
       kind: 'fixed',
       hours: null,
       perHour: null,
       amount: aed(175_000),
+      discount: aed(0),
+      // Out of scope, which is how the firm's own template has always
+      // looked: it totals the work and stops.
+      vatBasisPoints: null,
+      net: aed(175_000),
+      vat: aed(0),
+      chargeable: aed(175_000),
     },
   ],
+  subtotal: aed(175_000),
+  discount: aed(0),
+  net: aed(175_000),
+  vat: aed(0),
   total: aed(175_000),
   validUntil: null,
   sentAt: null,
@@ -189,14 +202,22 @@ describe('the quotation', () => {
           lines: [
             {
               id: 'ql-1',
+              serviceCode: 'monthly_accounting',
               descriptionEn: 'Bookkeeping',
               descriptionAr: 'مسك الدفاتر',
               kind: 'hours',
               hours: 12,
               perHour: aed(30_000),
               amount: aed(360_000),
+              discount: aed(0),
+              vatBasisPoints: null,
+              net: aed(360_000),
+              vat: aed(0),
+              chargeable: aed(360_000),
             },
           ],
+          subtotal: aed(360_000),
+          net: aed(360_000),
           total: aed(360_000),
         })}
         profile={profile()}
@@ -218,5 +239,66 @@ describe('the quotation', () => {
     expect(screen.getByText("Customer's Stamp & Signature")).toBeInTheDocument();
     // A quotation is not a request for payment.
     expect(screen.queryByText('Bank Details:')).not.toBeInTheDocument();
+  });
+
+  /*
+   * The discount and VAT rows (feedback item 13).
+   *
+   * Without them the amount column adds up to one figure and the Total says
+   * another, and a client reading a document that does not add up is right to
+   * query it.
+   */
+  it('shows the discount and the VAT it arrived at the total through', async () => {
+    await useLanguage('en');
+    renderScreen(
+      <QuotationDocument
+        quotation={quotation({
+          lines: [
+            {
+              id: 'ql-1',
+              serviceCode: 'vat_return',
+              descriptionEn: 'VAT return',
+              descriptionAr: 'إقرار القيمة المضافة',
+              kind: 'fixed',
+              hours: null,
+              perHour: null,
+              amount: aed(500_000),
+              discount: aed(50_000),
+              vatBasisPoints: 500,
+              net: aed(450_000),
+              vat: aed(22_500),
+              chargeable: aed(472_500),
+            },
+          ],
+          subtotal: aed(500_000),
+          discount: aed(50_000),
+          net: aed(450_000),
+          vat: aed(22_500),
+          total: aed(472_500),
+        })}
+        profile={profile()}
+      />,
+    );
+
+    expect(screen.getByText('Subtotal')).toBeInTheDocument();
+    expect(screen.getByText('Discount')).toBeInTheDocument();
+    expect(screen.getByText('Net')).toBeInTheDocument();
+    // Against the line it came off, as well as in the totals: the client
+    // reads a quotation line by line.
+    expect(screen.getByText(/Less discount 500\.00/)).toBeInTheDocument();
+    // The amount column carries what the line charges, so it adds up.
+    expect(screen.getByText('4,725.00')).toBeInTheDocument();
+    expect(screen.getByText('AED 4,725.00')).toBeInTheDocument();
+  });
+
+  it('keeps the firm’s own template when nothing is discounted and nothing is taxed', async () => {
+    await useLanguage('en');
+    renderScreen(<QuotationDocument quotation={quotation()} profile={profile()} />);
+
+    // Their template has no VAT line: it totals the work and stops. Printing
+    // empty rows would send them a different document than the one their
+    // clients have had for years.
+    expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Net')).not.toBeInTheDocument();
   });
 });

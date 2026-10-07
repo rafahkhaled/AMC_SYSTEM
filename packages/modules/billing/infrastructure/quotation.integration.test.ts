@@ -2,7 +2,7 @@ import { type TestDatabase, createTestDatabase } from '@amc/database/testing';
 import { Money } from '@amc/kernel';
 import type { drizzle } from 'drizzle-orm/postgres-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Quotation } from '../domain/index.js';
+import { Quotation, type QuotationLine } from '../domain/index.js';
 import { DrizzleQuotationRepository } from './quotation.repository.js';
 
 type Db = ReturnType<typeof drizzle>;
@@ -37,6 +37,25 @@ function drafted(over: Partial<Parameters<typeof Quotation.draft>[0]> = {}): Quo
   return made.value;
 }
 
+/**
+ * A line with nothing special about it.
+ *
+ * The parts the round trip is actually about — the service, the discount, the
+ * VAT rate — are passed in by the tests that care; everything else defaults
+ * to the plainest line there is.
+ */
+function line(over: Partial<QuotationLine> & Pick<QuotationLine, 'id'>): QuotationLine {
+  return {
+    serviceCode: null,
+    descriptionEn: 'Work',
+    descriptionAr: 'عمل',
+    pricing: { kind: 'fixed', amount: aed(1000) },
+    discount: aed(0),
+    vatBasisPoints: null,
+    ...over,
+  };
+}
+
 describe('quotations, against a real database', () => {
   let database: TestDatabase;
 
@@ -48,24 +67,106 @@ describe('quotations, against a real database', () => {
     await database?.close();
   });
 
+  /*
+   * The service, the discount and the rate (feedback item 13).
+   *
+   * Worth a real database rather than the in-memory double: the discount is
+   * capped by a check constraint as well as by the aggregate, and an
+   * out-of-scope line is a null the driver has to carry back as a null rather
+   * than as a zero.
+   */
+  it('keeps the service, the discount and the rate a line was quoted at', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+
+      const quotation = drafted();
+      quotation.addLine(
+        line({
+          id: 'q-l1',
+          serviceCode: 'vat_return',
+          pricing: { kind: 'fixed', amount: aed(500_000) },
+          discount: aed(50_000),
+          vatBasisPoints: 500,
+        }),
+      );
+      quotation.addLine(line({ id: 'q-l2', pricing: { kind: 'fixed', amount: aed(100_000) } }));
+
+      const repository = new DrizzleQuotationRepository(db);
+      await repository.save(quotation);
+
+      const back = await repository.findById('q-1');
+      const lines = back?.snapshot().lines ?? [];
+
+      expect(lines[0]?.serviceCode).toBe('vat_return');
+      expect(lines[0]?.discount.minorUnits).toBe(50_000);
+      expect(lines[0]?.vatBasisPoints).toBe(500);
+      // Out of scope comes back as out of scope, not as zero percent.
+      expect(lines[1]?.serviceCode).toBeNull();
+      expect(lines[1]?.vatBasisPoints).toBeNull();
+
+      expect(back?.net().minorUnits).toBe(550_000);
+      expect(back?.vatTotal().minorUnits).toBe(22_500);
+      expect(back?.total().minorUnits).toBe(572_500);
+    });
+  });
+
+  it('refuses a discount larger than the line, in the database as well', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const db = tx as unknown as Db;
+      await world(db);
+
+      /*
+       * Written straight to the table, past the aggregate.
+       *
+       * The domain refuses this already. The constraint is there for
+       * everything that is not the domain — a migration, a repair script, a
+       * psql session at four in the afternoon — because a line charging less
+       * than nothing turns a quotation into something that reads as a credit
+       * note.
+       */
+      await db.execute(`
+        INSERT INTO quotations (id, client_id, reference, state, currency, created_by)
+        VALUES ('q-bad', 'q-c1', 'Q-BAD', 'draft', 'AED', 'q-u1')
+      `);
+
+      const insert = (position: number, discountMinor: number) =>
+        db.execute(`
+          INSERT INTO quotation_lines
+            (id, quotation_id, position, description_en, kind, amount_minor, discount_minor)
+          VALUES ('q-bad-l${position}', 'q-bad', ${position}, 'Work', 'fixed', 1000, ${discountMinor})
+        `);
+
+      // The whole line given away is allowed; a fils more than the line is
+      // not. Both halves are asserted so that a passing refusal cannot be a
+      // mistake in the statement itself.
+      await expect(insert(0, 1000)).resolves.toBeDefined();
+      await expect(insert(1, 1001)).rejects.toThrow();
+    });
+  });
+
   it('survives a round trip with both kinds of line', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const db = tx as unknown as Db;
       await world(db);
 
       const quotation = drafted();
-      quotation.addLine({
-        id: 'q-l1',
-        descriptionEn: 'VAT registration',
-        descriptionAr: 'التسجيل الضريبي',
-        pricing: { kind: 'hours', hours: 3.5, perHour: aed(12_345) },
-      });
-      quotation.addLine({
-        id: 'q-l2',
-        descriptionEn: 'Annual audit',
-        descriptionAr: 'التدقيق السنوي',
-        pricing: { kind: 'fixed', amount: aed(500_000) },
-      });
+      quotation.addLine(
+        line({
+          id: 'q-l1',
+          descriptionEn: 'VAT registration',
+          descriptionAr: 'التسجيل الضريبي',
+          pricing: { kind: 'hours', hours: 3.5, perHour: aed(12_345) },
+        }),
+      );
+      quotation.addLine(
+        line({
+          id: 'q-l2',
+          descriptionEn: 'Annual audit',
+          descriptionAr: 'التدقيق السنوي',
+          pricing: { kind: 'fixed', amount: aed(500_000) },
+        }),
+      );
 
       const repository = new DrizzleQuotationRepository(db);
       await repository.save(quotation);
@@ -89,12 +190,14 @@ describe('quotations, against a real database', () => {
 
       const quotation = drafted();
       for (const [index, name] of ['third', 'first', 'second'].entries()) {
-        quotation.addLine({
-          id: `q-l${index}`,
-          descriptionEn: name,
-          descriptionAr: name,
-          pricing: { kind: 'fixed', amount: aed(1000) },
-        });
+        quotation.addLine(
+          line({
+            id: `q-l${index}`,
+            descriptionEn: name,
+            descriptionAr: name,
+            pricing: { kind: 'fixed', amount: aed(1000) },
+          }),
+        );
       }
 
       const repository = new DrizzleQuotationRepository(db);
@@ -115,12 +218,14 @@ describe('quotations, against a real database', () => {
       await world(db);
 
       const quotation = drafted();
-      quotation.addLine({
-        id: 'q-l1',
-        descriptionEn: 'Work',
-        descriptionAr: 'عمل',
-        pricing: { kind: 'fixed', amount: aed(1000) },
-      });
+      quotation.addLine(
+        line({
+          id: 'q-l1',
+          descriptionEn: 'Work',
+          descriptionAr: 'عمل',
+          pricing: { kind: 'fixed', amount: aed(1000) },
+        }),
+      );
 
       const repository = new DrizzleQuotationRepository(db);
       await repository.save(quotation);
@@ -137,12 +242,14 @@ describe('quotations, against a real database', () => {
       const repository = new DrizzleQuotationRepository(db);
 
       const first = drafted();
-      first.addLine({
-        id: 'q-l1',
-        descriptionEn: 'Work',
-        descriptionAr: 'عمل',
-        pricing: { kind: 'fixed', amount: aed(1000) },
-      });
+      first.addLine(
+        line({
+          id: 'q-l1',
+          descriptionEn: 'Work',
+          descriptionAr: 'عمل',
+          pricing: { kind: 'fixed', amount: aed(1000) },
+        }),
+      );
       await repository.save(first);
 
       // Same reference, different quotation. A client saying "Q-2026-014" on
@@ -159,21 +266,25 @@ describe('quotations, against a real database', () => {
       const repository = new DrizzleQuotationRepository(db);
 
       const quotation = drafted();
-      quotation.addLine({
-        id: 'q-l1',
-        descriptionEn: 'One',
-        descriptionAr: 'واحد',
-        pricing: { kind: 'fixed', amount: aed(1000) },
-      });
+      quotation.addLine(
+        line({
+          id: 'q-l1',
+          descriptionEn: 'One',
+          descriptionAr: 'واحد',
+          pricing: { kind: 'fixed', amount: aed(1000) },
+        }),
+      );
       await repository.save(quotation);
 
       quotation.removeLine('q-l1');
-      quotation.addLine({
-        id: 'q-l2',
-        descriptionEn: 'Two',
-        descriptionAr: 'اثنان',
-        pricing: { kind: 'fixed', amount: aed(2000) },
-      });
+      quotation.addLine(
+        line({
+          id: 'q-l2',
+          descriptionEn: 'Two',
+          descriptionAr: 'اثنان',
+          pricing: { kind: 'fixed', amount: aed(2000) },
+        }),
+      );
       await repository.save(quotation);
 
       const back = await repository.findById('q-1');
@@ -188,12 +299,14 @@ describe('quotations, against a real database', () => {
       const repository = new DrizzleQuotationRepository(db);
 
       const quotation = drafted();
-      quotation.addLine({
-        id: 'q-l1',
-        descriptionEn: 'Work',
-        descriptionAr: 'عمل',
-        pricing: { kind: 'fixed', amount: aed(1000) },
-      });
+      quotation.addLine(
+        line({
+          id: 'q-l1',
+          descriptionEn: 'Work',
+          descriptionAr: 'عمل',
+          pricing: { kind: 'fixed', amount: aed(1000) },
+        }),
+      );
       quotation.send(NOW, 'by_hand');
       await repository.save(quotation);
 
@@ -215,26 +328,19 @@ describe('quotations, against a real database', () => {
       await world(db);
       const repository = new DrizzleQuotationRepository(db);
 
-      const line = {
-        id: 'l',
-        descriptionEn: 'Work',
-        descriptionAr: 'عمل',
-        pricing: { kind: 'fixed' as const, amount: aed(1000) },
-      };
-
       for (const [id, reference, until] of [
         ['q-old', 'Q-OLD', days(10)],
         ['q-new', 'Q-NEW', days(60)],
       ] as const) {
         const quotation = drafted({ id, reference, validUntil: until });
-        quotation.addLine({ ...line, id: `${id}-l` });
+        quotation.addLine(line({ id: `${id}-l` }));
         quotation.send(NOW, 'by_hand');
         await repository.save(quotation);
       }
 
       // One never sent, so never lapsed: it was abandoned, not ignored.
       const abandoned = drafted({ id: 'q-draft', reference: 'Q-DRAFT', validUntil: days(1) });
-      abandoned.addLine({ ...line, id: 'q-draft-l' });
+      abandoned.addLine(line({ id: 'q-draft-l' }));
       await repository.save(abandoned);
 
       const lapsed = await repository.lapsed(days(30), 10);

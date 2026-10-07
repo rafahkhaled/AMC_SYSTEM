@@ -1,6 +1,6 @@
 import { Money } from '@amc/kernel';
 import { describe, expect, it } from 'vitest';
-import { Quotation, type QuotationLine, lineTotal } from './quotation.js';
+import { Quotation, type QuotationLine, quotedPrice } from './quotation.js';
 
 const now = new Date('2026-09-21T08:00:00.000Z');
 const later = (days: number) => new Date(now.getTime() + days * 86_400_000);
@@ -23,34 +23,40 @@ function draft(over: Partial<Parameters<typeof Quotation.draft>[0]> = {}) {
 
 const hoursLine = (over: Partial<QuotationLine> = {}): QuotationLine => ({
   id: 'l-1',
+  serviceCode: 'vat_registration',
   descriptionEn: 'VAT registration',
   descriptionAr: 'التسجيل الضريبي',
   pricing: { kind: 'hours', hours: 4, perHour: aed(25_000) },
+  discount: aed(0),
+  vatBasisPoints: null,
   ...over,
 });
 
 const fixedLine = (over: Partial<QuotationLine> = {}): QuotationLine => ({
   id: 'l-2',
+  serviceCode: 'audit',
   descriptionEn: 'Annual audit',
   descriptionAr: 'التدقيق السنوي',
   pricing: { kind: 'fixed', amount: aed(500_000) },
+  discount: aed(0),
+  vatBasisPoints: null,
   ...over,
 });
 
 describe('what a line comes to', () => {
   it('multiplies an hourly estimate by the rate', () => {
-    expect(lineTotal({ kind: 'hours', hours: 4, perHour: aed(25_000) }).minorUnits).toBe(100_000);
+    expect(quotedPrice({ kind: 'hours', hours: 4, perHour: aed(25_000) }).minorUnits).toBe(100_000);
   });
 
   it('handles a half hour without floating point', () => {
     // 3.5 hours at 123.45 is 432.075, which has to round one way by one rule
     // rather than however a float landed.
-    const total = lineTotal({ kind: 'hours', hours: 3.5, perHour: aed(12_345) });
+    const total = quotedPrice({ kind: 'hours', hours: 3.5, perHour: aed(12_345) });
     expect(total.minorUnits).toBe(43_208);
   });
 
   it('takes a fixed amount as it is', () => {
-    expect(lineTotal({ kind: 'fixed', amount: aed(500_000) }).minorUnits).toBe(500_000);
+    expect(quotedPrice({ kind: 'fixed', amount: aed(500_000) }).minorUnits).toBe(500_000);
   });
 });
 
@@ -247,5 +253,147 @@ describe('expiry', () => {
     const quotation = sent(later(30));
     quotation.expire(later(31));
     expect(quotation.accept(later(32)).ok).toBe(false);
+  });
+});
+
+/*
+ * What the client is actually charged (feedback item 13).
+ *
+ * A line now carries a discount and a VAT rate, so the total the client sees
+ * is no longer the sum of the prices. Each part is asserted on separately
+ * because each one is a question somebody asks later: what we quoted, what we
+ * allowed off, what VAT applied, and what they owed in the end.
+ */
+describe('discounts and VAT on a line', () => {
+  it('charges VAT on what is left after the discount, not on the price', () => {
+    const quotation = draft();
+    // 5,000 quoted, 500 allowed off, five percent on the 4,500 that remains.
+    quotation.addLine(fixedLine({ discount: aed(50_000), vatBasisPoints: 500 }));
+
+    expect(quotation.subtotal().minorUnits).toBe(500_000);
+    expect(quotation.discountTotal().minorUnits).toBe(50_000);
+    expect(quotation.net().minorUnits).toBe(450_000);
+    expect(quotation.vatTotal().minorUnits).toBe(22_500);
+    expect(quotation.total().minorUnits).toBe(472_500);
+  });
+
+  it('charges nothing on a line that is out of scope', () => {
+    const quotation = draft();
+    quotation.addLine(fixedLine({ vatBasisPoints: null }));
+
+    expect(quotation.vatTotal().isZero()).toBe(true);
+    expect(quotation.total().minorUnits).toBe(500_000);
+  });
+
+  it('keeps out of scope apart from zero percent, which is a different claim', () => {
+    // Both charge nothing. They sit in different boxes on the return, so the
+    // line has to remember which one it was rather than collapsing to 0.
+    const quotation = draft();
+    quotation.addLine(fixedLine({ vatBasisPoints: 0 }));
+    expect(quotation.snapshot().lines[0]?.vatBasisPoints).toBe(0);
+
+    const other = draft();
+    other.addLine(fixedLine({ vatBasisPoints: null }));
+    expect(other.snapshot().lines[0]?.vatBasisPoints).toBeNull();
+  });
+
+  it('rounds VAT line by line, so the column the client adds up is the total', () => {
+    /*
+     * Five percent of 10.05 is 0.5025, which rounds down to half a fils
+     * nobody charges. Taken on the total of three such lines it is 1.5075 and
+     * rounds up to 151 fils; taken per line it is 50 three times, which is
+     * 150. The client adds the column up, so the document agrees with the
+     * column rather than with the shorter calculation.
+     */
+    const quotation = draft();
+    for (const id of ['a', 'b', 'c']) {
+      quotation.addLine(
+        fixedLine({ id, pricing: { kind: 'fixed', amount: aed(1_005) }, vatBasisPoints: 500 }),
+      );
+    }
+    expect(quotation.vatTotal().minorUnits).toBe(150);
+    expect(quotation.total().minorUnits).toBe(3_165);
+  });
+
+  it('refuses a discount bigger than the line it comes off', () => {
+    // Otherwise the line charges less than nothing and the client receives
+    // something that reads as a credit note for work that never happened.
+    const quotation = draft();
+    const refused = quotation.addLine(fixedLine({ discount: aed(500_001) }));
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('more than the line');
+  });
+
+  it('allows a discount of the whole line, which is work given away', () => {
+    const quotation = draft();
+    expect(quotation.addLine(fixedLine({ discount: aed(500_000), vatBasisPoints: 500 })).ok).toBe(
+      true,
+    );
+    expect(quotation.total().isZero()).toBe(true);
+  });
+
+  it('refuses a negative discount, which is a surcharge wearing the wrong name', () => {
+    expect(draft().addLine(fixedLine({ discount: aed(-100) })).ok).toBe(false);
+  });
+
+  it('refuses a rate that is not a rate', () => {
+    expect(draft().addLine(fixedLine({ vatBasisPoints: 10_001 })).ok).toBe(false);
+    expect(draft().addLine(fixedLine({ vatBasisPoints: -1 })).ok).toBe(false);
+  });
+
+  it('discounts an hourly line against what the hours came to', () => {
+    // 4 hours at 250 is 1,000, less 100, plus five percent of 900.
+    const quotation = draft();
+    quotation.addLine(hoursLine({ discount: aed(10_000), vatBasisPoints: 500 }));
+
+    expect(quotation.net().minorUnits).toBe(90_000);
+    expect(quotation.total().minorUnits).toBe(94_500);
+  });
+
+  it('adds the lines up one way, whatever VAT each of them carries', () => {
+    // One document routinely carries both: a return at five percent and a
+    // government fee that is outside the scope of VAT entirely.
+    const quotation = draft();
+    quotation.addLine(fixedLine({ id: 'taxable', vatBasisPoints: 500 }));
+    quotation.addLine(
+      fixedLine({
+        id: 'fee',
+        pricing: { kind: 'fixed', amount: aed(100_000) },
+        vatBasisPoints: null,
+      }),
+    );
+
+    expect(quotation.net().minorUnits).toBe(600_000);
+    expect(quotation.vatTotal().minorUnits).toBe(25_000);
+    expect(quotation.total().minorUnits).toBe(625_000);
+  });
+
+  it('tells the client the chargeable total, which is what the event reports', () => {
+    const quotation = draft();
+    quotation.addLine(fixedLine({ discount: aed(50_000), vatBasisPoints: 500 }));
+    quotation.pullEvents();
+
+    quotation.send(now, 'email');
+    const [event] = quotation.pullEvents();
+
+    expect(event?.payload).toMatchObject({
+      netMinor: 450_000,
+      vatMinor: 22_500,
+      discountMinor: 50_000,
+      totalMinor: 472_500,
+    });
+  });
+
+  it('keeps the service the line was for, so a project can be opened for it', () => {
+    const quotation = draft();
+    quotation.addLine(fixedLine({ serviceCode: 'vat_return' }));
+    expect(quotation.snapshot().lines[0]?.serviceCode).toBe('vat_return');
+  });
+
+  it('takes a line that is not a service at all', () => {
+    // An authority fee or a disbursement. Forcing every line to name one of
+    // the eleven would mean inventing a service that does not exist.
+    const quotation = draft();
+    expect(quotation.addLine(fixedLine({ serviceCode: null })).ok).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import type { ClientQuotationView } from '@amc/contracts';
 import { type Clock, Conflict, type Result, err, ok } from '@amc/kernel';
-import { type Quotation, lineTotal } from '../domain/index.js';
+import { type Quotation, lineChargeable, lineVat, quotedPrice } from '../domain/index.js';
 import type { LinkTokens, QuotationRepository } from './ports.js';
 
 /**
@@ -93,9 +93,25 @@ export class ClientQuotation {
       lines: state.lines.map((line) => ({
         descriptionEn: line.descriptionEn,
         descriptionAr: line.descriptionAr,
-        amount: { minorUnits: lineTotal(line.pricing).minorUnits, currency: state.currency },
+        amount: amount(quotedPrice(line.pricing).minorUnits, state.currency),
+        discount: amount(line.discount.minorUnits, state.currency),
+        vatBasisPoints: line.vatBasisPoints,
+        vat: amount(lineVat(line).minorUnits, state.currency),
+        chargeable: amount(lineChargeable(line).minorUnits, state.currency),
       })),
-      total: { minorUnits: quotation.total().minorUnits, currency: state.currency },
+      /*
+       * The breakdown, not only the figure.
+       *
+       * This is the page the client says yes on, and a page showing one
+       * number asks them to agree to something they cannot check. The
+       * discount belongs on it most of all: it is the firm's own argument
+       * for the price.
+       */
+      subtotal: amount(quotation.subtotal().minorUnits, state.currency),
+      discount: amount(quotation.discountTotal().minorUnits, state.currency),
+      net: amount(quotation.net().minorUnits, state.currency),
+      vat: amount(quotation.vatTotal().minorUnits, state.currency),
+      total: amount(quotation.total().minorUnits, state.currency),
       validUntil: state.validUntil ? state.validUntil.toISOString().slice(0, 10) : null,
       notesEn: state.notesEn,
       notesAr: state.notesAr,
@@ -103,4 +119,9 @@ export class ClientQuotation {
       answerable: state.state === 'sent',
     };
   }
+}
+
+/** Money as it crosses the wire: whole minor units, never a decimal. */
+function amount(minorUnits: number, currency: string): { minorUnits: number; currency: string } {
+  return { minorUnits, currency };
 }

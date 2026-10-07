@@ -14,6 +14,9 @@ import {
 const now = new Date('2026-09-22T08:00:00.000Z');
 const later = (days: number) => new Date(now.getTime() + days * 86_400_000);
 
+/** The firm's own rate, as configuration supplies it. Five percent. */
+const VAT = { vatBasisPoints: 500, paymentTermsDays: 14 };
+
 function harness(at = now) {
   const quotations = new InMemoryQuotations();
   const tokens = new CountingLinkTokens();
@@ -26,6 +29,7 @@ function harness(at = now) {
     new CountingNumbers(192),
     new FakeDelivery(),
     tokens,
+    VAT,
   );
   return {
     quotations,
@@ -44,6 +48,7 @@ async function emailed(h: ReturnType<typeof harness>) {
     descriptionEn: 'VAT registration',
     descriptionAr: 'التسجيل الضريبي',
     amountMinor: 175_000,
+    vat: 'out_of_scope',
   });
   const sent = await h.manage.send(made.value.quotationId, { deliver: true });
   if (!sent.ok) throw sent.error;
@@ -79,14 +84,18 @@ describe('the link a client opens', () => {
     expect(Object.keys(opened.value).sort()).toEqual([
       'answerable',
       'currency',
+      'discount',
       'firmName',
       'lines',
+      'net',
       'notesAr',
       'notesEn',
       'reference',
       'state',
+      'subtotal',
       'total',
       'validUntil',
+      'vat',
     ]);
   });
 

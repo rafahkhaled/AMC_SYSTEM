@@ -112,11 +112,19 @@ export async function draftQuotation(input: {
 export async function addQuotationLine(
   id: string,
   line: {
+    serviceCode?: string;
     descriptionEn?: string;
     descriptionAr?: string;
     hours?: number;
     perHourMinor?: number;
     amountMinor?: number;
+    discountMinor?: number;
+    /**
+     * Whether VAT applies, not at what rate: the rate itself is the firm's
+     * configuration and the server stamps it, so a quotation cannot be
+     * offered at a rate the firm does not charge.
+     */
+    vat: 'standard' | 'out_of_scope';
   },
 ): Promise<QuotationView> {
   return quotationSchema.parse(

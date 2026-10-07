@@ -289,15 +289,69 @@ export function QuotationDocument({
       lines={quotation.lines.map((line) => ({
         key: line.id,
         description: line.descriptionEn,
-        note: line.descriptionAr || null,
+        /*
+         * The Arabic line, and under it what came off this one.
+         *
+         * A discount belongs against the line it was allowed on, not only in
+         * the totals: it is the firm's own argument for the price, and a
+         * client comparing two quotations reads it line by line.
+         */
+        note:
+          [
+            line.descriptionAr || null,
+            line.discount.minorUnits > 0
+              ? `${t('billing.document.lessDiscount')} ${plain(line.discount)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
         // A quotation priced by hours shows the hours it was priced on: that
         // is the part the client argues with, and hiding it behind a single
         // figure makes the conversation harder rather than shorter.
         qty: line.kind === 'hours' && line.hours !== null ? line.hours.toFixed(2) : '1',
         rate: plain(line.kind === 'hours' && line.perHour ? line.perHour : line.amount),
-        amount: plain(line.amount),
+        // What this line charges, which is what the column has to add up to.
+        amount: plain(line.chargeable),
       }))}
       total={`${quotation.total.currency} ${plain(quotation.total)}`}
+      /*
+       * The VAT rows, when there is any VAT on the document.
+       *
+       * Without them the amount column adds up to one figure and the Total
+       * says another, and a client reading a document that does not add up is
+       * right to query it. Absent entirely on a quotation that is all out of
+       * scope, which is how the firm's own template has always looked.
+       */
+      beforeTotal={
+        quotation.vat.minorUnits > 0 || quotation.discount.minorUnits > 0 ? (
+          <div className="doc__tax">
+            {quotation.discount.minorUnits > 0 ? (
+              <>
+                <span>
+                  <span>{t('billing.document.subtotal')}</span>
+                  <span>{plain(quotation.subtotal)}</span>
+                </span>
+                <span>
+                  <span>{t('billing.document.discount')}</span>
+                  <span>{plain(quotation.discount)}</span>
+                </span>
+              </>
+            ) : null}
+            {quotation.vat.minorUnits > 0 ? (
+              <>
+                <span>
+                  <span>{t('billing.document.net')}</span>
+                  <span>{plain(quotation.net)}</span>
+                </span>
+                <span>
+                  <span>{t('billing.document.vat')}</span>
+                  <span>{plain(quotation.vat)}</span>
+                </span>
+              </>
+            ) : null}
+          </div>
+        ) : null
+      }
     >
       <div className="doc__sign">
         {profile.stampUrl ? <img className="doc__stamp" src={profile.stampUrl} alt="" /> : <span />}

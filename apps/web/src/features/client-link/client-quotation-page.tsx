@@ -79,14 +79,65 @@ export function ClientQuotationPage({ token }: { token: string }) {
                     {arabic
                       ? line.descriptionAr || line.descriptionEn
                       : line.descriptionEn || line.descriptionAr}
+                    {/* What came off this line, against the line it came off.
+                        It is the firm's own argument for the price and the
+                        client reads a quotation line by line. */}
+                    {line.discount.minorUnits > 0 ? (
+                      // Its own line under the description, the way every
+                      // other second line in a table cell sits: run inline it
+                      // reads as part of the service's name.
+                      <span className="u-block u-text-faint">
+                        {t('clientLink.lessDiscount', {
+                          amount: formatMoney(line.discount, i18n.language),
+                        })}
+                      </span>
+                    ) : null}
                   </th>
                   <td className="table__figure u-numeric">
-                    {formatMoney(line.amount, i18n.language)}
+                    {formatMoney(line.chargeable, i18n.language)}
                   </td>
                 </tr>
               ))}
             </tbody>
+            {/*
+              The breakdown above the total, and only the rows that say
+              something. The client is being asked to agree to this figure,
+              and a page showing one number asks them to agree to something
+              they cannot check.
+            */}
             <tfoot>
+              {view.discount.minorUnits > 0 ? (
+                <>
+                  <tr>
+                    <th scope="row">{t('clientLink.subtotal')}</th>
+                    <td className="table__figure u-numeric">
+                      {formatMoney(view.subtotal, i18n.language)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">{t('clientLink.discount')}</th>
+                    <td className="table__figure u-numeric">
+                      {formatMoney(view.discount, i18n.language)}
+                    </td>
+                  </tr>
+                </>
+              ) : null}
+              {view.vat.minorUnits > 0 ? (
+                <>
+                  <tr>
+                    <th scope="row">{t('clientLink.net')}</th>
+                    <td className="table__figure u-numeric">
+                      {formatMoney(view.net, i18n.language)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">{t('clientLink.vat')}</th>
+                    <td className="table__figure u-numeric">
+                      {formatMoney(view.vat, i18n.language)}
+                    </td>
+                  </tr>
+                </>
+              ) : null}
               <tr>
                 <th scope="row">{t('clientLink.total')}</th>
                 <td className="table__figure u-numeric">
@@ -97,9 +148,10 @@ export function ClientQuotationPage({ token }: { token: string }) {
           </table>
         </div>
 
-        {arabic ? (
-          view.notesAr
-        ) : view.notesEn ? (
+        {/* One paragraph either way. This used to render the Arabic notes as
+            a bare string, outside the paragraph and without the class that
+            gives user-typed text its own direction. */}
+        {(arabic ? view.notesAr : view.notesEn) ? (
           <p className="u-text-soft u-typed">{arabic ? view.notesAr : view.notesEn}</p>
         ) : null}
 

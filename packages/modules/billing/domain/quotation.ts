@@ -53,10 +53,43 @@ export type LinePricing =
 
 export interface QuotationLine {
   readonly id: string;
+  /**
+   * Which of the firm's services this is for, when it is one of them.
+   *
+   * A code out of the same list the projects section offers, so that "a VAT
+   * registration" on a quotation and on a project are the same thing and can
+   * be counted together. Null for a line that is not a service at all — a
+   * disbursement, an authority fee — because forcing every line to name one
+   * would mean inventing a service that does not exist.
+   *
+   * Kept as a plain string here: the domain sees the kernel and itself, so
+   * the list of eleven lives in contracts and is checked at the edge.
+   */
+  readonly serviceCode: string | null;
   /** Both languages: the client reads one of them and it is not always English. */
   readonly descriptionEn: string;
   readonly descriptionAr: string;
   readonly pricing: LinePricing;
+  /**
+   * Taken off this line before VAT.
+   *
+   * The firm agrees a price and then gives something back on it — and the
+   * client's copy has to show both, because "we quoted 5,000 and allowed 500"
+   * is a different conversation from "we quoted 4,500".
+   */
+  readonly discount: Money;
+  /**
+   * VAT on this line, in basis points. 500 is the UAE's five percent.
+   *
+   * Null is out of scope, which is not the same claim as zero: a line at zero
+   * percent is a taxable supply charged at nothing, and an out-of-scope line
+   * is not a taxable supply at all. They go in different boxes on the return.
+   *
+   * On the line rather than the quotation, because one document routinely
+   * carries both — a VAT return at five percent and a government fee that is
+   * outside the scope of VAT entirely.
+   */
+  readonly vatBasisPoints: number | null;
 }
 
 export interface QuotationSnapshot {
@@ -91,8 +124,8 @@ export interface QuotationSnapshot {
   readonly createdAt: Date;
 }
 
-/** What a line comes to. One place, so the total and the line always agree. */
-export function lineTotal(pricing: LinePricing): Money {
+/** What a line is priced at, before any discount. */
+export function quotedPrice(pricing: LinePricing): Money {
   if (pricing.kind === 'fixed') return pricing.amount;
   /*
    * Hours are given to two decimal places — "3.5 hours" — and money is whole
@@ -101,6 +134,28 @@ export function lineTotal(pricing: LinePricing): Money {
    * decision in one place rather than whatever the float did.
    */
   return pricing.perHour.scaleByRatio(Math.round(pricing.hours * 100), 100);
+}
+
+/** The line after its discount, which is the figure VAT is charged on. */
+export function lineNet(line: QuotationLine): Money {
+  return quotedPrice(line.pricing).subtract(line.discount);
+}
+
+/**
+ * VAT on this line.
+ *
+ * Rounded per line rather than once on the total, because the client adds the
+ * column up. A document whose VAT figure cannot be reproduced from the lines
+ * printed above it is one the client queries, and they are right to.
+ */
+export function lineVat(line: QuotationLine): Money {
+  if (line.vatBasisPoints === null) return Money.zero(lineNet(line).currency);
+  return lineNet(line).percentageInBasisPoints(line.vatBasisPoints);
+}
+
+/** What this line actually charges the client. */
+export function lineChargeable(line: QuotationLine): Money {
+  return lineNet(line).add(lineVat(line));
 }
 
 export class Quotation extends AggregateRoot {
@@ -160,10 +215,48 @@ export class Quotation extends AggregateRoot {
     return this.state.state;
   }
 
-  /** Everything offered, added up. */
+  /** Everything offered at its agreed price, before any discount. */
+  subtotal(): Money {
+    return Money.sum(
+      this.state.lines.map((line) => quotedPrice(line.pricing)),
+      this.state.currency,
+    );
+  }
+
+  /** What has been allowed off. */
+  discountTotal(): Money {
+    return Money.sum(
+      this.state.lines.map((line) => line.discount),
+      this.state.currency,
+    );
+  }
+
+  /** After the discounts, before VAT. */
+  net(): Money {
+    return Money.sum(
+      this.state.lines.map((line) => lineNet(line)),
+      this.state.currency,
+    );
+  }
+
+  /** VAT, added up line by line rather than taken on the net total. */
+  vatTotal(): Money {
+    return Money.sum(
+      this.state.lines.map((line) => lineVat(line)),
+      this.state.currency,
+    );
+  }
+
+  /**
+   * What the client is actually being charged.
+   *
+   * Net of discounts and including VAT — the figure the firm asked for on the
+   * client's own copy, and the one every event here reports, because it is the
+   * number somebody says yes to.
+   */
   total(): Money {
     return Money.sum(
-      this.state.lines.map((line) => lineTotal(line.pricing)),
+      this.state.lines.map((line) => lineChargeable(line)),
       this.state.currency,
     );
   }
@@ -184,8 +277,8 @@ export class Quotation extends AggregateRoot {
       return err(new Conflict('Say what the line is for, in at least one language'));
     }
 
-    const amount = lineTotal(line.pricing);
-    if (amount.currency !== this.state.currency) {
+    const amount = quotedPrice(line.pricing);
+    if (amount.currency !== this.state.currency || line.discount.currency !== this.state.currency) {
       return err(new Conflict('Every line has to be in the quotation’s own currency'));
     }
     if (amount.isNegative()) {
@@ -193,6 +286,22 @@ export class Quotation extends AggregateRoot {
     }
     if (line.pricing.kind === 'hours' && line.pricing.hours <= 0) {
       return err(new Conflict('An estimate of no hours is not an estimate'));
+    }
+    if (line.discount.isNegative()) {
+      // A negative discount is a surcharge wearing the wrong name. If the
+      // firm means to charge more, the amount is where that is said.
+      return err(new Conflict('A discount cannot be for a negative amount'));
+    }
+    if (line.discount.compare(amount) === 1) {
+      /*
+       * Otherwise the line charges less than nothing: the quotation total
+       * falls when a line is added, and the client receives something that
+       * reads as a credit note for work that has not happened.
+       */
+      return err(new Conflict('A discount cannot be more than the line it comes off'));
+    }
+    if (line.vatBasisPoints !== null && (line.vatBasisPoints < 0 || line.vatBasisPoints > 10_000)) {
+      return err(new Conflict('That is not a VAT rate'));
     }
 
     this.state = { ...this.state, lines: [...this.state.lines, line] };
@@ -253,6 +362,14 @@ export class Quotation extends AggregateRoot {
         quotationId: this.id,
         clientId: this.state.clientId,
         reference: this.state.reference,
+        /*
+         * Three figures, not one. The audit row is the only place the offer
+         * is kept as it stood at the moment it went out, and "what did we
+         * actually allow them off" is asked as often as what the total was.
+         */
+        netMinor: this.net().minorUnits,
+        vatMinor: this.vatTotal().minorUnits,
+        discountMinor: this.discountTotal().minorUnits,
         totalMinor: this.total().minorUnits,
         currency: this.state.currency,
       }),
@@ -365,6 +482,8 @@ export class Quotation extends AggregateRoot {
       domainEvent(event, this.id, now, {
         quotationId: this.id,
         clientId: this.state.clientId,
+        netMinor: this.net().minorUnits,
+        vatMinor: this.vatTotal().minorUnits,
         totalMinor: this.total().minorUnits,
         currency: this.state.currency,
         decidedBy: by,

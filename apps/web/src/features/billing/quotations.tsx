@@ -1,4 +1,4 @@
-import type { QuotationView } from '@amc/contracts';
+import { type QuotationView, serviceCodes } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -301,7 +301,31 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
               )}
             </span>
             <span className="u-row u-row--tight">
-              <span className="u-numeric">{formatMoney(line.amount, i18n.language)}</span>
+              {/*
+                What the line charges, with the parts beneath it when there
+                are any. A single figure would hide both the discount the
+                firm allowed and whether VAT was on it, and those are the two
+                things anybody asks about a line afterwards.
+              */}
+              <span className="line__charge">
+                <span className="u-numeric">{formatMoney(line.chargeable, i18n.language)}</span>
+                {line.discount.minorUnits > 0 || line.vatBasisPoints !== null ? (
+                  <span className="u-text-faint u-numeric">
+                    {line.discount.minorUnits > 0
+                      ? t('billing.lessDiscount', {
+                          amount: formatMoney(line.discount, i18n.language),
+                        })
+                      : null}
+                    {line.discount.minorUnits > 0 && line.vatBasisPoints !== null ? ' · ' : null}
+                    {line.vatBasisPoints !== null
+                      ? t('billing.plusVat', {
+                          rate: ratePercent(line.vatBasisPoints),
+                          amount: formatMoney(line.vat, i18n.language),
+                        })
+                      : null}
+                  </span>
+                ) : null}
+              </span>
               {editable ? (
                 <Button
                   small
@@ -317,68 +341,153 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
         ))}
       </ol>
 
+      {/*
+        The breakdown, in the order it happens: what was quoted, what came
+        off, what VAT applied, what the client pays. Rows that would say
+        nothing are left out — a quotation with no discount on it does not
+        need a line saying so.
+      */}
       <div className="totals">
+        {quotation.discount.minorUnits > 0 ? (
+          <>
+            <span>
+              <span className="u-text-faint">{t('billing.subtotal')}</span>
+              <span className="u-numeric">{formatMoney(quotation.subtotal, i18n.language)}</span>
+            </span>
+            <span>
+              <span className="u-text-faint">{t('billing.discount')}</span>
+              <span className="u-numeric">{formatMoney(quotation.discount, i18n.language)}</span>
+            </span>
+          </>
+        ) : null}
+        {quotation.vat.minorUnits > 0 ? (
+          <>
+            <span>
+              <span className="u-text-faint">{t('billing.net')}</span>
+              <span className="u-numeric">{formatMoney(quotation.net, i18n.language)}</span>
+            </span>
+            <span>
+              <span className="u-text-faint">{t('billing.vat')}</span>
+              <span className="u-numeric">{formatMoney(quotation.vat, i18n.language)}</span>
+            </span>
+          </>
+        ) : null}
         <span>
-          <span className="u-text-faint">{t('billing.total')}</span>
+          <span className="u-text-faint">{t('billing.chargeable')}</span>
           <strong className="u-numeric">{formatMoney(quotation.total, i18n.language)}</strong>
         </span>
       </div>
 
-      {editable ? <AddLine quotationId={id} onAdded={refresh} /> : null}
+      {editable ? (
+        <AddLine
+          quotationId={id}
+          vatBasisPoints={profile.data?.vatBasisPoints ?? null}
+          onAdded={refresh}
+        />
+      ) : null}
     </Card>
   );
 }
 
-/** A line, priced by hours or as a fixed fee. Never both. */
-function AddLine({ quotationId, onAdded }: { quotationId: string; onAdded: () => void }) {
+/**
+ * A line: what service, priced how, less what, plus what VAT (item 13).
+ *
+ * The service comes first because it fills the description in both languages
+ * — the firm's own words for the eleven things it sells, rather than whatever
+ * somebody typed this time — and because a line that names its service can
+ * later open the project for it. It stays editable afterwards: "VAT return"
+ * usually wants a quarter after it.
+ */
+function AddLine({
+  quotationId,
+  vatBasisPoints,
+  onAdded,
+}: {
+  quotationId: string;
+  /**
+   * The firm's own rate, so the choice on screen names the real one. Null
+   * until the profile has answered — the form still works, it simply says
+   * "VAT" rather than naming a rate it does not yet know.
+   */
+  vatBasisPoints: number | null;
+  onAdded: () => void;
+}) {
   const { t } = useTranslation();
   const [kind, setKind] = useState<'hours' | 'fixed'>('fixed');
+  const [serviceCode, setServiceCode] = useState('');
   const [descriptionEn, setDescriptionEn] = useState('');
   const [descriptionAr, setDescriptionAr] = useState('');
   const [hours, setHours] = useState('');
   const [rate, setRate] = useState('');
   const [amount, setAmount] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [vat, setVat] = useState<'standard' | 'out_of_scope'>('standard');
 
   const add = useMutation({
     mutationFn: (line: Parameters<typeof addQuotationLine>[1]) =>
       addQuotationLine(quotationId, line),
     onSuccess: () => {
       onAdded();
+      setServiceCode('');
       setDescriptionEn('');
       setDescriptionAr('');
       setHours('');
       setRate('');
       setAmount('');
+      setDiscount('');
+      // The VAT choice is left where it was: a quotation is usually all one
+      // or all the other, and re-picking it on every line is how the wrong
+      // one gets picked.
     },
   });
 
   const rateMinor = minorUnitsFrom(rate);
   const amountMinor = minorUnitsFrom(amount);
+  const discountMinor = discount.trim() === '' ? 0 : minorUnitsFrom(discount);
   const hoursValue = Number(hours);
   const hoursOk = hours.trim() !== '' && Number.isFinite(hoursValue) && hoursValue > 0;
   const described = descriptionEn.trim() !== '' || descriptionAr.trim() !== '';
   const priced = kind === 'hours' ? hoursOk && rateMinor !== null : amountMinor !== null;
+
+  /*
+   * What the line is worth before the discount, worked out here only to catch
+   * a discount bigger than the line before the server has to. Both of these
+   * come from whole minor units, so no float is involved; the figure the
+   * client sees still comes back from the server.
+   */
+  const lineMinor =
+    kind === 'hours'
+      ? rateMinor === null || !hoursOk
+        ? null
+        : Math.round((rateMinor * Math.round(hoursValue * 100)) / 100)
+      : amountMinor;
+  const discountTooBig = discountMinor !== null && lineMinor !== null && discountMinor > lineMinor;
+  const discountOk = discountMinor !== null && !discountTooBig;
+
+  /** Picking a service writes the firm's own words for it into both fields. */
+  const chooseService = (code: string) => {
+    setServiceCode(code);
+    if (code === '') return;
+    setDescriptionEn(t(`services.${code}`, { lng: 'en' }));
+    setDescriptionAr(t(`services.${code}`, { lng: 'ar' }));
+  };
 
   return (
     <form
       className="u-stack-tight"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!described || !priced) return;
-        add.mutate(
-          kind === 'hours'
-            ? {
-                descriptionEn: descriptionEn.trim(),
-                descriptionAr: descriptionAr.trim(),
-                hours: hoursValue,
-                perHourMinor: rateMinor as number,
-              }
-            : {
-                descriptionEn: descriptionEn.trim(),
-                descriptionAr: descriptionAr.trim(),
-                amountMinor: amountMinor as number,
-              },
-        );
+        if (!described || !priced || !discountOk) return;
+        add.mutate({
+          ...(serviceCode ? { serviceCode } : {}),
+          descriptionEn: descriptionEn.trim(),
+          descriptionAr: descriptionAr.trim(),
+          ...(kind === 'hours'
+            ? { hours: hoursValue, perHourMinor: rateMinor as number }
+            : { amountMinor: amountMinor as number }),
+          ...(discountMinor ? { discountMinor } : {}),
+          vat,
+        });
       }}
     >
       <strong>{t('billing.addLine')}</strong>
@@ -396,6 +505,27 @@ function AddLine({ quotationId, onAdded }: { quotationId: string; onAdded: () =>
           </button>
         ))}
       </div>
+
+      {/* The services the projects section already offers, so a quotation
+          and the project eventually opened for it name the same thing. */}
+      <Field
+        label={t('billing.lineService')}
+        hint={t('billing.lineServiceHint')}
+        control={(props) => (
+          <Select
+            {...props}
+            value={serviceCode}
+            onChange={(event) => chooseService(event.target.value)}
+          >
+            <option value="">{t('billing.lineServiceNone')}</option>
+            {serviceCodes.map((code) => (
+              <option key={code} value={code}>
+                {t(`services.${code}`)}
+              </option>
+            ))}
+          </Select>
+        )}
+      />
 
       <Field
         label={t('billing.descriptionEn')}
@@ -438,13 +568,77 @@ function AddLine({ quotationId, onAdded }: { quotationId: string; onAdded: () =>
         />
       )}
 
+      <Field
+        label={t('billing.lineDiscount')}
+        hint={t('billing.lineDiscountHint')}
+        inputMode="decimal"
+        value={discount}
+        onChange={(event) => setDiscount(event.target.value)}
+        {...(discount.trim() !== '' && discountMinor === null
+          ? { error: t('billing.notAnAmount') }
+          : discountTooBig
+            ? // Caught here as well as on the server: a discount bigger than
+              // the line charges less than nothing, and finding that out
+              // after pressing the button is a worse way to learn it.
+              { error: t('billing.discountTooBig') }
+            : {})}
+      />
+
+      {/*
+        Five percent or out of scope, which is what the firm asked for. The
+        rate is named from the server's own configuration rather than written
+        into the screen, so a selector cannot promise a rate the firm does
+        not charge.
+      */}
+      <Field
+        label={t('billing.lineVat')}
+        control={(props) => (
+          <Select
+            {...props}
+            value={vat}
+            onChange={(event) => setVat(event.target.value as 'standard' | 'out_of_scope')}
+          >
+            <option value="standard">
+              {vatBasisPoints === null
+                ? t('billing.vatStandardPlain')
+                : t('billing.vatStandard', { rate: ratePercent(vatBasisPoints) })}
+            </option>
+            <option value="out_of_scope">{t('billing.vatOutOfScope')}</option>
+          </Select>
+        )}
+      />
+      {vat === 'standard' && vatBasisPoints === 0 ? (
+        /*
+         * The firm is configured as not registered for VAT. Said out loud
+         * rather than silently quoting nothing: the difference between a
+         * five percent line and a zero percent one is invisible on the
+         * document and worth five percent of the invoice.
+         */
+        <Alert tone="warning">{t('billing.vatNotConfigured')}</Alert>
+      ) : null}
+
       {add.isError ? <Alert tone="error">{(add.error as Error).message}</Alert> : null}
 
       <div className="u-row">
-        <Button type="submit" small busy={add.isPending} disabled={!described || !priced}>
+        <Button
+          type="submit"
+          small
+          busy={add.isPending}
+          disabled={!described || !priced || !discountOk}
+        >
           {t('billing.addLine')}
         </Button>
       </div>
     </form>
   );
+}
+
+/**
+ * Basis points as a person reads them: 500 is "5", 475 is "4.75".
+ *
+ * Only ever for a label. Every figure on this screen was worked out on the
+ * server, where the rounding rule lives.
+ */
+function ratePercent(basisPoints: number): string {
+  return (basisPoints / 100).toFixed(basisPoints % 100 === 0 ? 0 : 2);
 }

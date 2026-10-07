@@ -417,6 +417,9 @@ function peopleDirectory(db: Database) {
               new DrizzleDocumentNumbering(transaction, 'quotation'),
               quotationDelivery(transaction, ids, environment.PUBLIC_BASE_URL),
               new CryptoSessionTokens(),
+              // The same rate the invoice will carry, so a quotation at five
+              // percent is not followed by an invoice at something else.
+              settings,
             ),
             settle: new SettleInvoice(invoices, clock, ids),
             release: new ReleaseFromStatement(statements, attachment),
@@ -458,6 +461,9 @@ function peopleDirectory(db: Database) {
             },
             logoUrl: environment.FIRM_LOGO_URL ?? null,
             stampUrl: environment.FIRM_STAMP_URL ?? null,
+            // So a screen offering the standard rate can name the rate it is
+            // actually offering, rather than printing 5% whatever this says.
+            vatBasisPoints: settings.vatBasisPoints,
           },
         };
       },
