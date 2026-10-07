@@ -74,6 +74,12 @@ export const projectDetailSchema = boardProjectSchema.extend({
   tasks: z.array(taskSchema),
   /** What this project may move to next, decided by the domain's transition table. */
   allowedTransitions: z.array(projectStateSchema),
+  /**
+   * Of those, the ones that go back, which the server refuses without a
+   * reason. Sent rather than worked out in the browser, so the ranking is
+   * written down once.
+   */
+  backwardTransitions: z.array(projectStateSchema),
   /** Documents on the client's file that could satisfy an outstanding requirement. */
   availableDocuments: z.array(
     z.object({ id: z.string(), type: z.string(), expiresOn: z.string().nullable() }),

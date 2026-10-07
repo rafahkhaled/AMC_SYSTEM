@@ -1,10 +1,11 @@
 import type { ProjectDetail, ProjectStateName } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Field, Loading } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
 import { StartTimerButton } from '../timer/timer-page.js';
-import { attachDocument, completeTask, moveProject, projectDetail } from './api.js';
+import { attachDocument, completeTask, moveProject, projectDetail, setTaskDue } from './api.js';
 
 /** One piece of work: where it has got to, what it is waiting on, what is next. */
 export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) {
@@ -18,8 +19,18 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
     void queries.invalidateQueries({ queryKey: ['projects'] });
   };
 
+  // Which backward move is being explained, if any.
+  const [goingBack, setGoingBack] = useState<ProjectStateName | null>(null);
+  const [reason, setReason] = useState('');
+
   const move = useMutation({
-    mutationFn: (to: ProjectStateName) => moveProject(id, to),
+    mutationFn: ({ to, reason: why }: { to: ProjectStateName; reason?: string }) =>
+      moveProject(id, to, why),
+    onSuccess: settle,
+  });
+  const due = useMutation({
+    mutationFn: ({ order, dueOn }: { order: number; dueOn: string | null }) =>
+      setTaskDue(id, order, dueOn),
     onSuccess: settle,
   });
   const task = useMutation({
@@ -89,7 +100,16 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
                         })
                       : undefined
                   }
-                  onClick={() => move.mutate(state)}
+                  onClick={() => {
+                    // A step back is explained before it happens, not
+                    // refused afterwards by a server the person cannot see.
+                    if (detail.backwardTransitions.includes(state)) {
+                      setGoingBack(state);
+                      setReason('');
+                    } else {
+                      move.mutate({ to: state });
+                    }
+                  }}
                 >
                   {t(`projectStates.${state}`)}
                 </Button>
@@ -99,6 +119,36 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
           <span className="u-grow" />
           {detail.state === 'in_progress' ? <StartTimerButton projectId={detail.id} /> : null}
         </div>
+
+        {goingBack ? (
+          <form
+            className="u-stack-tight"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (reason.trim().length >= 3) {
+                move.mutate({ to: goingBack, reason: reason.trim() });
+                setGoingBack(null);
+              }
+            }}
+          >
+            <Field
+              label={t('projects.goingBack', {
+                state: t(`projectStates.${goingBack}`),
+              })}
+              hint={t('projects.goingBackHint')}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+            <div className="u-row">
+              <Button type="submit" small busy={move.isPending} disabled={reason.trim().length < 3}>
+                {t('projects.goBack')}
+              </Button>
+              <Button small tone="quiet" onClick={() => setGoingBack(null)}>
+                {t('projects.cancelGoBack')}
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </Card>
 
       <Card title={t('projects.documents')} description={t('projects.documentsHint')}>
@@ -154,6 +204,25 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
               {arabic ? item.titleAr : item.titleEn}
             </span>
             <span className="u-grow" />
+
+            {/*
+             * A date for the step, not only for the work.
+             * Typed straight in and saved on change: it moves whenever the
+             * client moves it, and a save button would make that a chore.
+             */}
+            {item.doneAt ? null : (
+              <input
+                type="date"
+                className="input input--inline"
+                aria-label={t('projects.stepDue', { step: item.order })}
+                value={item.dueOn ?? ''}
+                disabled={due.isPending}
+                onChange={(event) =>
+                  due.mutate({ order: item.order, dueOn: event.target.value || null })
+                }
+              />
+            )}
+
             {item.doneAt ? (
               <span className="u-text-faint u-ltr u-numeric">{item.doneAt.slice(0, 10)}</span>
             ) : (

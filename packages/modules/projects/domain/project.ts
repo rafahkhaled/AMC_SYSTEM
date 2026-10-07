@@ -305,6 +305,18 @@ export class Project extends AggregateRoot<ProjectId> {
     return ALLOWED[this.state.state];
   }
 
+  /**
+   * Whether moving there is a step back, and so needs a reason.
+   *
+   * Exposed because the screen has to ask for the reason before it sends
+   * anything, and the alternative is the ranking written down twice — once
+   * here and once in the browser, drifting apart the first time a state is
+   * added.
+   */
+  goingBack(next: ProjectState): boolean {
+    return PROGRESS[next] < PROGRESS[this.state.state];
+  }
+
   moveTo(next: ProjectState, now: Date, reason?: string): Result<true, Conflict> {
     if (!ALLOWED[this.state.state].includes(next)) {
       return err(

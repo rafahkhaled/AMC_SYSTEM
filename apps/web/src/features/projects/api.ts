@@ -7,7 +7,7 @@ import {
   projectDetailSchema,
   workloadSchema,
 } from '@amc/contracts';
-import { request, send } from '../auth/api.js';
+import { patch, request, send } from '../auth/api.js';
 
 export async function projectBoard(): Promise<ProjectBoard> {
   return projectBoardSchema.parse(await request('/projects'));
@@ -17,8 +17,29 @@ export async function projectDetail(id: string): Promise<ProjectDetail> {
   return projectDetailSchema.parse(await request(`/projects/${encodeURIComponent(id)}`));
 }
 
-export async function moveProject(id: string, to: ProjectStateName): Promise<ProjectDetail> {
-  return projectDetailSchema.parse(await send(`/projects/${encodeURIComponent(id)}/move`, { to }));
+export async function moveProject(
+  id: string,
+  to: ProjectStateName,
+  /** Required when the work goes back; the server refuses without it. */
+  reason?: string,
+): Promise<ProjectDetail> {
+  return projectDetailSchema.parse(
+    await send(`/projects/${encodeURIComponent(id)}/move`, {
+      to,
+      ...(reason ? { reason } : {}),
+    }),
+  );
+}
+
+/** When a step should be finished. Null clears it. */
+export async function setTaskDue(
+  id: string,
+  order: number,
+  dueOn: string | null,
+): Promise<ProjectDetail> {
+  return projectDetailSchema.parse(
+    await patch(`/projects/${encodeURIComponent(id)}/tasks/${order}/due`, { dueOn }),
+  );
 }
 
 export async function completeTask(id: string, order: number): Promise<ProjectDetail> {

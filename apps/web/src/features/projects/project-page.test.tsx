@@ -55,6 +55,7 @@ function detail(over: Partial<ProjectDetail> = {}): ProjectDetail {
       { order: 2, titleEn: 'Reconcile the bank', titleAr: 'طابق البنك', dueOn: null, doneAt: null },
     ],
     allowedTransitions: ['ready', 'cancelled'],
+    backwardTransitions: [],
     availableDocuments: [],
     startedAt: null,
     completedAt: null,

@@ -1877,3 +1877,12 @@ a {
   /* The arrow is decoration; the click belongs to the select under it. */
   pointer-events: none;
 }
+
+/* A control sitting inside a row rather than owning a line: a date on a step,
+   a figure in a table. Sized to its content so the row still reads as a row. */
+.input--inline {
+  inline-size: auto;
+  min-block-size: 2rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}

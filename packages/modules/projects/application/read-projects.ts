@@ -116,6 +116,7 @@ export class ReadProjects {
         };
       }),
       allowedTransitions: [...project.allowedNext()],
+      backwardTransitions: project.allowedNext().filter((next) => project.goingBack(next)),
       availableDocuments: documents.map((document) => ({
         id: document.id,
         type: document.type,
