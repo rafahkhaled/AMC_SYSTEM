@@ -5,3 +5,4 @@ export * from './read-workload.js';
 export * from './recurrence.js';
 export * from './project-workflow.js';
 export * from './manage-services.js';
+export * from './continue-work.js';

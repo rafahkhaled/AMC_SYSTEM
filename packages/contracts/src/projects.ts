@@ -80,6 +80,16 @@ export const projectDetailSchema = boardProjectSchema.extend({
    * written down once.
    */
   backwardTransitions: z.array(projectStateSchema),
+  /**
+   * What can be decided now that a recurring job is finished, or null when
+   * nothing can: it is not finished, or the service is done once.
+   */
+  continuation: z
+    .object({
+      /** Whether the sweep will keep opening this service for the client on its own. */
+      repeating: z.boolean(),
+    })
+    .nullable(),
   /** Documents on the client's file that could satisfy an outstanding requirement. */
   availableDocuments: z.array(
     z.object({ id: z.string(), type: z.string(), expiresOn: z.string().nullable() }),

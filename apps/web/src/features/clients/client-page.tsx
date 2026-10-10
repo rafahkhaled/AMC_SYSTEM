@@ -43,7 +43,16 @@ const MONTHS_EN = [
 ];
 
 /** The client file: who they are, what we hold, and what is outstanding. */
-export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
+export function ClientPage({
+  id,
+  onBack,
+  onOpenProject,
+}: {
+  id: string;
+  onBack: () => void;
+  /** Go to one of this client's jobs, finished ones included. */
+  onOpenProject?: (projectId: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const queries = useQueryClient();
   const client = useQuery({ queryKey: ['clients', id], queryFn: () => getClient(id) });
@@ -170,7 +179,11 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
         ) : (
           <div className="u-stack-tight">
             {detail.projects.map((project) => (
-              <ProjectRow key={project.id} project={project} />
+              <ProjectRow
+                key={project.id}
+                project={project}
+                {...(onOpenProject ? { onOpen: onOpenProject } : {})}
+              />
             ))}
           </div>
         )}
@@ -298,12 +311,30 @@ function Dash() {
   return <span className="u-text-faint">—</span>;
 }
 
-function ProjectRow({ project }: { project: ProjectSummary }) {
+function ProjectRow({
+  project,
+  onOpen,
+}: {
+  project: ProjectSummary;
+  onOpen?: (projectId: string) => void;
+}) {
   const { t } = useTranslation();
+  const service = t(`services.${project.service}`);
 
   return (
     <div className="line">
-      <span>{t(`services.${project.service}`)}</span>
+      {/*
+        A way into the job, finished ones included. The board shows only what
+        is still to be done, so without this a completed job could not be
+        reached again — including to decide what happens after it.
+      */}
+      {onOpen ? (
+        <button type="button" className="link-button" onClick={() => onOpen(project.id)}>
+          {service}
+        </button>
+      ) : (
+        <span>{service}</span>
+      )}
       {project.periodKey ? <span className="u-text-faint u-ltr">{project.periodKey}</span> : null}
       <span className="u-grow" />
       {project.missingDocuments.length > 0 ? (

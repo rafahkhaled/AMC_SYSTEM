@@ -132,11 +132,23 @@ function Screen({
         />
       );
     case 'client':
-      return <ClientPage id={view.id} onBack={() => go({ name: 'clients' })} />;
+      return (
+        <ClientPage
+          id={view.id}
+          onBack={() => go({ name: 'clients' })}
+          onOpenProject={(projectId) => go({ name: 'project', id: projectId })}
+        />
+      );
     case 'projects':
       return <ProjectsPage onOpen={(id) => go({ name: 'project', id })} />;
     case 'project':
-      return <ProjectPage id={view.id} onBack={() => go({ name: 'projects' })} />;
+      return (
+        <ProjectPage
+          id={view.id}
+          onBack={() => go({ name: 'projects' })}
+          onOpen={(next) => go({ name: 'project', id: next })}
+        />
+      );
     case 'calendar':
       return <CalendarPage onOpenProject={(id) => go({ name: 'project', id })} />;
     case 'timer':

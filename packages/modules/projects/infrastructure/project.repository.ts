@@ -61,12 +61,26 @@ export class DrizzleProjectRepository implements ProjectRepository {
    * ordinary case is not an exception being caught.
    */
   async existsForPeriod(clientServiceId: string, periodKey: string): Promise<boolean> {
-    const [row] = await this.db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(and(eq(projects.clientServiceId, clientServiceId), eq(projects.periodKey, periodKey)))
-      .limit(1);
-    return row !== undefined;
+    /*
+     * Across every engagement the client has had for this service, not only the
+     * one named. Ending a subscription and starting it again makes a new row,
+     * and a project opened under the old one for September is still
+     * September's project: asked per row, the sweep would open it a second
+     * time under the new one and somebody would file the same return twice.
+     * The unique index is per row, so this question is the only thing that
+     * holds across them.
+     */
+    const rows = await this.db.execute<{ one: number }>(sql`
+      SELECT 1 AS one
+      FROM projects p
+      JOIN client_services cs ON cs.id = p.client_service_id
+      WHERE p.period_key = ${periodKey}
+        AND (cs.client_id, cs.service) = (
+          SELECT client_id, service FROM client_services WHERE id = ${clientServiceId}
+        )
+      LIMIT 1
+    `);
+    return rows.length > 0;
   }
 
   async save(project: Project): Promise<void> {

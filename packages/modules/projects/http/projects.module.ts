@@ -4,6 +4,7 @@ import {
   Module,
   type OptionalFactoryDependency,
 } from '@nestjs/common';
+import { ContinueWork } from '../application/continue-work.js';
 import { ManageServices } from '../application/manage-services.js';
 import type { ServiceCatalogue } from '../application/ports.js';
 import { ProjectWorkflow } from '../application/project-workflow.js';
@@ -20,6 +21,7 @@ interface Parts {
   workload: ReadWorkload;
   start: StartProject;
   services: ManageServices;
+  continuing: ContinueWork;
   catalogue: ServiceCatalogue;
 }
 
@@ -48,6 +50,7 @@ export class ProjectsModule {
         },
         { provide: ReadWorkload, inject: [PARTS], useFactory: (p: Parts) => p.workload },
         { provide: StartProject, inject: [PARTS], useFactory: (p: Parts) => p.start },
+        { provide: ContinueWork, inject: [PARTS], useFactory: (p: Parts) => p.continuing },
         { provide: ManageServices, inject: [PARTS], useFactory: (p: Parts) => p.services },
         {
           provide: ServiceCatalogueToken,

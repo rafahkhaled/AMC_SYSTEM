@@ -163,9 +163,93 @@ export function vatReturnDueDate(periodEnd: Date): Date {
   return new Date(Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth() + 1, 28));
 }
 
-/** The corporation tax return is due nine months after the year ends. */
+/**
+ * The corporation tax return is due nine months after the year ends.
+ *
+ * The day is held to the last day of that month. A year ending on the 31st of
+ * December is due on the 30th of September, and adding nine months to the
+ * date as it stands lands on "31 September", which the calendar rolls into
+ * the 1st of October — a filing deadline shown a day later than it is.
+ */
 export function corporateTaxDueDate(yearEnd: Date): Date {
+  const month = yearEnd.getUTCMonth() + 9;
+  const lastDay = new Date(Date.UTC(yearEnd.getUTCFullYear(), month + 1, 0)).getUTCDate();
   return new Date(
-    Date.UTC(yearEnd.getUTCFullYear(), yearEnd.getUTCMonth() + 9, yearEnd.getUTCDate()),
+    Date.UTC(yearEnd.getUTCFullYear(), month, Math.min(yearEnd.getUTCDate(), lastDay)),
   );
+}
+
+const DAY = 86_400_000;
+
+/**
+ * The period that follows one already worked on (feedback item 9).
+ *
+ * The sweep opens work for the period that has just *closed*. Somebody who has
+ * finished a return and wants to carry on straight away is asking for the one
+ * after it — which has not closed, so the sweep will not make it for weeks.
+ * This answers with the same key and due date the sweep would give that
+ * period once it closed, so opening it by hand and the sweep opening it later
+ * are the same project and not two.
+ *
+ * Null when it cannot be worked out: an unknown key, or a client whose
+ * cycle is not on file. Said so rather than guessed, because a wrong period is
+ * a filing against the wrong quarter.
+ */
+export function nextPeriod(
+  recurrence: Recurrence,
+  periodKey: string,
+  cycle: ClientCycle | undefined,
+  now: Date,
+): { key: string; dueAt: Date | null } | null {
+  switch (recurrence) {
+    case 'monthly': {
+      const match = /^(\d{4})-(\d{2})$/.exec(periodKey);
+      if (!match) return null;
+      const next = new Date(Date.UTC(Number(match[1]), Number(match[2]), 1));
+      const key = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`;
+      // Bookkeeping for a month is due on the 20th of the month after it.
+      const dueAt = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 20));
+      return { key, dueAt };
+    }
+
+    case 'per_vat_period': {
+      if (!cycle?.vatPeriodFor) return null;
+      // Stepping back from today until the key matches. Periods are labelled,
+      // not numbered, so there is no arithmetic that goes from a key to a date.
+      let found: { end: Date } | null = null;
+      let from = now;
+      for (let step = 0; step < 80 && !found; step += 1) {
+        const period = cycle.vatPeriodFor(from);
+        if (period.key === periodKey) found = period;
+        from = new Date(period.start.getTime() - DAY);
+      }
+      if (!found) return null;
+
+      const next = cycle.vatPeriodFor(new Date(found.end.getTime() + DAY));
+      return { key: next.key, dueAt: vatReturnDueDate(next.end) };
+    }
+
+    case 'per_financial_year': {
+      if (!cycle?.financialYearEndFor || !cycle.financialYearKeyFor) return null;
+      let end = cycle.financialYearEndFor(now);
+      let found: Date | null = null;
+      for (let step = 0; step < 40 && !found; step += 1) {
+        if (cycle.financialYearKeyFor(end) === periodKey) found = end;
+        // The first of the month a year earlier: the day of the month varies
+        // (a February year end), and asking for any date in the month finds it.
+        end = cycle.financialYearEndFor(
+          new Date(Date.UTC(end.getUTCFullYear() - 1, end.getUTCMonth(), 1)),
+        );
+      }
+      if (!found) return null;
+
+      const nextEnd = cycle.financialYearEndFor(
+        new Date(Date.UTC(found.getUTCFullYear() + 1, found.getUTCMonth(), 1)),
+      );
+      return { key: cycle.financialYearKeyFor(nextEnd), dueAt: corporateTaxDueDate(nextEnd) };
+    }
+
+    default:
+      return null;
+  }
 }

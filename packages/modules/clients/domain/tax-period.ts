@@ -122,3 +122,52 @@ export class FinancialYear {
     return `FY${this.yearEndFor(date).getUTCFullYear()}`;
   }
 }
+
+/** What the clients table holds about a client's filing cycles. */
+export interface CycleRow {
+  readonly id: string;
+  readonly vat_frequency: string | null;
+  readonly vat_anchor_end_month: number | null;
+  readonly financial_year_end_month: number | null;
+}
+
+/**
+ * A client's own filing cycles, as functions the services module can call.
+ *
+ * Built here because this module owns what a VAT period and a financial year
+ * *are*; the services module is only told how to ask. The worker builds one
+ * for every client each morning and the API builds one when somebody opens the
+ * next piece of work early, and both must answer identically or a project
+ * opened by hand would carry a different period key from the one the sweep
+ * would have made — and then the sweep would make it again.
+ *
+ * A malformed row yields no function rather than a guess: guessing a VAT
+ * quarter produces a confidently wrong filing date, which is worse than none.
+ */
+export function clientCycleFrom(row: CycleRow): {
+  clientId: string;
+  vatPeriodFor?: (date: Date) => { start: Date; end: Date; key: string };
+  financialYearEndFor?: (date: Date) => Date;
+  financialYearKeyFor?: (date: Date) => string;
+} {
+  const cycle: {
+    clientId: string;
+    vatPeriodFor?: (date: Date) => { start: Date; end: Date; key: string };
+    financialYearEndFor?: (date: Date) => Date;
+    financialYearKeyFor?: (date: Date) => string;
+  } = { clientId: row.id };
+
+  if (row.vat_frequency && row.vat_anchor_end_month !== null) {
+    const periods = VatPeriods.of(row.vat_frequency as VatFrequency, row.vat_anchor_end_month);
+    if (periods.ok) cycle.vatPeriodFor = (date: Date) => periods.value.periodContaining(date);
+  }
+
+  if (row.financial_year_end_month !== null) {
+    const year = FinancialYear.endingIn(row.financial_year_end_month);
+    if (year.ok) {
+      cycle.financialYearEndFor = (date: Date) => year.value.yearEndFor(date);
+      cycle.financialYearKeyFor = (date: Date) => year.value.keyFor(date);
+    }
+  }
+  return cycle;
+}

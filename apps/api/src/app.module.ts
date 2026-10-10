@@ -59,6 +59,7 @@ import {
   DrizzlePreferenceRepository,
 } from '@amc/notifications/infrastructure';
 import {
+  ContinueWork,
   ManageServices,
   ProjectWorkflow,
   ReadProjects,
@@ -118,6 +119,7 @@ import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
 import { projectContext } from './projects/adapters.js';
+import { clientCycles } from './projects/cycles.js';
 import { workloadReader } from './projects/workload.js';
 import { FILE_STORAGE, StorageModule } from './storage/storage.module.js';
 import { assignmentResolver, timerViewReader } from './timer/adapters.js';
@@ -261,6 +263,7 @@ function peopleDirectory(db: Database) {
             projectContext(db),
             clock,
             catalogue,
+            new DrizzleClientServiceRepository(db),
           ),
           workload: new ReadWorkload(workloadReader(db)),
           // The one-off services never come from the recurrence sweep, so this
@@ -277,6 +280,23 @@ function peopleDirectory(db: Database) {
               new DrizzleProjectRepository(transaction as Database, collector),
           }),
           catalogue,
+          /*
+           * What happens when a recurring job is finished: carry on with the
+           * next one now, or stop it repeating. One transaction, so ending a
+           * subscription and the audit row that says why cannot come apart.
+           */
+          continuing: new ContinueWork(
+            new DrizzleUnitOfWork(db, { next: () => ulid() }, clock),
+            {
+              forTransaction: (transaction: unknown, collector: EventCollector) => ({
+                projects: new DrizzleProjectRepository(transaction as Database, collector),
+                subscriptions: new DrizzleClientServiceRepository(transaction as Database),
+              }),
+            },
+            catalogue,
+            clientCycles(db),
+            { next: () => ulid() },
+          ),
           /*
            * The services the firm adds itself (item 8). Audited through the
            * same unit of work as everything else, so who added one is on

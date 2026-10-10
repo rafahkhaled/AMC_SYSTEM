@@ -77,3 +77,25 @@ export async function startProject(input: {
 }): Promise<ProjectDetail> {
   return projectDetailSchema.parse(await send('/projects', input));
 }
+
+/**
+ * Carry straight on with the next period (feedback item 9).
+ *
+ * Returns the *new* project, so the caller can go to it.
+ */
+export async function openNextProject(id: string): Promise<ProjectDetail> {
+  return projectDetailSchema.parse(await send(`/projects/${encodeURIComponent(id)}/open-next`));
+}
+
+/** This was a one-time job: stop it coming round again. */
+export async function stopRepeating(id: string): Promise<ProjectDetail> {
+  return projectDetailSchema.parse(
+    await send(`/projects/${encodeURIComponent(id)}/stop-repeating`),
+  );
+}
+
+export async function resumeRepeating(id: string): Promise<ProjectDetail> {
+  return projectDetailSchema.parse(
+    await send(`/projects/${encodeURIComponent(id)}/resume-repeating`),
+  );
+}

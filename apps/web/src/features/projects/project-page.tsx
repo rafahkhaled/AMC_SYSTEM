@@ -5,10 +5,28 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Field, Loading } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
 import { StartTimerButton } from '../timer/timer-page.js';
-import { attachDocument, completeTask, moveProject, projectDetail, setTaskDue } from './api.js';
+import {
+  attachDocument,
+  completeTask,
+  moveProject,
+  openNextProject,
+  projectDetail,
+  resumeRepeating,
+  setTaskDue,
+  stopRepeating,
+} from './api.js';
 
 /** One piece of work: where it has got to, what it is waiting on, what is next. */
-export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) {
+export function ProjectPage({
+  id,
+  onBack,
+  onOpen,
+}: {
+  id: string;
+  onBack: () => void;
+  /** Go to another piece of work, such as the one just opened. */
+  onOpen?: (id: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const queries = useQueryClient();
   const project = useQuery({ queryKey: ['project', id], queryFn: () => projectDetail(id) });
@@ -37,6 +55,23 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
     mutationFn: (order: number) => completeTask(id, order),
     onSuccess: settle,
   });
+  /*
+   * What to do about the next one, once a recurring job is finished (item 9).
+   * Opening goes to the new project; stopping and resuming change this one's
+   * page in place.
+   */
+  const next = useMutation({
+    mutationFn: () => openNextProject(id),
+    onSuccess: (opened) => {
+      void queries.invalidateQueries({ queryKey: ['projects'] });
+      queries.setQueryData(['project', opened.id], opened);
+      onOpen?.(opened.id);
+    },
+  });
+  const repeat = useMutation({
+    mutationFn: (stop: boolean) => (stop ? stopRepeating(id) : resumeRepeating(id)),
+    onSuccess: settle,
+  });
   const attach = useMutation({
     mutationFn: ({ type, documentId }: { type: string; documentId: string }) =>
       attachDocument(id, type, documentId),
@@ -48,7 +83,7 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
     return <p className="alert alert--error">{t('projects.failed')}</p>;
 
   const detail = project.data;
-  const refusal = move.error ?? task.error ?? attach.error;
+  const refusal = move.error ?? task.error ?? attach.error ?? next.error ?? repeat.error;
   const arabic = i18n.language === 'ar';
 
   return (
@@ -68,6 +103,43 @@ export function ProjectPage({ id, onBack }: { id: string; onBack: () => void }) 
       </header>
 
       {refusal ? <Alert tone="error">{refusal.message}</Alert> : null}
+
+      {/*
+        Only once a recurring job is finished. The sweep opens work for the
+        period that has just closed on its own; what it cannot know is whether
+        this client should carry straight on with the next, or whether this
+        was a one-off — and that is a decision for the person finishing it.
+      */}
+      {detail.continuation ? (
+        <Card title={t('projects.continue.title')} description={t('projects.continue.hint')}>
+          {detail.continuation.repeating ? (
+            <div className="u-row u-wrap">
+              <Button busy={next.isPending} onClick={() => next.mutate()}>
+                {t('projects.continue.openNext')}
+              </Button>
+              <Button tone="secondary" busy={repeat.isPending} onClick={() => repeat.mutate(true)}>
+                {t('projects.continue.oneTime')}
+              </Button>
+            </div>
+          ) : (
+            <div className="u-stack-tight">
+              <p className="u-text-soft">{t('projects.continue.stopped')}</p>
+              <div className="u-row u-wrap">
+                <Button
+                  tone="secondary"
+                  busy={repeat.isPending}
+                  onClick={() => repeat.mutate(false)}
+                >
+                  {t('projects.continue.resume')}
+                </Button>
+                <Button tone="quiet" busy={next.isPending} onClick={() => next.mutate()}>
+                  {t('projects.continue.openNext')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      ) : null}
 
       <Card title={t('projects.whatNext')} description={t('projects.whatNextHint')}>
         <div className="u-row u-wrap">

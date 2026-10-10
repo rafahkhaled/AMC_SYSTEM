@@ -11,11 +11,17 @@ const projectDetail = vi.hoisted(() => vi.fn());
 const moveProject = vi.hoisted(() => vi.fn());
 const completeTask = vi.hoisted(() => vi.fn());
 const attachDocument = vi.hoisted(() => vi.fn());
+const openNextProject = vi.hoisted(() => vi.fn());
+const stopRepeating = vi.hoisted(() => vi.fn());
+const resumeRepeating = vi.hoisted(() => vi.fn());
 vi.mock('./api.js', () => ({
   projectDetail,
   moveProject,
   completeTask,
   attachDocument,
+  openNextProject,
+  stopRepeating,
+  resumeRepeating,
   projectBoard: vi.fn(),
 }));
 vi.mock('../timer/timer-page.js', () => ({
@@ -56,6 +62,7 @@ function detail(over: Partial<ProjectDetail> = {}): ProjectDetail {
     ],
     allowedTransitions: ['ready', 'cancelled'],
     backwardTransitions: [],
+    continuation: null,
     availableDocuments: [],
     startedAt: null,
     completedAt: null,
@@ -63,13 +70,13 @@ function detail(over: Partial<ProjectDetail> = {}): ProjectDetail {
   };
 }
 
-function show(data: ProjectDetail) {
+function show(data: ProjectDetail, onOpen: (id: string) => void = vi.fn()) {
   projectDetail.mockResolvedValue(data);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  render(<ProjectPage id="project-1" onBack={vi.fn()} />, { wrapper: Wrapper });
+  render(<ProjectPage id="project-1" onBack={vi.fn()} onOpen={onOpen} />, { wrapper: Wrapper });
 }
 
 describe('one piece of work', () => {
@@ -188,5 +195,87 @@ describe('one piece of work', () => {
     show(detail({ state: 'ready', allowedTransitions: ['in_progress'] }));
     await screen.findByRole('button', { name: 'In progress' });
     expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * What happens after a recurring job is finished (feedback item 9).
+ *
+ * The sweep opens work for the period that has just closed, on its own. The
+ * person finishing a job decides the other half: carry straight on with the
+ * next, or say this was a one-off so it stops coming round.
+ */
+describe('after a recurring job is finished', () => {
+  const finished = (repeating: boolean) =>
+    detail({
+      state: 'completed',
+      allowedTransitions: [],
+      missingDocuments: [],
+      continuation: { repeating },
+    });
+
+  it('offers to open the next one, or to call it a one-time job', async () => {
+    show(finished(true));
+
+    expect(await screen.findByText('What happens after this one?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open the next one' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'This was a one-time job' })).toBeVisible();
+  });
+
+  it('offers nothing while the job is still open, or for a service done once', async () => {
+    show(detail({ continuation: null }));
+    await screen.findByText('Gulf Trading LLC');
+    expect(screen.queryByText('What happens after this one?')).not.toBeInTheDocument();
+  });
+
+  it('opens the next one and goes to it', async () => {
+    openNextProject.mockResolvedValue(detail({ id: 'project-2', periodKey: '2026-Q4' }));
+    const onOpen = vi.fn();
+    show(finished(true), onOpen);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Open the next one' }));
+
+    await vi.waitFor(() => expect(onOpen).toHaveBeenCalledWith('project-2'));
+    expect(openNextProject).toHaveBeenCalledWith('project-1');
+  });
+
+  it('stops it repeating, and says so afterwards', async () => {
+    stopRepeating.mockResolvedValue(finished(false));
+    show(finished(true));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'This was a one-time job' }));
+
+    expect(await screen.findByText(/no longer repeats for this client/)).toBeInTheDocument();
+    expect(stopRepeating).toHaveBeenCalledWith('project-1');
+    // The choice that was made is gone; the way back is not.
+    expect(
+      screen.queryByRole('button', { name: 'This was a one-time job' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start repeating again' })).toBeVisible();
+  });
+
+  it('can start repeating again after being stopped', async () => {
+    resumeRepeating.mockResolvedValue(finished(true));
+    show(finished(false));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Start repeating again' }));
+
+    await vi.waitFor(() => expect(resumeRepeating).toHaveBeenCalledWith('project-1'));
+  });
+
+  it('still lets them open the next one after stopping it repeating', async () => {
+    // Opening the next period and having the sweep do it unprompted are
+    // separate decisions; answering one does not take the other away.
+    show(finished(false));
+    expect(await screen.findByRole('button', { name: 'Open the next one' })).toBeVisible();
+  });
+
+  it('shows the server’s reason when it cannot open the next one', async () => {
+    openNextProject.mockRejectedValue(new Error('2026-Q4 is already open for this client'));
+    show(finished(true));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Open the next one' }));
+
+    expect(await screen.findByText('2026-Q4 is already open for this client')).toBeInTheDocument();
   });
 });

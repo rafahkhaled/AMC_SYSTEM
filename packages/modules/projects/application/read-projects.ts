@@ -1,7 +1,13 @@
 import type { BoardProject, ProjectBoard, ProjectDetail } from '@amc/contracts';
 import { type Clock, heldBy } from '@amc/kernel';
-import type { ProjectState } from '../domain/index.js';
-import type { CallerLike, ProjectRepository, ProjectScope, ServiceCatalogue } from './ports.js';
+import type { Project, ProjectState } from '../domain/index.js';
+import type {
+  CallerLike,
+  ClientServiceRepository,
+  ProjectRepository,
+  ProjectScope,
+  ServiceCatalogue,
+} from './ports.js';
 
 /**
  * As much of a caller as a read needs.
@@ -52,6 +58,7 @@ export class ReadProjects {
     private readonly context: ProjectContextReader,
     private readonly clock: Clock,
     private readonly catalogue: ServiceCatalogue,
+    private readonly subscriptions: ClientServiceRepository,
   ) {}
 
   /**
@@ -116,6 +123,7 @@ export class ReadProjects {
           doneAt: task.doneAt?.toISOString() ?? null,
         };
       }),
+      continuation: await this.continuation(project, template?.recurrence ?? 'once'),
       allowedTransitions: [...project.allowedNext()],
       backwardTransitions: project.allowedNext().filter((next) => project.goingBack(next)),
       availableDocuments: documents.map((document) => ({
@@ -129,6 +137,23 @@ export class ReadProjects {
   }
 
   /** Attaches the names and totals that live in other modules, in one pass. */
+  /**
+   * Whether somebody can now carry on with, or stop, a recurring job.
+   *
+   * Only for a finished job of a service that comes round again. A one-off has
+   * nothing to repeat and an open job is not yet the moment to decide.
+   */
+  private async continuation(
+    project: Project,
+    recurrence: string,
+  ): Promise<{ repeating: boolean } | null> {
+    const state = project.snapshot();
+    if (state.state !== 'completed' || recurrence === 'once') return null;
+
+    const live = await this.subscriptions.activeFor(state.clientId);
+    return { repeating: live.some((one) => one.service === state.service) };
+  }
+
   private async decorate(
     projects: readonly import('../domain/index.js').Project[],
   ): Promise<BoardProject[]> {

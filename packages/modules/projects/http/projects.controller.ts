@@ -20,6 +20,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { ContinueWork } from '../application/continue-work.js';
 import { ProjectWorkflow, scopeFor } from '../application/project-workflow.js';
 import { ReadProjects } from '../application/read-projects.js';
 import { ReadWorkload } from '../application/read-workload.js';
@@ -43,6 +44,7 @@ export class ProjectsController {
     @Inject(ProjectWorkflow) private readonly workflow: ProjectWorkflow,
     @Inject(ReadWorkload) private readonly workload: ReadWorkload,
     @Inject(StartProject) private readonly start: StartProject,
+    @Inject(ContinueWork) private readonly continuing: ContinueWork,
   ) {}
 
   /**
@@ -77,6 +79,50 @@ export class ProjectsController {
     if (!started.ok) throw new ConflictException(started.error.message);
 
     const detail = await this.projects.detail(caller, started.value.id);
+    if (!detail) throw new NotFoundException('No such project');
+    return detail;
+  }
+
+  /**
+   * Carry straight on with the next one (feedback item 9).
+   *
+   * The sweep opens work for the period that has just closed, so the one
+   * after is not made for weeks. This opens it now, for the same client, with
+   * the key and due date the sweep would have given it.
+   */
+  @Post(':id/open-next')
+  @RequirePermissions('projects.edit')
+  async openNext(@CurrentCaller() caller: Caller, @Param('id') id: string): Promise<ProjectDetail> {
+    const opened = await this.continuing.openNext(caller, id);
+    if (!opened.ok) throw new ConflictException(opened.error.message);
+    return this.mustDetail(caller, opened.value.projectId);
+  }
+
+  /** This was a one-time job: stop it coming round again. */
+  @Post(':id/stop-repeating')
+  @RequirePermissions('projects.edit')
+  async stopRepeating(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+  ): Promise<ProjectDetail> {
+    const stopped = await this.continuing.stopRepeating(caller, id);
+    if (!stopped.ok) throw new ConflictException(stopped.error.message);
+    return this.mustDetail(caller, id);
+  }
+
+  @Post(':id/resume-repeating')
+  @RequirePermissions('projects.edit')
+  async resumeRepeating(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+  ): Promise<ProjectDetail> {
+    const resumed = await this.continuing.resumeRepeating(caller, id);
+    if (!resumed.ok) throw new ConflictException(resumed.error.message);
+    return this.mustDetail(caller, id);
+  }
+
+  private async mustDetail(caller: Caller, id: string): Promise<ProjectDetail> {
+    const detail = await this.projects.detail(caller, id);
     if (!detail) throw new NotFoundException('No such project');
     return detail;
   }

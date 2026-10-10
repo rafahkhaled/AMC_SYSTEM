@@ -331,4 +331,70 @@ describe('recurring work (FR-14)', () => {
       ).toHaveLength(0);
     });
   });
+
+  /*
+   * Stopping a job repeating and starting it again (feedback item 9).
+   *
+   * Starting again makes a new subscription row. The period that was opened
+   * under the old one is still that period's project, so the sweep running
+   * under the new one must not open it a second time.
+   */
+  it('does not open a period twice because the client was re-engaged in between', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { subscriptions, projects } = await scenario(tx, 'monthly_accounting');
+
+      // September opened under the first engagement...
+      await engine(subscriptions, projects, at('2026-10-03T06:00:00Z')).sweep(
+        'monthly_accounting',
+        new Map(),
+      );
+      // ...which is then stopped, and the client engaged again.
+      await subscriptions.end('cs-1', at('2026-10-05T00:00:00Z'));
+      await subscriptions.subscribe({
+        id: 'cs-2',
+        clientId: 'c-1',
+        service: 'monthly_accounting',
+        activeFrom: at('2026-10-06T00:00:00Z'),
+      });
+
+      expect(await projects.existsForPeriod('cs-1', '2026-09')).toBe(true);
+      // Asked under the *new* engagement, and still answered yes.
+      expect(await projects.existsForPeriod('cs-2', '2026-09')).toBe(true);
+      expect(
+        await engine(subscriptions, projects, at('2026-10-08T06:00:00Z')).sweep(
+          'monthly_accounting',
+          new Map(),
+        ),
+      ).toHaveLength(0);
+    });
+  });
+
+  it('does not confuse the same period of a different service or a different client', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { subscriptions, projects } = await scenario(tx, 'monthly_accounting');
+      await engine(subscriptions, projects, at('2026-10-03T06:00:00Z')).sweep(
+        'monthly_accounting',
+        new Map(),
+      );
+      await (tx as unknown as ReturnType<typeof drizzle>).execute(
+        `INSERT INTO clients (id, legal_name) VALUES ('c-other', 'Other LLC')`,
+      );
+      await subscriptions.subscribe({
+        id: 'cs-other-client',
+        clientId: 'c-other',
+        service: 'monthly_accounting',
+        activeFrom: at('2026-01-01T00:00:00Z'),
+      });
+      await subscriptions.subscribe({
+        id: 'cs-other-service',
+        clientId: 'c-1',
+        service: 'audit',
+        activeFrom: at('2026-01-01T00:00:00Z'),
+      });
+
+      expect(await projects.existsForPeriod('cs-other-client', '2026-09')).toBe(false);
+      expect(await projects.existsForPeriod('cs-other-service', '2026-09')).toBe(false);
+      expect(await projects.existsForPeriod('cs-1', '2026-08')).toBe(false);
+    });
+  });
 });
