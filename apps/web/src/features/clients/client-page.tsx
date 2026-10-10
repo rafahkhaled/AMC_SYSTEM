@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { ClientFilesPanel } from '../client-files/client-files-panel.js';
 import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
 import { documentLink } from '../documents/api.js';
 import { DocumentUpload } from '../documents/document-upload.js';
@@ -153,6 +154,9 @@ export function ClientPage({ id, onBack }: { id: string; onBack: () => void }) {
           }
         />
       </Card>
+
+      {/* A folder for anything else: not typed, not dated, not chased. */}
+      <ClientFilesPanel clientId={id} />
 
       <LettersPanel clientId={id} />
 

@@ -1,9 +1,9 @@
-import { serviceCodes } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
 import { listClients } from '../clients/api.js';
+import { useServices } from '../services/use-services.js';
 import { startProject } from './api.js';
 
 /**
@@ -26,6 +26,7 @@ export function StartProjectForm({ onStarted }: { onStarted: (id: string) => voi
   const [clientId, setClientId] = useState('');
   const [service, setService] = useState<string>('deregistration');
   const [dueOn, setDueOn] = useState('');
+  const services = useServices();
 
   const clients = useQuery({ queryKey: ['clients'], queryFn: listClients, enabled: open });
 
@@ -79,9 +80,9 @@ export function StartProjectForm({ onStarted }: { onStarted: (id: string) => voi
           label={t('projects.start.service')}
           control={(props) => (
             <Select {...props} value={service} onChange={(event) => setService(event.target.value)}>
-              {serviceCodes.map((code) => (
-                <option key={code} value={code}>
-                  {t(`services.${code}`)}
+              {services.live.map((offered) => (
+                <option key={offered.code} value={offered.code}>
+                  {t(`services.${offered.code}`)}
                 </option>
               ))}
             </Select>

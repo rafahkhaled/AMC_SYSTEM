@@ -1,4 +1,4 @@
-import type { Project, ProjectId, ServiceCode } from '../domain/index.js';
+import type { Project, ProjectId, ServiceCode, ServiceTemplate } from '../domain/index.js';
 
 /** A client's subscription to one service. */
 export interface ClientService {
@@ -49,3 +49,18 @@ export interface ClientServiceRepository {
 
 /** The caller. Re-exported so modules import their ports, not the kernel. */
 export type { CallerLike } from '@amc/kernel';
+
+/**
+ * Every service the firm offers: the eleven in code, and the ones it added.
+ *
+ * A port because the second kind lives in the database, and the domain and
+ * the use cases are not allowed to go and fetch it themselves.
+ */
+export interface ServiceCatalogue {
+  /** Retired ones included: a project opened under one still has to show its steps. */
+  find(code: ServiceCode): Promise<ServiceTemplate | null>;
+  /** Retired ones excluded, in the order the firm wants them offered. */
+  offered(): Promise<ServiceTemplate[]>;
+  /** The ones taken out of the picker. Screens still need their names. */
+  retired(): Promise<ServiceTemplate[]>;
+}

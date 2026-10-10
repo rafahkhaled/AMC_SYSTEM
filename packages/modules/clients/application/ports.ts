@@ -2,6 +2,7 @@ import type {
   Client,
   ClientCredential,
   ClientDocument,
+  ClientFile,
   ClientId,
   ClientScope,
   ContactLogEntry,
@@ -123,4 +124,20 @@ export type { CallerLike } from '@amc/kernel';
  */
 export interface PeopleDirectory {
   namesFor(userIds: readonly string[]): Promise<Map<string, string>>;
+}
+
+/** A file in a client's folder, with the name of whoever put it there. */
+export interface StoredClientFile {
+  readonly file: ClientFile;
+  readonly uploadedByName: string | null;
+}
+
+export interface ClientFileRepository {
+  /** Whether the client is one this caller may reach at all. */
+  canReach(clientId: ClientId, scope: ClientScope): Promise<boolean>;
+  /** What is still in the folder, newest first. Empty when the client is out of scope. */
+  forClient(clientId: ClientId, scope: ClientScope): Promise<StoredClientFile[]>;
+  /** Null when it does not exist, and equally when its client is out of scope. */
+  findById(id: string, scope: ClientScope): Promise<ClientFile | null>;
+  save(file: ClientFile): Promise<void>;
 }

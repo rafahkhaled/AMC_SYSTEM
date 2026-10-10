@@ -181,3 +181,62 @@ export const startProjectSchema = z.object({
   periodKey: z.string().min(1).optional(),
 });
 export type StartProjectRequest = z.infer<typeof startProjectSchema>;
+
+/* ------------------------------------------------------- the service catalogue */
+
+/**
+ * One service the firm offers: one of the eleven in code, or one it added.
+ *
+ * Sent with both languages' names so a screen never has to ask which language
+ * the reader is in, and so a service added today has a label on every screen
+ * that shows a project, without a deploy to put it in a translation file.
+ */
+export const serviceViewSchema = z.object({
+  code: z.string(),
+  nameEn: z.string(),
+  nameAr: z.string(),
+  /** The eleven in code. They cannot be edited or retired from a screen. */
+  builtIn: z.boolean(),
+  /** Whether the work comes round again. Only ever true for a built-in. */
+  recurring: z.boolean(),
+  /** Days from starting to due, where it is a fixed number. Null: set by hand. */
+  deadlineDays: z.number().int().nullable(),
+  steps: z.array(z.object({ nameEn: z.string(), nameAr: z.string() })),
+  requiredDocuments: z.array(z.object({ type: z.string(), mandatory: z.boolean() })),
+  /** Retired services are not offered for new work but still label old work. */
+  retired: z.boolean(),
+});
+export type ServiceView = z.infer<typeof serviceViewSchema>;
+export const servicesSchema = z.object({ services: z.array(serviceViewSchema) });
+export type Services = z.infer<typeof servicesSchema>;
+
+const serviceStepSchema = z.object({
+  nameEn: z.string().trim().max(120),
+  nameAr: z.string().trim().max(120),
+});
+const serviceDocumentSchema = z.object({
+  type: z.string().trim().min(1).max(60),
+  mandatory: z.boolean(),
+});
+
+/** Adding a service. Always one-off: a recurring one needs a period rule, which is code. */
+export const createServiceSchema = z.object({
+  nameEn: z.string().trim().min(1).max(120),
+  nameAr: z.string().trim().min(1).max(120),
+  deadlineDays: z.number().int().min(1).max(730).nullable(),
+  steps: z.array(serviceStepSchema).min(1).max(30),
+  requiredDocuments: z.array(serviceDocumentSchema).max(30),
+});
+export type CreateServiceRequest = z.infer<typeof createServiceSchema>;
+
+/**
+ * Changing one.
+ *
+ * Steps may be renamed and added to but not removed or reordered: a project
+ * already opened under the service records progress by step number, and
+ * deleting step 2 would quietly relabel everything done against step 3.
+ */
+export const updateServiceSchema = createServiceSchema.partial().extend({
+  retired: z.boolean().optional(),
+});
+export type UpdateServiceRequest = z.infer<typeof updateServiceSchema>;

@@ -6,6 +6,13 @@ import {
   templateFor,
 } from './service-template.js';
 
+/** The built-in template, or a failure naming the code that had none. */
+function must(code: string) {
+  const template = templateFor(code);
+  if (!template) throw new Error(`no built-in template for ${code}`);
+  return template;
+}
+
 describe('the eleven services (FR-10)', () => {
   it('has all eleven', () => {
     expect(ALL_SERVICES).toHaveLength(11);
@@ -40,35 +47,35 @@ describe('the eleven services (FR-10)', () => {
 
 describe('recurrence (FR-14)', () => {
   it('repeats monthly accounting every month', () => {
-    expect(templateFor('monthly_accounting').recurrence).toBe('monthly');
+    expect(must('monthly_accounting').recurrence).toBe('monthly');
   });
 
   it('ties the VAT return to the client own period, not the calendar', () => {
     // The FTA staggers the cycles, so "quarterly" alone would be wrong for
     // most clients.
-    expect(templateFor('vat_return').recurrence).toBe('per_vat_period');
+    expect(must('vat_return').recurrence).toBe('per_vat_period');
   });
 
   it('ties the corporation tax return to the client financial year', () => {
-    expect(templateFor('ct_return').recurrence).toBe('per_financial_year');
+    expect(must('ct_return').recurrence).toBe('per_financial_year');
   });
 
   it('treats a registration as happening once', () => {
-    expect(templateFor('vat_registration').recurrence).toBe('once');
-    expect(templateFor('ct_registration').recurrence).toBe('once');
+    expect(must('vat_registration').recurrence).toBe('once');
+    expect(must('ct_registration').recurrence).toBe('once');
   });
 });
 
 describe('deadline rules (FR-40)', () => {
   it('uses the statutory rule for each return', () => {
-    expect(templateFor('vat_return').deadline).toEqual({ kind: 'vat_return' });
-    expect(templateFor('ct_return').deadline).toEqual({ kind: 'ct_return' });
+    expect(must('vat_return').deadline).toEqual({ kind: 'vat_return' });
+    expect(must('ct_return').deadline).toEqual({ kind: 'ct_return' });
   });
 
   it('leaves the authority-driven work to be dated by hand', () => {
     // The FTA sets its own timetable for these, case by case.
     for (const code of ['penalty_waiver', 'vat_refund', 'emaratax_request'] as const) {
-      expect(templateFor(code).deadline.kind).toBe('manual');
+      expect(must(code).deadline.kind).toBe('manual');
     }
   });
 });

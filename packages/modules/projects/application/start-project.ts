@@ -1,6 +1,11 @@
 import { type Clock, Conflict, type IdGenerator, type Result, err, ok } from '@amc/kernel';
-import { Project, type ServiceCode, templateFor } from '../domain/index.js';
-import type { ClientServiceRepository, ProjectRepository, ProjectScope } from './ports.js';
+import { Project, type ServiceCode, type ServiceTemplate } from '../domain/index.js';
+import type {
+  ClientServiceRepository,
+  ProjectRepository,
+  ProjectScope,
+  ServiceCatalogue,
+} from './ports.js';
 
 /**
  * Starting a piece of work by hand (FR-10, FR-11).
@@ -22,6 +27,7 @@ export class StartProject {
     private readonly services: ClientServiceRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly catalogue: ServiceCatalogue,
   ) {}
 
   async execute(params: {
@@ -37,7 +43,10 @@ export class StartProject {
       return err(new Conflict('That client is not there'));
     }
 
-    const template = templateFor(params.service);
+    const template = await this.catalogue.find(params.service);
+    if (!template) {
+      return err(new Conflict('That is not one of the services the firm offers'));
+    }
     const now = this.clock.now();
 
     const periodKey = params.periodKey ?? null;
@@ -89,11 +98,22 @@ export class StartProject {
       clientId: params.clientId,
       clientServiceId: subscription.id,
       service: params.service,
+      template,
       periodKey,
-      dueAt: params.dueAt ?? null,
+      // The date somebody typed wins; failing that, the template's own rule
+      // for a fixed number of days. A rule the firm wrote down is not a guess,
+      // and without this the "deadline in days" on a service would be a number
+      // that nothing reads.
+      dueAt: params.dueAt ?? dueFromTemplate(template, now),
       now,
     });
     await this.projects.save(project);
     return ok(project);
   }
+}
+
+/** Days from the day it starts, where the template says so; otherwise left for somebody to date. */
+function dueFromTemplate(template: ServiceTemplate, from: Date): Date | null {
+  if (template.deadline.kind !== 'days_from_start') return null;
+  return new Date(from.getTime() + template.deadline.days * 86_400_000);
 }

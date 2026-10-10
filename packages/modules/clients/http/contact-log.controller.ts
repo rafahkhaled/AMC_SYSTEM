@@ -1,6 +1,6 @@
 import type { ContactLogEntryView } from '@amc/contracts';
 import { recordContactSchema } from '@amc/contracts';
-import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
+import { type Caller, CurrentCaller, RequirePermissions, decodeUploadName } from '@amc/http-kit';
 import {
   BadRequestException,
   Body,
@@ -67,7 +67,7 @@ export class ContactLogController {
       // Wall clock with no zone, read on the clock the person was looking at.
       happenedAt: new Date(`${parsed.data.happenedAt}:00+04:00`),
       files: (files ?? []).map((file) => ({
-        filename: file.originalname,
+        filename: decodeUploadName(file.originalname),
         contentType: file.mimetype,
         body: file.buffer,
       })),

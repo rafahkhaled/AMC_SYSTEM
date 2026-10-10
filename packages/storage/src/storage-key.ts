@@ -36,6 +36,23 @@ export function clientDocumentKey(params: {
   return storageKey(['clients', params.clientId, 'documents', `${params.documentId}.${extension}`]);
 }
 
+/**
+ * Where a file in a client's folder lives.
+ *
+ * The extension is cut down to what is safe to put in a key — letters and
+ * digits, a few of them — and dropped altogether otherwise. It is never used
+ * to decide what the file is: a name somebody else chose is display only.
+ */
+export function clientFileKey(params: {
+  clientId: string;
+  fileId: string;
+  extension: string;
+}): Result<StorageKey, InvariantViolation> {
+  const extension = params.extension.replace(/^\./, '').toLowerCase();
+  const safe = /^[a-z0-9]{1,10}$/.test(extension) ? `.${extension}` : '';
+  return storageKey(['clients', params.clientId, 'files', `${params.fileId}${safe}`]);
+}
+
 /** Where an uploaded supplier invoice lives, inside the batch it arrived with. */
 export function invoiceBatchKey(params: {
   clientId: string;

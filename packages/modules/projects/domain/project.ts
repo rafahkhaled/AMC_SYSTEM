@@ -1,5 +1,18 @@
-import { AggregateRoot, Conflict, type Result, domainEvent, err, ok } from '@amc/kernel';
-import { type ServiceCode, mandatoryDocumentsFor, templateFor } from './service-template.js';
+import {
+  AggregateRoot,
+  Conflict,
+  ProgrammerError,
+  type Result,
+  domainEvent,
+  err,
+  ok,
+} from '@amc/kernel';
+import {
+  type ServiceCode,
+  type ServiceTemplate,
+  mandatoryDocumentsFor,
+  templateFor,
+} from './service-template.js';
 
 export type ProjectId = string;
 
@@ -134,11 +147,21 @@ export class Project extends AggregateRoot<ProjectId> {
     clientId: string;
     clientServiceId: string;
     service: ServiceCode;
+    /**
+     * The template, when it is not one of the eleven in code.
+     *
+     * A service the firm added itself lives in the database, and the domain
+     * cannot go and fetch it: it is handed in by the caller that did.
+     */
+    template?: ServiceTemplate;
     periodKey?: string | null;
     dueAt?: Date | null;
     now: Date;
   }): Project {
-    const template = templateFor(params.service);
+    const template = params.template ?? templateFor(params.service);
+    if (!template) {
+      throw new ProgrammerError(`No template for the service "${params.service}"`);
+    }
     const requirements = template.requiredDocuments.map((required) => ({
       type: required.type,
       mandatory: required.mandatory,

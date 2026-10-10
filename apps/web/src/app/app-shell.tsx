@@ -6,6 +6,7 @@ import { ThemeSwitch } from '../components/theme-switch.js';
 import { Button } from '../design/index.js';
 import { useSession } from '../features/auth/session.js';
 import { useUnreadCount } from '../features/inbox/inbox-page.js';
+import { useRegisterServiceNames } from '../features/services/use-services.js';
 
 type NavView =
   | 'clients'
@@ -56,6 +57,8 @@ export function AppShell({
   const { t } = useTranslation();
   const { signOut } = useSession();
   const unread = useUnreadCount();
+  // Names the services the firm added, on every screen that shows a project.
+  useRegisterServiceNames();
   const [open, setOpen] = useState(false);
   const menuId = useId();
 

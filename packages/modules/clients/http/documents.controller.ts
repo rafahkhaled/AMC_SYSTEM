@@ -1,6 +1,6 @@
 import type { DocumentSummary } from '@amc/contracts';
 import { documentUploadSchema } from '@amc/contracts';
-import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
+import { type Caller, CurrentCaller, RequirePermissions, decodeUploadName } from '@amc/http-kit';
 import {
   BadRequestException,
   Body,
@@ -70,7 +70,7 @@ export class DocumentsController {
     const outcome = await this.documents.execute(caller, {
       clientId,
       ...parsed.data,
-      filename: file.originalname,
+      filename: decodeUploadName(file.originalname),
       contentType: file.mimetype,
       body: file.buffer,
     });

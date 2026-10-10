@@ -24,7 +24,6 @@ import { ProjectWorkflow, scopeFor } from '../application/project-workflow.js';
 import { ReadProjects } from '../application/read-projects.js';
 import { ReadWorkload } from '../application/read-workload.js';
 import { StartProject } from '../application/start-project.js';
-import { isServiceCode } from '../domain/index.js';
 
 /**
  * The work.
@@ -62,9 +61,11 @@ export class ProjectsController {
         parsed.error.issues[0]?.message ?? 'That is not enough to start work',
       );
     }
-    if (!isServiceCode(parsed.data.service)) {
-      throw new BadRequestException('That is not one of the services the firm offers');
-    }
+    /*
+     * Not checked against the eleven here. A service the firm added is as
+     * real as the ones in code, and only the catalogue knows which exist, so
+     * the use case refuses what it cannot find.
+     */
 
     const started = await this.start.execute({
       clientId: parsed.data.clientId,

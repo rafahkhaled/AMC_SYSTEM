@@ -1,9 +1,10 @@
-import { type QuotationView, serviceCodes } from '@amc/contracts';
+import type { QuotationView } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { listClients } from '../clients/api.js';
+import { useServices } from '../services/use-services.js';
 import {
   addQuotationLine,
   answerQuotation,
@@ -422,6 +423,7 @@ function AddLine({
   const [amount, setAmount] = useState('');
   const [discount, setDiscount] = useState('');
   const [vat, setVat] = useState<'standard' | 'out_of_scope'>('standard');
+  const services = useServices();
 
   const add = useMutation({
     mutationFn: (line: Parameters<typeof addQuotationLine>[1]) =>
@@ -518,9 +520,9 @@ function AddLine({
             onChange={(event) => chooseService(event.target.value)}
           >
             <option value="">{t('billing.lineServiceNone')}</option>
-            {serviceCodes.map((code) => (
-              <option key={code} value={code}>
-                {t(`services.${code}`)}
+            {services.live.map((offered) => (
+              <option key={offered.code} value={offered.code}>
+                {t(`services.${offered.code}`)}
               </option>
             ))}
           </Select>

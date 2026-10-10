@@ -1,7 +1,7 @@
 import type { BoardProject, ProjectBoard, ProjectDetail } from '@amc/contracts';
 import { type Clock, heldBy } from '@amc/kernel';
-import { type ProjectState, type ServiceCode, templateFor } from '../domain/index.js';
-import type { CallerLike, ProjectRepository, ProjectScope } from './ports.js';
+import type { ProjectState } from '../domain/index.js';
+import type { CallerLike, ProjectRepository, ProjectScope, ServiceCatalogue } from './ports.js';
 
 /**
  * As much of a caller as a read needs.
@@ -51,6 +51,7 @@ export class ReadProjects {
     private readonly projects: ProjectRepository,
     private readonly context: ProjectContextReader,
     private readonly clock: Clock,
+    private readonly catalogue: ServiceCatalogue,
   ) {}
 
   /**
@@ -88,7 +89,7 @@ export class ReadProjects {
     const [summary] = await this.decorate([project]);
     if (!summary) return null;
 
-    const template = templateFor(project.service as ServiceCode);
+    const template = await this.catalogue.find(project.service);
     const documents = await this.context.documentsFor(project.clientId);
     const byId = new Map(documents.map((document) => [document.id, document]));
     const snapshot = project.snapshot();

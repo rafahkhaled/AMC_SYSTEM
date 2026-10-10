@@ -50,8 +50,10 @@ export class RecurringWork {
    * reports what it did is a sweep an operator can trust.
    */
   async sweep(service: ServiceCode, cycles: Map<string, ClientCycle>): Promise<CreatedProject[]> {
+    // Only the eleven in code ever recur. A service the firm added is one-off
+    // and has no template here, which reads the same as one that does not recur.
     const template = templateFor(service);
-    if (template.recurrence === 'once') return [];
+    if (!template || template.recurrence === 'once') return [];
 
     const now = this.clock.now();
     const created: CreatedProject[] = [];

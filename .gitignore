@@ -3,6 +3,8 @@ dist/
 dist-types/
 backups/
 build/
+# Files uploaded while developing locally. Never source, and never somebody's real documents.
+.data/
 coverage/
 .turbo/
 *.tsbuildinfo

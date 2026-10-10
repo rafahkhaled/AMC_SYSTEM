@@ -6,6 +6,7 @@ import {
   type OptionalFactoryDependency,
   type Type,
 } from '@nestjs/common';
+import { ClientFiles } from '../application/client-files.js';
 import { ClientVault } from '../application/client-vault.js';
 import { ContactLog } from '../application/contact-log.js';
 import { GenerateLetter } from '../application/generate-letter.js';
@@ -13,6 +14,7 @@ import { LeadWorkflow } from '../application/lead-workflow.js';
 import { ReadClients } from '../application/read-clients.js';
 import { ReadLeads } from '../application/read-leads.js';
 import { ReceiveDocument } from '../application/receive-document.js';
+import { ClientFilesController } from './client-files.controller.js';
 import { ClientsController } from './clients.controller.js';
 import { ContactLogController } from './contact-log.controller.js';
 import { DocumentsController } from './documents.controller.js';
@@ -28,6 +30,7 @@ interface Parts {
   leads: ReadLeads;
   leadWorkflow: LeadWorkflow;
   letters: GenerateLetter;
+  clientFiles: ClientFiles;
 }
 
 @Module({})
@@ -52,6 +55,7 @@ export class ClientsModule {
       imports: options.imports ?? [],
       controllers: [
         ClientsController,
+        ClientFilesController,
         ContactLogController,
         DocumentsController,
         LeadsController,
@@ -83,6 +87,7 @@ export class ClientsModule {
         { provide: ReadLeads, inject: [PARTS], useFactory: (p: Parts) => p.leads },
         { provide: LeadWorkflow, inject: [PARTS], useFactory: (p: Parts) => p.leadWorkflow },
         { provide: GenerateLetter, inject: [PARTS], useFactory: (p: Parts) => p.letters },
+        { provide: ClientFiles, inject: [PARTS], useFactory: (p: Parts) => p.clientFiles },
       ],
       exports: [
         ReadClients,
@@ -92,6 +97,7 @@ export class ClientsModule {
         ReadLeads,
         LeadWorkflow,
         GenerateLetter,
+        ClientFiles,
       ],
     };
   }

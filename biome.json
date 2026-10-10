@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignore": ["dist", "dist-types", "coverage", ".turbo"]
+    "ignore": ["dist", "dist-types", "coverage", ".turbo", ".data"]
   },
   "formatter": {
     "enabled": true,

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Field, Loading, Select } from '../../design/index.js';
+import { ServicesPanel } from '../services/services-panel.js';
 import { addOption, referenceOptions, updateOption } from './api.js';
 
 /**
@@ -13,13 +14,17 @@ import { addOption, referenceOptions, updateOption } from './api.js';
  * in the source, so a new free-zone authority meant a deploy.
  *
  * Not every dropdown is here, and that is deliberate. Project states drive a
- * state machine, roles decide permissions, and services carry a task template
- * and a deadline rule — a new row in any of those would be a name with no
- * behaviour behind it, which is worse than refusing to add one.
+ * state machine and roles decide permissions — a new row in either would be a
+ * name with no behaviour behind it, which is worse than refusing to add one.
+ *
+ * Services are here, in the one form that can be configured: a one-off
+ * service with its own steps and required documents. The eleven the firm
+ * started with carry deadline rules and recurrences that are code, and stay
+ * read-only.
  */
 export function SettingsPage() {
   const { t } = useTranslation();
-  const [list, setList] = useState<ReferenceList>('document_type');
+  const [list, setList] = useState<ReferenceList | 'services'>('document_type');
 
   return (
     <div className="u-stack">
@@ -35,19 +40,22 @@ export function SettingsPage() {
             <Select
               {...props}
               value={list}
-              onChange={(event) => setList(event.target.value as ReferenceList)}
+              onChange={(event) => setList(event.target.value as ReferenceList | 'services')}
             >
               {referenceLists.map((name) => (
                 <option key={name} value={name}>
                   {t(`settings.lists.${name}`)}
                 </option>
               ))}
+              {/* Not a reference list, but it is maintained in the same place
+                  and by the same person, so it is chosen the same way. */}
+              <option value="services">{t('settings.lists.services')}</option>
             </Select>
           )}
         />
       </Card>
 
-      <OptionList list={list} />
+      {list === 'services' ? <ServicesPanel /> : <OptionList list={list} />}
     </div>
   );
 }

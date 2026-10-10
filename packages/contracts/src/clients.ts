@@ -304,3 +304,30 @@ export const updateReferenceOptionSchema = z.object({
   retired: z.boolean().optional(),
 });
 export type UpdateReferenceOptionRequest = z.infer<typeof updateReferenceOptionSchema>;
+
+/* ------------------------------------------------------------ the client folder */
+
+/**
+ * A file kept in a client's folder.
+ *
+ * Not a document: no type, no expiry, no checklist. A trade licence is a
+ * document the practice chases; a spreadsheet the client emailed is a file.
+ */
+export const clientFileSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  uploadedAt: z.string(),
+  /** Who put it there, by name. Null if the account has since been removed. */
+  uploadedBy: z.string().nullable(),
+});
+export type ClientFileView = z.infer<typeof clientFileSchema>;
+export const clientFilesSchema = z.object({ files: z.array(clientFileSchema) });
+export type ClientFiles = z.infer<typeof clientFilesSchema>;
+
+/** What an upload to the folder returns: what was kept, and what was refused and why. */
+export const clientFilesUploadedSchema = clientFilesSchema.extend({
+  refused: z.array(z.object({ name: z.string(), reason: z.string() })),
+});
+export type ClientFilesUploaded = z.infer<typeof clientFilesUploadedSchema>;

@@ -7,3 +7,4 @@ export * from './letter.repository.js';
 export * from './staff-access.repository.js';
 export * from './schema.js';
 export * from './scoping.js';
+export * from './client-file.repository.js';

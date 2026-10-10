@@ -21,6 +21,7 @@ import {
   DrizzleStatementRepository,
 } from '@amc/billing/infrastructure';
 import {
+  ClientFiles,
   ClientVault,
   ContactLog,
   GenerateLetter,
@@ -31,6 +32,7 @@ import {
 } from '@amc/clients';
 import { ClientsModule } from '@amc/clients/http';
 import {
+  DrizzleClientFileRepository,
   DrizzleClientRepository,
   DrizzleContactLogRepository,
   DrizzleCredentialRepository,
@@ -56,11 +58,20 @@ import {
   DrizzleNotificationRepository,
   DrizzlePreferenceRepository,
 } from '@amc/notifications/infrastructure';
-import { ProjectWorkflow, ReadProjects, ReadWorkload, StartProject } from '@amc/projects';
+import {
+  ManageServices,
+  ProjectWorkflow,
+  ReadProjects,
+  ReadWorkload,
+  StartProject,
+} from '@amc/projects';
+import { SERVICE_TEMPLATES } from '@amc/projects/domain';
 import { ProjectsModule } from '@amc/projects/http';
 import {
   DrizzleClientServiceRepository,
+  DrizzleCustomServiceRepository,
   DrizzleProjectRepository,
+  DrizzleServiceCatalogue,
 } from '@amc/projects/infrastructure';
 import type { FileStorage } from '@amc/storage';
 import { ApproveTime, ReadTimer, TimerService } from '@amc/time-tracking';
@@ -97,7 +108,7 @@ import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { projectSummaries } from './clients/project-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
-import { contactFileStore, documentFileStore } from './documents/adapters.js';
+import { clientFileStore, contactFileStore, documentFileStore } from './documents/adapters.js';
 import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { staffReader } from './identity/staff.js';
@@ -186,6 +197,21 @@ function peopleDirectory(db: Database) {
           ),
           { next: () => ulid() },
         ),
+        /*
+         * The folder every client has (any file, not only the paperwork the
+         * practice chases). Audited through the same unit of work, so who
+         * put a file there or took it out is on record.
+         */
+        clientFiles: new ClientFiles(
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) =>
+              new DrizzleClientFileRepository(transaction as Database, collector),
+          },
+          new DrizzleClientFileRepository(db),
+          clientFileStore(storage),
+          { next: () => ulid() },
+        ),
         contactLog: new ContactLog(new DrizzleContactLogRepository(db), contactFileStore(storage), {
           next: () => ulid(),
         }),
@@ -226,29 +252,59 @@ function peopleDirectory(db: Database) {
     }),
     ProjectsModule.forRootAsync({
       inject: [DATABASE],
-      useFactory: (db: Database) => ({
-        read: new ReadProjects(
-          new DrizzleProjectRepository(db),
-          projectContext(db),
-          new SystemClock(),
-        ),
-        workload: new ReadWorkload(workloadReader(db)),
-        // The one-off services never come from the recurrence sweep, so this
-        // is the only way a de-registration or a penalty waiver is opened.
-        start: new StartProject(
-          new DrizzleProjectRepository(db),
-          new DrizzleClientServiceRepository(db),
-          new SystemClock(),
-          { next: () => ulid() },
-        ),
-        workflow: new ProjectWorkflow(
-          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
-          {
+      useFactory: (db: Database) => {
+        const catalogue = new DrizzleServiceCatalogue(db);
+        const clock = new SystemClock();
+        return {
+          read: new ReadProjects(
+            new DrizzleProjectRepository(db),
+            projectContext(db),
+            clock,
+            catalogue,
+          ),
+          workload: new ReadWorkload(workloadReader(db)),
+          // The one-off services never come from the recurrence sweep, so this
+          // is the only way a de-registration or a penalty waiver is opened.
+          start: new StartProject(
+            new DrizzleProjectRepository(db),
+            new DrizzleClientServiceRepository(db),
+            clock,
+            { next: () => ulid() },
+            catalogue,
+          ),
+          workflow: new ProjectWorkflow(new DrizzleUnitOfWork(db, { next: () => ulid() }, clock), {
             forTransaction: (transaction: unknown, collector: EventCollector) =>
               new DrizzleProjectRepository(transaction as Database, collector),
-          },
-        ),
-      }),
+          }),
+          catalogue,
+          /*
+           * The services the firm adds itself (item 8). Audited through the
+           * same unit of work as everything else, so who added one is on
+           * record.
+           */
+          services: new ManageServices(
+            new DrizzleUnitOfWork(db, { next: () => ulid() }, clock),
+            {
+              forTransaction: (transaction: unknown) =>
+                new DrizzleCustomServiceRepository(transaction as Database),
+            },
+            {
+              // The document-type list the administrator edits in Settings,
+              // retired entries included: a service may keep requiring a type
+              // that has since been taken out of the picker.
+              known: async () =>
+                new Set(
+                  (
+                    await db.execute<{ code: string }>(
+                      sql`SELECT code FROM reference_options WHERE list = 'document_type'`,
+                    )
+                  ).map((row) => row.code),
+                ),
+            },
+            new Set(Object.keys(SERVICE_TEMPLATES)),
+          ),
+        };
+      },
     }),
     TimerModule.forRootAsync({
       inject: [DATABASE],

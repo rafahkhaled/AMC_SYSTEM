@@ -133,6 +133,8 @@ export class DrizzleProjectRepository implements ProjectRepository {
       this.db.select().from(tasks).where(eq(tasks.projectId, row.id)).orderBy(asc(tasks.order)),
     ]);
 
+    // Only the eleven in code can be missing their task rows: a project for a
+    // service the firm added always has them, because starting it writes them.
     const template = templateFor(row.service as ServiceCode);
 
     return Project.rehydrate({
@@ -157,7 +159,11 @@ export class DrizzleProjectRepository implements ProjectRepository {
             }))
           : // A project saved before its tasks were written still knows what its
             // template says, rather than appearing to have none.
-            template.tasks.map((task) => ({ order: task.order, dueOn: null, doneAt: null })),
+            (template?.tasks ?? []).map((task) => ({
+              order: task.order,
+              dueOn: null,
+              doneAt: null,
+            })),
       startedAt: row.startedAt,
       completedAt: row.completedAt,
       createdAt: row.createdAt,

@@ -67,6 +67,8 @@ export class FilesController {
       `attachment; filename="${(name ?? 'document').replace(/["\\\\]/g, '')}"`,
     );
     response.setHeader('Cache-Control', 'private, no-store');
+    // The stored type is the one we chose, and the browser is not to second-guess it.
+    response.setHeader('X-Content-Type-Options', 'nosniff');
     return new StreamableFile(body);
   }
 }

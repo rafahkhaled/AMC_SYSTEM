@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { serviceCodes } from './projects.js';
 
 /** Money crosses the wire as whole minor units, never as a decimal. */
 const moneySchema = z.object({
@@ -280,7 +279,13 @@ export const addQuotationLineRequestSchema = z
      * quotation line and the project eventually opened for it name the same
      * service. Left out for a line that is not a service at all.
      */
-    serviceCode: z.enum(serviceCodes).optional(),
+    // A code, not an enum: the firm can add services of its own, and the
+    // billing module does not know what exists in the projects module. The
+    // shape is checked here and the screen only offers real ones.
+    serviceCode: z
+      .string()
+      .regex(/^[a-z][a-z0-9_]{0,63}$/)
+      .optional(),
     descriptionEn: z.string().trim().max(300).optional(),
     descriptionAr: z.string().trim().max(300).optional(),
     hours: z.number().positive().max(10_000).optional(),

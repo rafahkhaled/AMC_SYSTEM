@@ -7,7 +7,7 @@
  * say a number that some code then interprets, and then the meaning lives in
  * two places.
  */
-export type ServiceCode =
+export type BuiltInServiceCode =
   | 'ct_registration'
   | 'vat_registration'
   | 'vat_return'
@@ -19,6 +19,15 @@ export type ServiceCode =
   | 'emaratax_request'
   | 'monthly_accounting'
   | 'audit';
+
+/**
+ * Any service the firm offers: one of the eleven above, or one it added itself.
+ *
+ * A plain string because the second kind is data, not code. The built-in codes
+ * are still a closed union (`BuiltInServiceCode`) wherever the engine needs to
+ * know what it is dealing with.
+ */
+export type ServiceCode = string;
 
 /** How often the work comes round again (FR-14). */
 export type Recurrence =
@@ -79,7 +88,7 @@ const task = (order: number, nameEn: string, nameAr: string): TemplateTask => ({
 
 const needs = (type: string, mandatory = true): RequiredDocument => ({ type, mandatory });
 
-export const SERVICE_TEMPLATES: Readonly<Record<ServiceCode, ServiceTemplate>> = {
+export const SERVICE_TEMPLATES: Readonly<Record<BuiltInServiceCode, ServiceTemplate>> = {
   vat_registration: {
     code: 'vat_registration',
     nameEn: 'VAT registration',
@@ -271,8 +280,17 @@ export const SERVICE_TEMPLATES: Readonly<Record<ServiceCode, ServiceTemplate>> =
 
 export const ALL_SERVICES = Object.values(SERVICE_TEMPLATES);
 
-export function templateFor(code: ServiceCode): ServiceTemplate {
-  return SERVICE_TEMPLATES[code];
+/**
+ * The built-in template for a code, or undefined for anything else.
+ *
+ * Custom services live in the database and are found through the catalogue;
+ * this answers only for the eleven in code, which is what the recurrence sweep
+ * wants and nothing else does.
+ */
+export function templateFor(code: ServiceCode): ServiceTemplate | undefined {
+  return Object.hasOwn(SERVICE_TEMPLATES, code)
+    ? SERVICE_TEMPLATES[code as BuiltInServiceCode]
+    : undefined;
 }
 
 /**
@@ -281,13 +299,13 @@ export function templateFor(code: ServiceCode): ServiceTemplate {
  * Needed where a service code arrives from outside — a request body — because
  * `ServiceCode` is a compile-time type and a POST is not compiled.
  */
-export function isServiceCode(value: string): value is ServiceCode {
+export function isServiceCode(value: string): value is BuiltInServiceCode {
   return Object.hasOwn(SERVICE_TEMPLATES, value);
 }
 
 /** The documents that block a project from starting, for this service. */
 export function mandatoryDocumentsFor(code: ServiceCode): string[] {
-  return SERVICE_TEMPLATES[code].requiredDocuments
+  return (templateFor(code)?.requiredDocuments ?? [])
     .filter((document) => document.mandatory)
     .map((document) => document.type);
 }

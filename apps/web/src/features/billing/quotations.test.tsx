@@ -10,6 +10,8 @@ const addQuotationLine = vi.hoisted(() => vi.fn());
 const removeQuotationLine = vi.hoisted(() => vi.fn());
 const answerQuotation = vi.hoisted(() => vi.fn());
 const firmProfile = vi.hoisted(() => vi.fn());
+const listServices = vi.hoisted(() => vi.fn());
+vi.mock('../services/api.js', () => ({ listServices }));
 vi.mock('./api.js', () => ({
   quotations,
   addQuotationLine,
@@ -82,6 +84,19 @@ function show() {
   renderScreen(<Quotations openId="q-1" onOpen={() => {}} />);
 }
 
+/** A service as the catalogue sends it. */
+const builtIn = (code: string, nameEn: string, nameAr: string) => ({
+  code,
+  nameEn,
+  nameAr,
+  builtIn: true,
+  recurring: false,
+  deadlineDays: null,
+  steps: [],
+  requiredDocuments: [],
+  retired: false,
+});
+
 /** The firm as the server has it configured: registered, at five percent. */
 const profileOf = (vatBasisPoints = 500) => ({
   legalName: 'Active M Consultancy FZE LLC',
@@ -97,6 +112,7 @@ beforeEach(async () => {
   await useLanguage('en');
   quotations.mockResolvedValue([quotationOf()]);
   firmProfile.mockResolvedValue(profileOf());
+  listServices.mockResolvedValue([builtIn('vat_return', 'VAT return', 'إقرار القيمة المضافة')]);
 });
 
 describe('the quotation list', () => {

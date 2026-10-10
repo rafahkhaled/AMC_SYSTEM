@@ -1,8 +1,9 @@
-import type { ContactFileStore, DocumentFileStore } from '@amc/clients';
+import type { ClientFileStore, ContactFileStore, DocumentFileStore } from '@amc/clients';
 import { Conflict, type Result, err, ok } from '@amc/kernel';
 import {
   type FileStorage,
   clientDocumentKey,
+  clientFileKey,
   contentTypeFor,
   extensionOf,
   storageKey,
@@ -99,6 +100,42 @@ export function contactFileStore(storage: FileStorage): ContactFileStore {
         checksum: stored.checksum,
         sizeBytes: stored.size,
       });
+    },
+
+    async linkTo(key, downloadName) {
+      return storage.presignGet(key, {
+        expiresInSeconds: LINK_SECONDS,
+        ...(downloadName ? { downloadName } : {}),
+      });
+    },
+  };
+}
+
+/**
+ * Where a file in a client's folder goes.
+ *
+ * Any file, so there is no allowlist of types here — the refusals that matter
+ * (a program, an empty file) are the domain's, made before this is called.
+ * What is decided here is only what the stored object is *called* when it is
+ * served, and that is deliberately not taken from the upload: a browser's
+ * content type for a file is a claim by whoever chose the file. The known
+ * document types keep theirs; everything else is an opaque download.
+ */
+export function clientFileStore(storage: FileStorage): ClientFileStore {
+  return {
+    async put({ clientId, fileId, filename, body }) {
+      const extension = extensionOf(filename);
+      const contentType = contentTypeFor(extension) ?? 'application/octet-stream';
+
+      const key = clientFileKey({ clientId, fileId, extension });
+      if (!key.ok) return err(new Conflict(key.error.message));
+
+      const stored = await storage.put(key.value, body, {
+        contentType,
+        originalName: filename,
+        metadata: { clientId, fileId },
+      });
+      return ok({ storageKey: stored.key, checksum: stored.checksum, contentType });
     },
 
     async linkTo(key, downloadName) {
