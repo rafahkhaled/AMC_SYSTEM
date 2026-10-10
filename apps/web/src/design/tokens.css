@@ -8,15 +8,16 @@
  */
 
 :root {
-  /* Teal, because the palette has to belong to an accounting practice rather
-     than shout. It is the only hue that carries meaning; everything else is
-     grey or a state colour. */
-  --brand-50: #f0fdfa;
-  --brand-100: #ccfbf1;
-  --brand-500: #14b8a6;
-  --brand-600: #0d9488;
-  --brand-700: #0f766e;
-  --brand-800: #115e59;
+  /* Purple, the firm's own: the website's brand colour is #7c55c9 and that is
+     --brand-700, the one the interface actually draws with on a light page.
+     The rest of the scale is built round it. It is the only hue that carries
+     meaning; everything else is grey or a state colour. */
+  --brand-50: #f6f2fd;
+  --brand-100: #e9defa;
+  --brand-500: #a98be8;
+  --brand-600: #8f6ad8;
+  --brand-700: #7c55c9;
+  --brand-800: #6741b0;
 
   --grey-0: #ffffff;
   --grey-50: #f8fafc;
@@ -161,7 +162,7 @@
   --accent: var(--brand-500);
   --accent-hover: var(--brand-600);
   --accent-soft: color-mix(in srgb, var(--brand-500) 14%, transparent);
-  --text-on-brand: #04201d;
+  --text-on-brand: #170b30;
 
   --danger: #f87171;
   --danger-soft: color-mix(in srgb, #f87171 12%, transparent);
