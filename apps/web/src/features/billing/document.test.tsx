@@ -21,6 +21,7 @@ const invoice = (over: Partial<InvoiceView> = {}): InvoiceView => ({
   clientId: 'c-1',
   clientName: 'Skytrek Aviation L.L.C',
   statementId: 's-1',
+  branch: null,
   number: '2070',
   status: 'issued',
   settlement: 'issued',
@@ -57,6 +58,7 @@ const quotation = (over: Partial<QuotationView> = {}): QuotationView => ({
   id: 'q-1',
   clientId: 'c-1',
   clientName: 'Skytrek Aviation L.L.C',
+  branch: null,
   reference: '192',
   state: 'sent',
   currency: 'AED',
@@ -300,5 +302,80 @@ describe('the quotation', () => {
     // clients have had for years.
     expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
     expect(screen.queryByText('Net')).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * The letterhead follows the branch (feedback item 12b).
+ *
+ * Taken inside the document, so no caller can forget: an invoice for the Ajman
+ * branch that came out with Dubai's address and bank account would be paid to
+ * the wrong place.
+ */
+describe('a document on a branch’s letterhead', () => {
+  const ajman = {
+    code: 'ajman',
+    nameEn: 'Ajman Branch',
+    nameAr: 'فرع عجمان',
+    addresses: ['Ajman: Free Zone, Office 12'],
+    bank: { accountHolder: 'Active M - Ajman', iban: 'AE-AJMAN-IBAN', bic: null },
+    logoUrl: null,
+    stampUrl: null,
+    retired: false,
+  };
+
+  it('prints the branch’s address and bank account on its invoice, not the firm’s', async () => {
+    await useLanguage('en');
+    renderScreen(<InvoiceDocument invoice={invoice({ branch: ajman })} profile={profile()} />);
+
+    expect(screen.getByText('Ajman Branch')).toBeInTheDocument();
+    expect(screen.getByText('Ajman: Free Zone, Office 12')).toBeInTheDocument();
+    expect(screen.getByText(/AE-AJMAN-IBAN/)).toBeInTheDocument();
+    // None of the firm-wide ones.
+    expect(screen.queryByText('Dubai: an office')).not.toBeInTheDocument();
+    expect(screen.queryByText(/IBAN: AE00/)).not.toBeInTheDocument();
+  });
+
+  it('prints a quotation on the branch’s letterhead too', async () => {
+    await useLanguage('en');
+    renderScreen(
+      <QuotationDocument quotation={quotation({ branch: ajman })} profile={profile()} />,
+    );
+
+    expect(screen.getByText('Ajman Branch')).toBeInTheDocument();
+    expect(screen.getByText('Ajman: Free Zone, Office 12')).toBeInTheDocument();
+  });
+
+  it('falls back to the firm’s own addresses for a branch with none filled in yet', async () => {
+    await useLanguage('en');
+    renderScreen(
+      <InvoiceDocument
+        invoice={invoice({ branch: { ...ajman, addresses: [], bank: null } })}
+        profile={profile()}
+      />,
+    );
+
+    // A blank footer would be worse than the one the document had before.
+    expect(screen.getByText('Dubai: an office')).toBeInTheDocument();
+    expect(screen.getByText(/IBAN: AE00/)).toBeInTheDocument();
+  });
+
+  it('prints on the firm’s own letterhead when there is no branch, as every earlier document did', async () => {
+    await useLanguage('en');
+    renderScreen(<InvoiceDocument invoice={invoice()} profile={profile()} />);
+
+    expect(screen.getByText('Dubai: an office')).toBeInTheDocument();
+    expect(screen.queryByText('Ajman Branch')).not.toBeInTheDocument();
+  });
+
+  it('still prints under a branch the firm has since closed', async () => {
+    await useLanguage('en');
+    renderScreen(
+      <InvoiceDocument
+        invoice={invoice({ branch: { ...ajman, retired: true } })}
+        profile={profile()}
+      />,
+    );
+    expect(screen.getByText('Ajman: Free Zone, Office 12')).toBeInTheDocument();
   });
 });

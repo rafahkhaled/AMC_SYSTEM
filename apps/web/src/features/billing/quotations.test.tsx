@@ -8,14 +8,18 @@ import { Quotations } from './quotations.js';
 const quotations = vi.hoisted(() => vi.fn());
 const addQuotationLine = vi.hoisted(() => vi.fn());
 const removeQuotationLine = vi.hoisted(() => vi.fn());
+const setQuotationBranch = vi.hoisted(() => vi.fn());
 const answerQuotation = vi.hoisted(() => vi.fn());
 const firmProfile = vi.hoisted(() => vi.fn());
 const listServices = vi.hoisted(() => vi.fn());
+const listBranches = vi.hoisted(() => vi.fn());
+vi.mock('../branches/api.js', () => ({ listBranches }));
 vi.mock('../services/api.js', () => ({ listServices }));
 vi.mock('./api.js', () => ({
   quotations,
   addQuotationLine,
   removeQuotationLine,
+  setQuotationBranch,
   answerQuotation,
   draftQuotation: vi.fn(),
   firmProfile,
@@ -28,6 +32,7 @@ function quotationOf(over: Partial<QuotationView> = {}): QuotationView {
     id: 'q-1',
     clientId: 'c-1',
     clientName: 'Gulf Trading LLC',
+    branch: null,
     reference: 'Q-2026-014',
     state: 'draft',
     currency: 'AED',
@@ -112,6 +117,7 @@ beforeEach(async () => {
   await useLanguage('en');
   quotations.mockResolvedValue([quotationOf()]);
   firmProfile.mockResolvedValue(profileOf());
+  listBranches.mockResolvedValue([]);
   listServices.mockResolvedValue([builtIn('vat_return', 'VAT return', 'إقرار القيمة المضافة')]);
 });
 
@@ -399,5 +405,74 @@ describe('in Arabic', () => {
     show();
     expect(await screen.findByText('التسجيل الضريبي')).toBeInTheDocument();
     expect(screen.queryByText('VAT registration')).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * Which branch a quotation goes out under (feedback item 12b).
+ *
+ * The printed copy takes its letterhead from it and nothing un-sends a
+ * quotation, so once the firm has branches one has to be chosen first.
+ */
+describe('a quotation and its branch', () => {
+  const branch = (code: string, nameEn: string) => ({
+    code,
+    nameEn,
+    nameAr: nameEn,
+    addresses: [],
+    bank: null,
+    logoUrl: null,
+    stampUrl: null,
+    retired: false,
+  });
+  const branchesOf = () => [branch('dubai', 'Dubai Branch'), branch('ajman', 'Ajman Branch')];
+
+  it('offers nothing to choose when the firm has no branches', async () => {
+    show();
+    await screen.findByLabelText('Amount');
+    expect(screen.queryByLabelText('Branch')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Email it to the client' })).toBeEnabled();
+  });
+
+  it('will not send a draft with no branch, and says why', async () => {
+    listBranches.mockResolvedValue(branchesOf());
+    show();
+
+    expect(await screen.findByText(/Choose the branch before sending/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Email it to the client' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Mark as sent' })).toBeDisabled();
+  });
+
+  it('can be sent once it has one', async () => {
+    listBranches.mockResolvedValue(branchesOf());
+    quotations.mockResolvedValue([quotationOf({ branch: branchesOf()[0] ?? null })]);
+    show();
+
+    expect(await screen.findByRole('button', { name: 'Email it to the client' })).toBeEnabled();
+    expect(screen.queryByText(/Choose the branch before sending/)).not.toBeInTheDocument();
+  });
+
+  it('changes the branch of a draft', async () => {
+    listBranches.mockResolvedValue(branchesOf());
+    setQuotationBranch.mockResolvedValue(quotationOf());
+    show();
+
+    await userEvent.selectOptions(await screen.findByLabelText('Branch'), 'ajman');
+    await waitFor(() => expect(setQuotationBranch).toHaveBeenCalledWith('q-1', 'ajman'));
+  });
+
+  it('only says which branch once it has gone, because the client holds a copy', async () => {
+    listBranches.mockResolvedValue(branchesOf());
+    quotations.mockResolvedValue([
+      quotationOf({
+        state: 'sent',
+        sentAt: '2026-09-22T08:00:00.000Z',
+        branch: branchesOf()[1] ?? null,
+      }),
+    ]);
+    show();
+
+    expect(await screen.findByText(/Issued under: Ajman Branch/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Branch')).not.toBeInTheDocument();
   });
 });

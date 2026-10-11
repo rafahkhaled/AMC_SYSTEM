@@ -13,10 +13,12 @@ import {
   addQuotationLineRequestSchema,
   draftQuotationRequestSchema,
   generateStatementRequestSchema,
+  raiseInvoiceRequestSchema,
   recordPaymentRequestSchema,
   releaseStatementRequestSchema,
   reviseLineRequestSchema,
   sendQuotationSchema,
+  setQuotationBranchSchema,
 } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import { Money, actorFrom } from '@amc/kernel';
@@ -94,6 +96,7 @@ export class BillingController {
     const drafted = await this.billing.run(caller, (billing) =>
       billing.quotations.draft(caller.userId, {
         clientId: parsed.data.clientId,
+        branchCode: parsed.data.branchCode ?? null,
         reference: parsed.data.reference,
         validUntil: parsed.data.validUntil ? day(parsed.data.validUntil) : null,
         notesEn: parsed.data.notesEn ?? null,
@@ -103,6 +106,26 @@ export class BillingController {
     if (!drafted.ok) throw new ConflictException(drafted.error.message);
 
     return this.mustReadQuotation(caller, drafted.value.quotationId);
+  }
+
+  /** Which branch's letterhead a draft prints on. Null: the firm-wide one. */
+  @RequirePermissions('billing.approve')
+  @Post('quotations/:id/branch')
+  async setQuotationBranch(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<QuotationView> {
+    const parsed = setQuotationBranchSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('Name a branch, or none');
+
+    await this.mustReadQuotation(caller, id);
+    const changed = await this.billing.run(caller, (billing) =>
+      billing.quotations.setBranch(id, parsed.data.branchCode),
+    );
+    if (!changed.ok) throw new ConflictException(changed.error.message);
+
+    return this.mustReadQuotation(caller, id);
   }
 
   @RequirePermissions('billing.approve')
@@ -371,12 +394,20 @@ export class BillingController {
 
   @RequirePermissions('billing.invoice.issue')
   @Post('statements/:id/invoice')
-  async invoiceIt(@CurrentCaller() caller: Caller, @Param('id') id: string): Promise<InvoiceView> {
+  async invoiceIt(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<InvoiceView> {
+    // Optional: a firm with no branches has nothing to choose, and sends no body.
+    const parsed = raiseInvoiceRequestSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException('That is not a branch');
+
     const visible = await this.read.statement(caller, id);
     if (!visible) throw new NotFoundException('No such statement');
 
     const raised = await this.billing.run(caller, (billing) =>
-      billing.raise.execute(caller.userId, id),
+      billing.raise.execute(caller.userId, id, parsed.data.branchCode ?? null),
     );
     if (!raised.ok) throw new ConflictException(raised.error.message);
 

@@ -14,6 +14,7 @@ type InvoiceRow = {
   id: string;
   client_id: string;
   statement_id: string;
+  branch_code: string | null;
   number: string;
   settlement: string;
   currency: string;
@@ -132,6 +133,7 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
       id: row.id,
       clientId: row.client_id,
       statementId: row.statement_id,
+      branchCode: row.branch_code,
       number: row.number,
       settlement: row.settlement as Settlement,
       currency,
@@ -162,11 +164,11 @@ export class DrizzleInvoiceRepository implements InvoiceRepository {
 
     await this.db.execute(sql`
       INSERT INTO invoices
-        (id, client_id, statement_id, number, settlement, currency,
+        (id, client_id, statement_id, branch_code, number, settlement, currency,
          vat_basis_points, issued_on, due_on, overdue_since, issued_by,
          notes_en, notes_ar)
       VALUES (
-        ${state.id}, ${state.clientId}, ${state.statementId}, ${state.number},
+        ${state.id}, ${state.clientId}, ${state.statementId}, ${state.branchCode}, ${state.number},
         ${state.settlement}, ${state.currency}, ${state.vatBasisPoints},
         ${state.issuedOn.toISOString()}, ${state.dueOn.toISOString()},
         ${state.overdueSince?.toISOString() ?? null}, ${state.issuedBy},

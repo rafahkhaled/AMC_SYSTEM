@@ -95,6 +95,14 @@ export interface QuotationLine {
 export interface QuotationSnapshot {
   readonly id: string;
   readonly clientId: string;
+  /**
+   * The branch it goes out under, or null for the firm-wide letterhead.
+   *
+   * Changeable only while it is a draft: the document the client holds and the
+   * one in here have to be the same, and a quotation that moved branch after
+   * it was sent would print differently from the copy they have.
+   */
+  readonly branchCode: string | null;
   /** The reference the client quotes back at you. */
   readonly reference: string;
   readonly state: QuotationState;
@@ -173,6 +181,7 @@ export class Quotation extends AggregateRoot {
     reference: string;
     currency: CurrencyCode;
     createdBy: string;
+    branchCode?: string | null;
     validUntil?: Date | null;
     notesEn?: string | null;
     notesAr?: string | null;
@@ -187,6 +196,7 @@ export class Quotation extends AggregateRoot {
       new Quotation({
         id: params.id,
         clientId: params.clientId,
+        branchCode: params.branchCode ?? null,
         reference,
         state: 'draft',
         currency: params.currency,
@@ -305,6 +315,25 @@ export class Quotation extends AggregateRoot {
     }
 
     this.state = { ...this.state, lines: [...this.state.lines, line] };
+    return ok(undefined);
+  }
+
+  /** Which letterhead it prints on. Only while it is still a draft. */
+  setBranch(branchCode: string | null, now: Date): Result<void, Conflict> {
+    const editable = this.mustBeDraft();
+    if (!editable.ok) return editable;
+    if (branchCode === this.state.branchCode) return ok(undefined);
+
+    const before = this.state.branchCode;
+    this.state = { ...this.state, branchCode };
+    this.record(
+      domainEvent('billing.quotation.branch_set', this.id, now, {
+        quotationId: this.id,
+        clientId: this.state.clientId,
+        from: before,
+        to: branchCode,
+      }),
+    );
     return ok(undefined);
   }
 

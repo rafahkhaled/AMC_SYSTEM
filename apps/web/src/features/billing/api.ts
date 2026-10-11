@@ -59,8 +59,14 @@ export async function approve(id: string): Promise<StatementView> {
   return statementSchema.parse(await send(`/billing/statements/${encodeURIComponent(id)}/approve`));
 }
 
-export async function raiseInvoice(id: string): Promise<InvoiceView> {
-  return invoiceSchema.parse(await send(`/billing/statements/${encodeURIComponent(id)}/invoice`));
+/** Raising an invoice. The branch it is issued under is fixed from then on. */
+export async function raiseInvoice(
+  id: string,
+  branchCode: string | null = null,
+): Promise<InvoiceView> {
+  return invoiceSchema.parse(
+    await send(`/billing/statements/${encodeURIComponent(id)}/invoice`, { branchCode }),
+  );
 }
 
 export async function invoices(outstandingOnly = false): Promise<InvoiceView[]> {
@@ -98,6 +104,8 @@ export async function quotations(clientId?: string): Promise<QuotationView[]> {
 
 export async function draftQuotation(input: {
   clientId: string;
+  /** The branch it goes out under. May be left for later, but not past sending. */
+  branchCode?: string;
   /**
    * Left out for anything drafted here: the number comes from the firm's own
    * estimate sequence. Given only when recording one issued by hand before
@@ -186,4 +194,14 @@ export async function profitabilityReport(period: Period): Promise<Profitability
 
 export async function firmProfile(): Promise<FirmProfile> {
   return firmProfileSchema.parse(await request('/billing/documents/profile'));
+}
+
+/** Which branch's letterhead a draft quotation prints on. Null: the firm-wide one. */
+export async function setQuotationBranch(
+  id: string,
+  branchCode: string | null,
+): Promise<QuotationView> {
+  return quotationSchema.parse(
+    await send(`/billing/quotations/${encodeURIComponent(id)}/branch`, { branchCode }),
+  );
 }

@@ -1671,6 +1671,16 @@ a {
   border-block-end: 0;
 }
 
+.doc__branch {
+  /* Under the firm's name: which branch this document is on the letterhead of.
+     The sheet is black on white whatever the theme, like paper, so this takes
+     no theme colour — a pale grey chosen for a dark page would vanish on it. */
+  display: block;
+  font-size: 11pt;
+  color: #000;
+  margin-block-start: 2px;
+}
+
 .doc__total {
   display: flex;
   align-items: baseline;

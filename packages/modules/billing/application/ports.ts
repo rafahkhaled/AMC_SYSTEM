@@ -123,6 +123,21 @@ export interface UnbilledWorkReader {
  * that day" lives in the clients module and belongs to it. Billing asks; it
  * does not reimplement.
  */
+/**
+ * The firm's branches, as billing needs to know them (feedback item 12b).
+ *
+ * Billing does not own what a branch is — its letterhead, its addresses — and
+ * only needs two answers: is this one a live branch, and are there any at all.
+ * The second decides whether a document must name one: a firm that has set no
+ * branches up has nothing to choose between, and is not made to.
+ */
+export interface BranchDirectory {
+  /** Whether the code names a branch that is still in use. */
+  isLive(code: string): Promise<boolean>;
+  /** Whether any branch is in use, so a document has to say which. */
+  anyLive(): Promise<boolean>;
+}
+
 export interface RateReader {
   perHourOn(clientId: string, day: Date): Promise<Money>;
   currencyFor(clientId: string): Promise<CurrencyCode>;

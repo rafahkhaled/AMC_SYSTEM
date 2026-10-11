@@ -3,7 +3,7 @@ import { Duration, Money } from '@amc/kernel';
 import type { drizzle } from 'drizzle-orm/postgres-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RaiseInvoice } from '../application/raise-invoice.js';
-import { CountingIds, FakeClock } from '../application/test-doubles.js';
+import { CountingIds, FakeBranches, FakeClock } from '../application/test-doubles.js';
 import { Statement, type StatementLine } from '../domain/index.js';
 import { DrizzleBillingReader } from './billing.reader.js';
 import { DrizzleDocumentNumbering, DrizzleInvoiceRepository } from './invoice.repository.js';
@@ -224,6 +224,7 @@ describe('the billing screens, against a real database', () => {
         { vatBasisPoints: 500, paymentTermsDays: 30 },
         new FakeClock(NOW),
         new CountingIds(),
+        new FakeBranches(),
       ).execute('r-boss', 'r-s1');
       if (!raised.ok) throw raised.error;
 
@@ -271,6 +272,7 @@ describe('the billing screens, against a real database', () => {
         { vatBasisPoints: 0, paymentTermsDays: 30 },
         new FakeClock(NOW),
         new CountingIds(),
+        new FakeBranches(),
       );
 
       for (const [id, client, project] of [

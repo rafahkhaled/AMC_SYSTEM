@@ -1,5 +1,6 @@
 import type { FirmProfile, InvoiceView, QuotationView } from '@amc/contracts';
 import { useTranslation } from 'react-i18next';
+import { letterheadFor } from '../branches/letterhead.js';
 import { formatMoney } from './money.js';
 
 /**
@@ -43,6 +44,7 @@ function Sheet({
   beforeTotal,
   children,
   logoFirst,
+  branchName = null,
 }: {
   profile: FirmProfile;
   title: string;
@@ -65,6 +67,8 @@ function Sheet({
   beforeTotal?: React.ReactNode;
   children: React.ReactNode;
   logoFirst: boolean;
+  /** Which branch this is on the letterhead of, in English: the sheet is an English document. */
+  branchName?: string | null;
 }) {
   const { t } = useTranslation();
 
@@ -94,6 +98,7 @@ function Sheet({
           <strong className={logoFirst ? 'doc__firm doc__firm--underMark' : 'doc__firm'}>
             {profile.legalName}
           </strong>
+          {branchName ? <span className="doc__branch">{branchName}</span> : null}
         </div>
         <div className="doc__headEnd">
           {logoFirst ? null : mark}
@@ -180,10 +185,18 @@ export function InvoiceDocument({
   profile: FirmProfile;
 }) {
   const { t } = useTranslation();
+  /*
+   * The letterhead of the branch it was issued under, which is fixed at issue.
+   * Taken here, where it is printed, so no caller can forget to: an invoice for
+   * the Ajman branch that came out with Dubai's address and bank account would
+   * be paid to the wrong place.
+   */
+  const printed = letterheadFor(profile, invoice.branch);
 
   return (
     <Sheet
-      profile={profile}
+      profile={printed}
+      branchName={invoice.branch?.nameEn ?? null}
       logoFirst={false}
       title={t('billing.document.invoice')}
       dateLabel={t('billing.document.date')}
@@ -245,19 +258,19 @@ export function InvoiceDocument({
         <h2>{t('billing.document.bankDetails')}</h2>
         <p>
           {t('billing.document.accountHolder')}:{' '}
-          <Firm value={profile.bank?.accountHolder ?? null} />
+          <Firm value={printed.bank?.accountHolder ?? null} />
           <br />
-          IBAN: <Firm value={profile.bank?.iban ?? null} />
+          IBAN: <Firm value={printed.bank?.iban ?? null} />
           <br />
-          BIC: <Firm value={profile.bank?.bic ?? null} />
+          BIC: <Firm value={printed.bank?.bic ?? null} />
         </p>
-        {profile.stampUrl ? <img className="doc__stamp" src={profile.stampUrl} alt="" /> : null}
+        {printed.stampUrl ? <img className="doc__stamp" src={printed.stampUrl} alt="" /> : null}
       </section>
 
       <footer className="doc__addresses doc__addresses--centred">
         <span>{t('billing.document.businessAddress')}</span>
-        {profile.addresses.length === 0 ? <span>{MISSING}</span> : null}
-        {profile.addresses.map((address) => (
+        {printed.addresses.length === 0 ? <span>{MISSING}</span> : null}
+        {printed.addresses.map((address) => (
           <span key={address}>{address}</span>
         ))}
       </footer>
@@ -273,10 +286,12 @@ export function QuotationDocument({
   profile: FirmProfile;
 }) {
   const { t } = useTranslation();
+  const printed = letterheadFor(profile, quotation.branch);
 
   return (
     <Sheet
-      profile={profile}
+      profile={printed}
+      branchName={quotation.branch?.nameEn ?? null}
       logoFirst={true}
       title={t('billing.document.quotation')}
       dateLabel={t('billing.document.date')}
@@ -354,15 +369,15 @@ export function QuotationDocument({
       }
     >
       <div className="doc__sign">
-        {profile.stampUrl ? <img className="doc__stamp" src={profile.stampUrl} alt="" /> : <span />}
+        {printed.stampUrl ? <img className="doc__stamp" src={printed.stampUrl} alt="" /> : <span />}
         <section className="doc__customerStamp">
           <h2>{t('billing.document.customerStamp')}</h2>
         </section>
       </div>
 
       <footer className="doc__addresses">
-        {profile.addresses.length === 0 ? <span className="doc__address">{MISSING}</span> : null}
-        {profile.addresses.map((address) => (
+        {printed.addresses.length === 0 ? <span className="doc__address">{MISSING}</span> : null}
+        {printed.addresses.map((address) => (
           <span className="doc__address" key={address}>
             {address}
           </span>

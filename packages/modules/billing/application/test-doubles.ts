@@ -3,6 +3,7 @@ import { Money } from '@amc/kernel';
 import type { Invoice, Quotation, Statement } from '../domain/index.js';
 import type {
   BillableWork,
+  BranchDirectory,
   DocumentDelivery,
   InvoiceNumbering,
   InvoiceRepository,
@@ -242,5 +243,19 @@ export class CountingLinkTokens implements LinkTokens {
   }
   hash(token: string): string {
     return `hash-of-${token}`;
+  }
+}
+
+/**
+ * Branches as a list of codes. Empty by default, which is a firm that has set
+ * none up: nothing to choose between, so no document is made to choose.
+ */
+export class FakeBranches implements BranchDirectory {
+  constructor(private readonly live: readonly string[] = []) {}
+  async isLive(code: string): Promise<boolean> {
+    return this.live.includes(code);
+  }
+  async anyLive(): Promise<boolean> {
+    return this.live.length > 0;
   }
 }

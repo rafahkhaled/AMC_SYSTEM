@@ -26,6 +26,7 @@ function at(value: string | null): Date | null {
 type QuotationRow = {
   id: string;
   client_id: string;
+  branch_code: string | null;
   reference: string;
   state: string;
   currency: string;
@@ -142,6 +143,7 @@ export class DrizzleQuotationRepository implements QuotationRepository {
     return Quotation.rehydrate({
       id: row.id,
       clientId: row.client_id,
+      branchCode: row.branch_code,
       reference: row.reference,
       state: row.state as QuotationState,
       currency,
@@ -179,11 +181,11 @@ export class DrizzleQuotationRepository implements QuotationRepository {
 
     await this.db.execute(sql`
       INSERT INTO quotations
-        (id, client_id, reference, state, currency, valid_until, sent_at, sent_via,
+        (id, client_id, branch_code, reference, state, currency, valid_until, sent_at, sent_via,
          link_token_hash, link_expires_at, link_opened_at, decided_by,
          decided_at, notes_en, notes_ar, created_by, created_at)
       VALUES (
-        ${state.id}, ${state.clientId}, ${state.reference}, ${state.state}, ${state.currency},
+        ${state.id}, ${state.clientId}, ${state.branchCode}, ${state.reference}, ${state.state}, ${state.currency},
         ${state.validUntil ? state.validUntil.toISOString().slice(0, 10) : null},
         ${state.sentAt?.toISOString() ?? null}, ${state.sentVia},
         ${state.linkTokenHash}, ${state.linkExpiresAt?.toISOString() ?? null},
@@ -193,6 +195,7 @@ export class DrizzleQuotationRepository implements QuotationRepository {
         ${state.createdAt.toISOString()}
       )
       ON CONFLICT (id) DO UPDATE SET
+        branch_code = excluded.branch_code,
         state       = excluded.state,
         valid_until = excluded.valid_until,
         sent_at     = excluded.sent_at,

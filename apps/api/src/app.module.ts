@@ -104,7 +104,9 @@ import { sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ulid } from 'ulid';
 import { rateReader, unbilledWork, workAttachment } from './billing/adapters.js';
+import { branchDirectory } from './billing/branches.js';
 import { quotationDelivery } from './billing/delivery.js';
+import { BranchesModule } from './branches/branches.module.js';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { projectSummaries } from './clients/project-summaries.js';
 import { ConfigModule } from './config/config.module.js';
@@ -163,6 +165,7 @@ function peopleDirectory(db: Database) {
     DatabaseModule,
     HealthModule,
     ListsModule,
+    BranchesModule,
     StorageModule,
     ClientsModule.forRootAsync({
       imports: [StorageModule],
@@ -483,6 +486,7 @@ function peopleDirectory(db: Database) {
               settings,
               clock,
               ids,
+              branchDirectory(transaction),
             ),
             quotations: new ManageQuotations(
               quotations,
@@ -496,6 +500,7 @@ function peopleDirectory(db: Database) {
               // The same rate the invoice will carry, so a quotation at five
               // percent is not followed by an invoice at something else.
               settings,
+              branchDirectory(transaction),
             ),
             settle: new SettleInvoice(invoices, clock, ids),
             release: new ReleaseFromStatement(statements, attachment),

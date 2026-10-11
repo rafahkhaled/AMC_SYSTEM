@@ -3,7 +3,7 @@ import { Duration, Money } from '@amc/kernel';
 import type { drizzle } from 'drizzle-orm/postgres-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RaiseInvoice } from '../application/raise-invoice.js';
-import { CountingIds, FakeClock } from '../application/test-doubles.js';
+import { CountingIds, FakeBranches, FakeClock } from '../application/test-doubles.js';
 import { Statement, type StatementLine } from '../domain/index.js';
 import { DrizzleDocumentNumbering, DrizzleInvoiceRepository } from './invoice.repository.js';
 import { DrizzleReportReader } from './reports.reader.js';
@@ -289,6 +289,7 @@ describe('profitability, against a real database', () => {
         { vatBasisPoints: 0, paymentTermsDays: 30 },
         new FakeClock(new Date('2026-09-30T08:00:00.000Z')),
         new CountingIds(),
+        new FakeBranches(),
       ).execute('rp-hana', 'rp-s1');
       if (!raised.ok) throw raised.error;
 

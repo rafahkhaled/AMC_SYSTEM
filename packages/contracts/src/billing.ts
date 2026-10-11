@@ -56,6 +56,58 @@ export type StatementView = z.infer<typeof statementSchema>;
 export const statementsSchema = z.object({ statements: z.array(statementSchema) });
 export type Statements = z.infer<typeof statementsSchema>;
 
+/* ------------------------------------------------------------------ branches */
+
+/**
+ * A branch of the firm: a letterhead for its documents (feedback item 12b).
+ *
+ * Everything here is what a printed quotation or invoice needs to look like
+ * that branch's. The firm is still one legal entity with one tax registration
+ * and one run of numbers; a branch changes what the page says at the top and
+ * the bottom, not who is issuing it.
+ */
+export const branchSchema = z.object({
+  code: z.string(),
+  nameEn: z.string(),
+  nameAr: z.string(),
+  /** One line each, in print order. Empty: the firm-wide addresses are used. */
+  addresses: z.array(z.string()),
+  /** The branch's own account, or null to print the firm's. All of it or none. */
+  bank: z
+    .object({ accountHolder: z.string(), iban: z.string(), bic: z.string().nullable() })
+    .nullable(),
+  logoUrl: z.string().nullable(),
+  stampUrl: z.string().nullable(),
+  retired: z.boolean(),
+});
+export type BranchView = z.infer<typeof branchSchema>;
+export const branchesSchema = z.object({ branches: z.array(branchSchema) });
+export type Branches = z.infer<typeof branchesSchema>;
+
+const addressLinesSchema = z.array(z.string().trim().min(1).max(200)).max(6);
+
+export const createBranchSchema = z.object({
+  nameEn: z.string().trim().min(1).max(80),
+  nameAr: z.string().trim().min(1).max(80),
+  addresses: addressLinesSchema.default([]),
+  bank: z
+    .object({
+      accountHolder: z.string().trim().min(1).max(120),
+      iban: z.string().trim().min(1).max(40),
+      bic: z.string().trim().max(20).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  logoUrl: z.string().trim().url().max(500).nullable().default(null),
+  stampUrl: z.string().trim().url().max(500).nullable().default(null),
+});
+export type CreateBranchRequest = z.input<typeof createBranchSchema>;
+
+export const updateBranchSchema = createBranchSchema.partial().extend({
+  retired: z.boolean().optional(),
+});
+export type UpdateBranchRequest = z.input<typeof updateBranchSchema>;
+
 export const invoiceLineSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -91,6 +143,8 @@ export const invoiceSchema = z.object({
   clientId: z.string(),
   clientName: z.string().nullable(),
   statementId: z.string(),
+  /** The branch it was issued under, fixed at issue; null is the firm-wide letterhead. */
+  branch: branchSchema.nullable(),
   number: z.string(),
   /**
    * One word for a screen. Lateness wins over part payment, because the reason
@@ -216,6 +270,8 @@ export const quotationSchema = z.object({
   id: z.string(),
   clientId: z.string(),
   clientName: z.string().nullable(),
+  /** The branch it goes out under; null is the firm-wide letterhead. */
+  branch: branchSchema.nullable(),
   /** What the client quotes back on the phone. */
   reference: z.string(),
   state: z.enum(['draft', 'sent', 'accepted', 'declined', 'expired']),
@@ -248,6 +304,11 @@ export type Quotations = z.infer<typeof quotationsSchema>;
 
 export const draftQuotationRequestSchema = z.object({
   clientId: z.string().min(1),
+  /** The branch it goes out under. May be left for later, but not past sending. */
+  branchCode: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,40}$/)
+    .optional(),
   /**
    * Left out for anything drafted here, which takes the next number from the
    * firm's own estimate sequence. Given only when recording a quotation that
@@ -435,6 +496,25 @@ export const firmProfileSchema = z.object({
   vatBasisPoints: z.number().int().nonnegative(),
 });
 export type FirmProfile = z.infer<typeof firmProfileSchema>;
+
+/** Which branch a draft quotation prints under. Null: the firm-wide letterhead. */
+export const setQuotationBranchSchema = z.object({
+  branchCode: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,40}$/)
+    .nullable(),
+});
+export type SetQuotationBranchRequest = z.infer<typeof setQuotationBranchSchema>;
+
+/** Raising an invoice: which branch issues it. Fixed from then on. */
+export const raiseInvoiceRequestSchema = z.object({
+  branchCode: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,40}$/)
+    .nullable()
+    .optional(),
+});
+export type RaiseInvoiceRequest = z.infer<typeof raiseInvoiceRequestSchema>;
 
 /** Whether the system should send the quotation, or only record that it went. */
 export const sendQuotationSchema = z.object({

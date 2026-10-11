@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { BranchPicker } from '../branches/branch-picker.js';
+import { useBranches } from '../branches/use-branches.js';
 import { useOptions } from '../lists/use-options.js';
 import {
   approve,
@@ -160,8 +162,12 @@ function StatementReview({ id, onClose }: { id: string; onClose: () => void }) {
   };
 
   const approveIt = useMutation({ mutationFn: () => approve(id), onSuccess: settle });
+  const [branchCode, setBranchCode] = useState<string | null>(null);
+  const branches = useBranches();
+  // Chosen before the number is taken: it is fixed on the invoice from then on.
+  const needsBranch = branchCode === null && branches.live.length > 0;
   const invoiceIt = useMutation({
-    mutationFn: () => raiseInvoice(id),
+    mutationFn: () => raiseInvoice(id, branchCode),
     onSuccess: () => {
       void queries.invalidateQueries({ queryKey: ['billing'] });
       onClose();
@@ -192,11 +198,21 @@ function StatementReview({ id, onClose }: { id: string; onClose: () => void }) {
         ) : null}
 
         {statement.state === 'approved' ? (
-          <Button small busy={invoiceIt.isPending} onClick={() => invoiceIt.mutate()}>
+          <Button
+            small
+            busy={invoiceIt.isPending}
+            disabled={needsBranch}
+            onClick={() => invoiceIt.mutate()}
+          >
             {t('billing.raiseInvoice')}
           </Button>
         ) : null}
       </div>
+
+      {/* Which branch issues it. Fixed once raised, so it is asked first. */}
+      {statement.state === 'approved' ? (
+        <BranchPicker value={branchCode} onChange={setBranchCode} />
+      ) : null}
 
       {approveIt.isError ? <Alert tone="error">{(approveIt.error as Error).message}</Alert> : null}
       {invoiceIt.isError ? <Alert tone="error">{(invoiceIt.error as Error).message}</Alert> : null}

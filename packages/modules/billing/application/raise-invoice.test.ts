@@ -5,6 +5,7 @@ import { RaiseInvoice } from './raise-invoice.js';
 import {
   CountingIds,
   CountingNumbers,
+  FakeBranches,
   FakeClock,
   InMemoryInvoices,
   InMemoryStatements,
@@ -46,20 +47,22 @@ function statementOf(lines: StatementLine[], approve = true) {
   return made.value;
 }
 
-async function harness(statement = statementOf([line()])) {
+async function harness(statement = statementOf([line()]), branches = new FakeBranches()) {
   const statements = new InMemoryStatements();
   await statements.save(statement);
   const invoices = new InMemoryInvoices();
 
+  const numbers = new CountingNumbers();
   const raise = new RaiseInvoice(
     statements,
     invoices,
-    new CountingNumbers(),
+    numbers,
     { vatBasisPoints: 500, paymentTermsDays: 30 },
     new FakeClock(now),
     new CountingIds(),
+    branches,
   );
-  return { raise, statements, invoices, statement };
+  return { raise, statements, invoices, statement, numbers };
 }
 
 describe('raising an invoice from a statement', () => {
@@ -194,6 +197,7 @@ describe('numbering', () => {
       { vatBasisPoints: 500, paymentTermsDays: 30 },
       new FakeClock(now),
       new CountingIds(),
+      new FakeBranches(),
     );
 
     const first = await raise.execute('u-1', 's-1');
@@ -263,5 +267,63 @@ describe('what the printed document shows in Qty and Rate', () => {
     expect(printed?.quantityCenti).toBe(100);
     expect(printed?.unitRate?.minorUnits).toBe(50_000);
     expect(printed?.amount.minorUnits).toBe(50_000);
+  });
+});
+
+/*
+ * Which branch issues it (feedback item 12b).
+ *
+ * The printed invoice takes its letterhead from the branch, and the document
+ * is fixed once issued — so the branch has to be named before the number is
+ * taken, not after. Numbers come out of one unbroken run and a refusal that
+ * came after one had been given would leave a gap the FTA reads as a missing
+ * invoice.
+ */
+describe('issuing an invoice under a branch', () => {
+  it('keeps the branch it was issued under', async () => {
+    const h = await harness(statementOf([line()]), new FakeBranches(['dubai', 'ajman']));
+    const raised = await h.raise.execute('u-1', 's-1', 'ajman');
+
+    expect(raised.ok).toBe(true);
+    expect(h.invoices.only().snapshot().branchCode).toBe('ajman');
+  });
+
+  it('is told which branch, once the firm has any', async () => {
+    const h = await harness(statementOf([line()]), new FakeBranches(['dubai', 'ajman']));
+    const refused = await h.raise.execute('u-1', 's-1');
+
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('Choose the branch');
+  });
+
+  it('refuses a branch the firm does not have, or has closed', async () => {
+    const h = await harness(statementOf([line()]), new FakeBranches(['dubai']));
+    expect((await h.raise.execute('u-1', 's-1', 'sharjah')).ok).toBe(false);
+  });
+
+  it('does not use up an invoice number on a refusal', async () => {
+    const h = await harness(statementOf([line()]), new FakeBranches(['dubai']));
+    await h.raise.execute('u-1', 's-1');
+    await h.raise.execute('u-1', 's-1', 'nowhere');
+
+    // The first number is still the next one to be given out.
+    const raised = await h.raise.execute('u-1', 's-1', 'dubai');
+    expect(raised.ok && raised.value.number).toBe('2071');
+  });
+
+  it('asks nothing of a firm that has set no branches up', async () => {
+    const h = await harness();
+    const raised = await h.raise.execute('u-1', 's-1');
+
+    expect(raised.ok).toBe(true);
+    expect(h.invoices.only().snapshot().branchCode).toBeNull();
+  });
+
+  it('records the branch in what the audit log keeps', async () => {
+    const h = await harness(statementOf([line()]), new FakeBranches(['dubai']));
+    await h.raise.execute('u-1', 's-1', 'dubai');
+
+    const [event] = h.invoices.only().pullEvents();
+    expect(event?.payload).toMatchObject({ branchCode: 'dubai' });
   });
 });

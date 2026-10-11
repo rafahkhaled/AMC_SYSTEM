@@ -1,4 +1,4 @@
-import type { InvoiceView, QuotationView, StatementView } from '@amc/contracts';
+import type { BranchView, InvoiceView, QuotationView, StatementView } from '@amc/contracts';
 import { sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { BillingReader } from '../application/ports.js';
@@ -107,6 +107,8 @@ export class DrizzleBillingReader implements BillingReader {
       ORDER BY quotation_id, position
     `);
 
+    const branches = await this.branchesFor(rows.map((row) => row.branch_code));
+
     return rows.map((row) => {
       const currency = row.currency;
       const lines = lineRows
@@ -123,6 +125,7 @@ export class DrizzleBillingReader implements BillingReader {
         id: row.id,
         clientId: row.client_id,
         clientName: row.client_name,
+        branch: row.branch_code ? (branches.get(row.branch_code) ?? null) : null,
         reference: row.reference,
         state: row.state as QuotationView['state'],
         currency,
@@ -141,6 +144,23 @@ export class DrizzleBillingReader implements BillingReader {
         createdAt: new Date(row.created_at).toISOString(),
       };
     });
+  }
+
+  /**
+   * The branches a page of documents went out under, in one query.
+   *
+   * Retired ones included: an invoice issued under a branch that has since been
+   * closed still prints as it, and a document that lost its letterhead because
+   * somebody tidied the list would be a different document.
+   */
+  private async branchesFor(codes: readonly (string | null)[]): Promise<Map<string, BranchView>> {
+    const wanted = [...new Set(codes.filter((code): code is string => code !== null))];
+    if (wanted.length === 0) return new Map();
+
+    const rows = await this.db.execute<BranchRow>(sql`
+      SELECT * FROM branches WHERE code = ANY(${sql.param(wanted)}::text[])
+    `);
+    return new Map(rows.map((row) => [row.code, toBranchView(row)]));
   }
 
   async statements(scope: BillingScope, clientId: string | null): Promise<StatementView[]> {
@@ -294,6 +314,8 @@ export class DrizzleBillingReader implements BillingReader {
       ORDER BY invoice_id, received_on, id
     `);
 
+    const branches = await this.branchesFor(rows.map((row) => row.branch_code));
+
     return rows.map((row) => {
       const currency = row.currency;
       const lines = lineRows.filter((line) => line.invoice_id === row.id);
@@ -311,6 +333,7 @@ export class DrizzleBillingReader implements BillingReader {
         clientId: row.client_id,
         clientName: row.client_name,
         statementId: row.statement_id,
+        branch: row.branch_code ? (branches.get(row.branch_code) ?? null) : null,
         number: row.number,
         status: statusOf(row),
         settlement: row.settlement as InvoiceView['settlement'],
@@ -377,7 +400,7 @@ function statusOf(row: InvoiceRow): InvoiceView['status'] {
 }
 
 const INVOICE_SELECT = sql`
-  SELECT i.id, i.client_id, c.legal_name AS client_name, i.statement_id, i.number,
+  SELECT i.id, i.client_id, c.legal_name AS client_name, i.statement_id, i.branch_code, i.number,
          i.settlement, i.currency, i.vat_basis_points,
          i.issued_on, i.due_on, i.overdue_since,
          /*
@@ -400,6 +423,7 @@ type InvoiceRow = {
   client_id: string;
   client_name: string | null;
   statement_id: string;
+  branch_code: string | null;
   number: string;
   settlement: string;
   currency: string;
@@ -485,8 +509,40 @@ function quotationLine(line: QuotationLineRow, currency: string): QuotationView[
   };
 }
 
+/** A type alias, not an interface: `db.execute<T>` wants an index signature. */
+export type BranchRow = {
+  code: string;
+  name_en: string;
+  name_ar: string;
+  addresses: string[];
+  bank_account_holder: string | null;
+  bank_iban: string | null;
+  bank_bic: string | null;
+  logo_url: string | null;
+  stamp_url: string | null;
+  retired_at: string | null;
+};
+
+export function toBranchView(row: BranchRow): BranchView {
+  return {
+    code: row.code,
+    nameEn: row.name_en,
+    nameAr: row.name_ar,
+    addresses: row.addresses,
+    // All of an account or none: the table refuses a holder without an IBAN, so
+    // checking one is checking both.
+    bank:
+      row.bank_iban && row.bank_account_holder
+        ? { accountHolder: row.bank_account_holder, iban: row.bank_iban, bic: row.bank_bic }
+        : null,
+    logoUrl: row.logo_url,
+    stampUrl: row.stamp_url,
+    retired: row.retired_at !== null,
+  };
+}
+
 const QUOTATION_SELECT = sql`
-  SELECT q.id, q.client_id, c.legal_name AS client_name, q.reference, q.state,
+  SELECT q.id, q.client_id, c.legal_name AS client_name, q.branch_code, q.reference, q.state,
          q.currency, q.valid_until, q.sent_at, q.sent_via, q.decided_at,
          q.notes_en, q.notes_ar, q.created_at
   FROM quotations q
@@ -497,6 +553,7 @@ type QuotationRow = {
   id: string;
   client_id: string;
   client_name: string | null;
+  branch_code: string | null;
   reference: string;
   state: string;
   currency: string;

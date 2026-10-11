@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { BranchPicker } from '../branches/branch-picker.js';
+import { useBranches } from '../branches/use-branches.js';
 import { listClients } from '../clients/api.js';
 import { useServices } from '../services/use-services.js';
 import {
@@ -12,6 +14,7 @@ import {
   quotations as fetchQuotations,
   firmProfile,
   removeQuotationLine,
+  setQuotationBranch,
 } from './api.js';
 import { QuotationDocument } from './document.js';
 import { formatMoney, minorUnitsFrom } from './money.js';
@@ -103,16 +106,23 @@ function NewQuotation({ onDrafted }: { onDrafted: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState('');
   const [validUntil, setValidUntil] = useState('');
+  const [branchCode, setBranchCode] = useState<string | null>(null);
 
   const clients = useQuery({ queryKey: ['clients'], queryFn: listClients, enabled: open });
 
   const draft = useMutation({
-    mutationFn: () => draftQuotation({ clientId, ...(validUntil ? { validUntil } : {}) }),
+    mutationFn: () =>
+      draftQuotation({
+        clientId,
+        ...(branchCode ? { branchCode } : {}),
+        ...(validUntil ? { validUntil } : {}),
+      }),
     onSuccess: (quotation) => {
       void queries.invalidateQueries({ queryKey: ['billing', 'quotations'] });
       setOpen(false);
       setClientId('');
       setValidUntil('');
+      setBranchCode(null);
       onDrafted(quotation.id);
     },
   });
@@ -151,6 +161,8 @@ function NewQuotation({ onDrafted }: { onDrafted: (id: string) => void }) {
             </Select>
           )}
         />
+
+        <BranchPicker value={branchCode} onChange={setBranchCode} />
 
         <Field
           label={t('billing.newQuotation.validUntil')}
@@ -194,9 +206,20 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
     mutationFn: (lineId: string) => removeQuotationLine(id, lineId),
     onSuccess: () => void refresh(),
   });
+  const branches = useBranches();
+  const changeBranch = useMutation({
+    mutationFn: (branchCode: string | null) => setQuotationBranch(id, branchCode),
+    onSuccess: () => void refresh(),
+  });
 
   if (!quotation) return <Loading label={t('loading')} />;
   const editable = quotation.state === 'draft';
+  /*
+   * Which branch it goes out under has to be said once the firm has any: the
+   * printed copy takes its letterhead from it, and nothing un-sends a
+   * quotation. The server refuses too; this says so before the button is pressed.
+   */
+  const needsBranch = editable && quotation.branch === null && branches.live.length > 0;
 
   return (
     <Card title={quotation.reference} description={quotation.clientName ?? quotation.clientId}>
@@ -220,6 +243,7 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
             <Button
               small
               busy={answer.isPending}
+              disabled={needsBranch}
               onClick={() => answer.mutate({ act: 'send', deliver: true })}
             >
               {t('billing.emailQuotation')}
@@ -228,6 +252,7 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
               small
               tone="secondary"
               busy={answer.isPending}
+              disabled={needsBranch}
               onClick={() => answer.mutate({ act: 'send' })}
             >
               {t('billing.markSent')}
@@ -264,6 +289,23 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
       ) : null}
 
       {answer.isError ? <Alert tone="error">{(answer.error as Error).message}</Alert> : null}
+      {/* While it is a draft the branch can be chosen or changed; after it has
+          gone it is a fact about the copy the client holds, and only said. */}
+      {editable ? (
+        <BranchPicker
+          value={quotation.branch?.code ?? null}
+          onChange={(code) => changeBranch.mutate(code)}
+          disabled={changeBranch.isPending}
+        />
+      ) : quotation.branch ? (
+        <p className="u-text-soft">
+          {t('branches.issuedUnder')}: {branches.label(quotation.branch.code)}
+        </p>
+      ) : null}
+      {needsBranch ? <Alert tone="warning">{t('branches.needed')}</Alert> : null}
+      {changeBranch.isError ? (
+        <Alert tone="error">{(changeBranch.error as Error).message}</Alert>
+      ) : null}
       {quotation.state === 'expired' ? (
         <Alert tone="warning">{t('billing.quotationExpired')}</Alert>
       ) : null}

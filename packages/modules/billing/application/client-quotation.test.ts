@@ -5,6 +5,7 @@ import {
   CountingIds,
   CountingLinkTokens,
   CountingNumbers,
+  FakeBranches,
   FakeClock,
   FakeDelivery,
   FakeRates,
@@ -30,6 +31,7 @@ function harness(at = now) {
     new FakeDelivery(),
     tokens,
     VAT,
+    new FakeBranches(),
   );
   return {
     quotations,

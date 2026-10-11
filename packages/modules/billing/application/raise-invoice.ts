@@ -10,6 +10,7 @@ import {
 import { Invoice, type InvoiceLine, type StatementLine, lineAmount } from '../domain/index.js';
 import type {
   BillingSettings,
+  BranchDirectory,
   InvoiceNumbering,
   InvoiceRepository,
   StatementRepository,
@@ -36,11 +37,14 @@ export class RaiseInvoice {
     private readonly settings: BillingSettings,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly branches: BranchDirectory,
   ) {}
 
   async execute(
     issuedBy: string,
     statementId: string,
+    /** The branch it is issued under, fixed from here on. */
+    branchCode: string | null = null,
   ): Promise<Result<{ invoiceId: string; number: string }, Conflict>> {
     const statement = await this.statements.findById(statementId);
     if (!statement) return err(new Conflict('There is no such statement'));
@@ -60,6 +64,18 @@ export class RaiseInvoice {
             : 'Only an approved statement can be invoiced',
         ),
       );
+    }
+
+    /*
+     * Named before a number is taken. Numbers come out of one unbroken run,
+     * and an invoice refused after it had been given one would leave a gap the
+     * FTA reads as a missing invoice.
+     */
+    if (branchCode !== null && !(await this.branches.isLive(branchCode))) {
+      return err(new Conflict('That is not one of the firm’s branches'));
+    }
+    if (branchCode === null && (await this.branches.anyLive())) {
+      return err(new Conflict('Choose the branch this invoice is issued under'));
     }
 
     const snapshot = statement.snapshot();
@@ -93,6 +109,7 @@ export class RaiseInvoice {
       clientId: snapshot.clientId,
       statementId,
       number,
+      branchCode,
       currency: snapshot.currency,
       lines,
       vatBasisPoints: this.settings.vatBasisPoints,

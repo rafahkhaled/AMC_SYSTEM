@@ -397,3 +397,44 @@ describe('discounts and VAT on a line', () => {
     expect(quotation.addLine(fixedLine({ serviceCode: null })).ok).toBe(true);
   });
 });
+
+describe('which branch a quotation goes out under (feedback item 12b)', () => {
+  it('can be set and changed while it is a draft, and says so in the audit trail', () => {
+    const quotation = draft();
+    quotation.pullEvents();
+
+    expect(quotation.setBranch('dubai', now).ok).toBe(true);
+    expect(quotation.snapshot().branchCode).toBe('dubai');
+    expect(quotation.setBranch('ajman', now).ok).toBe(true);
+
+    const events = quotation.pullEvents();
+    expect(events.map((event) => event.name)).toEqual([
+      'billing.quotation.branch_set',
+      'billing.quotation.branch_set',
+    ]);
+    expect(events[1]?.payload).toMatchObject({ from: 'dubai', to: 'ajman' });
+  });
+
+  it('records nothing when it is set to what it already was', () => {
+    const quotation = draft({ branchCode: 'dubai' });
+    quotation.pullEvents();
+
+    expect(quotation.setBranch('dubai', now).ok).toBe(true);
+    expect(quotation.pullEvents()).toEqual([]);
+  });
+
+  it('can go back to the firm-wide letterhead', () => {
+    const quotation = draft({ branchCode: 'dubai' });
+    expect(quotation.setBranch(null, now).ok).toBe(true);
+    expect(quotation.snapshot().branchCode).toBeNull();
+  });
+
+  it('is fixed once it has been sent, because the client holds a copy', () => {
+    const quotation = draft({ branchCode: 'dubai' });
+    quotation.addLine(fixedLine());
+    quotation.send(now, 'by_hand');
+
+    expect(quotation.setBranch('ajman', now).ok).toBe(false);
+    expect(quotation.snapshot().branchCode).toBe('dubai');
+  });
+});

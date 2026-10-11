@@ -83,6 +83,12 @@ export interface InvoiceSnapshot {
   readonly id: string;
   readonly clientId: string;
   readonly statementId: string;
+  /**
+   * The branch it was issued under, fixed at issue, or null for the firm-wide
+   * letterhead. An invoice is a document the client holds; printing it again
+   * later under a different branch would be a different document.
+   */
+  readonly branchCode: string | null;
   /** The number on the document the client files. */
   readonly number: string;
   readonly settlement: Settlement;
@@ -120,6 +126,7 @@ export class Invoice extends AggregateRoot {
     clientId: string;
     statementId: string;
     number: string;
+    branchCode?: string | null;
     currency: CurrencyCode;
     lines: readonly InvoiceLine[];
     vatBasisPoints: number;
@@ -159,6 +166,7 @@ export class Invoice extends AggregateRoot {
       id: params.id,
       clientId: params.clientId,
       statementId: params.statementId,
+      branchCode: params.branchCode ?? null,
       number: params.number.trim(),
       settlement: 'issued',
       currency: params.currency,
@@ -179,6 +187,7 @@ export class Invoice extends AggregateRoot {
         clientId: params.clientId,
         statementId: params.statementId,
         number: invoice.state.number,
+        branchCode: params.branchCode ?? null,
         totalMinor: invoice.total().minorUnits,
         currency: params.currency,
       }),

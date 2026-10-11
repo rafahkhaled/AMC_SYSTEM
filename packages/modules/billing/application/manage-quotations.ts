@@ -11,6 +11,7 @@ import {
 import { Quotation, type QuotationLine, type SentVia } from '../domain/index.js';
 import type {
   BillingSettings,
+  BranchDirectory,
   DocumentDelivery,
   InvoiceNumbering,
   LinkTokens,
@@ -20,6 +21,8 @@ import type {
 
 export interface DraftQuotationCommand {
   readonly clientId: string;
+  /** The branch it goes out under. Null or absent: chosen later, before it is sent. */
+  readonly branchCode?: string | null | undefined;
   readonly reference?: string | undefined;
   readonly validUntil?: Date | null;
   readonly notesEn?: string | null;
@@ -68,6 +71,7 @@ export class ManageQuotations {
     private readonly links: LinkTokens,
     /** The firm's VAT rate, which a standard-rated line is quoted at. */
     private readonly settings: BillingSettings,
+    private readonly branches: BranchDirectory,
     /** How long a client has to answer before the link stops working. */
     private readonly linkDays: number = 60,
   ) {}
@@ -99,6 +103,11 @@ export class ManageQuotations {
       return err(new Conflict('A quotation with that reference already exists'));
     }
 
+    const branchCode = command.branchCode ?? null;
+    if (branchCode !== null && !(await this.branches.isLive(branchCode))) {
+      return err(new Conflict('That is not one of the firm’s branches'));
+    }
+
     const currency = await this.rates.currencyFor(command.clientId);
     const quotation = Quotation.draft({
       id: this.ids.next(),
@@ -106,6 +115,7 @@ export class ManageQuotations {
       reference,
       currency,
       createdBy,
+      branchCode,
       validUntil: command.validUntil ?? null,
       notesEn: command.notesEn ?? null,
       notesAr: command.notesAr ?? null,
@@ -147,6 +157,16 @@ export class ManageQuotations {
     return ok(undefined);
   }
 
+  /** Which branch's letterhead it prints on. Only while it is a draft. */
+  async setBranch(quotationId: string, branchCode: string | null): Promise<Result<void, Conflict>> {
+    if (branchCode !== null && !(await this.branches.isLive(branchCode))) {
+      return err(new Conflict('That is not one of the firm’s branches'));
+    }
+    return this.change(quotationId, (quotation) =>
+      quotation.setBranch(branchCode, this.clock.now()),
+    );
+  }
+
   async removeLine(quotationId: string, lineId: string): Promise<Result<void, Conflict>> {
     return this.change(quotationId, (quotation) => quotation.removeLine(lineId));
   }
@@ -179,6 +199,15 @@ export class ManageQuotations {
      */
     const allowed = quotation.canSend(this.clock.now());
     if (!allowed.ok) return err(allowed.error);
+
+    /*
+     * A branch has to be named once the firm has any. The printed document
+     * takes its letterhead from it, so one that went out under no branch would
+     * carry the wrong address — and nothing un-sends a quotation.
+     */
+    if (quotation.snapshot().branchCode === null && (await this.branches.anyLive())) {
+      return err(new Conflict('Choose the branch this quotation goes out under first'));
+    }
 
     let via: SentVia = 'by_hand';
     if (options.deliver) {

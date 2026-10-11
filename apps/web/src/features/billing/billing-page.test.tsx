@@ -25,6 +25,8 @@ const raiseInvoice = vi.hoisted(() => vi.fn());
 const invoices = vi.hoisted(() => vi.fn());
 const recordPayment = vi.hoisted(() => vi.fn());
 const firmProfile = vi.hoisted(() => vi.fn());
+const listBranches = vi.hoisted(() => vi.fn());
+vi.mock('../branches/api.js', () => ({ listBranches }));
 
 vi.mock('./api.js', () => ({
   statements,
@@ -88,6 +90,7 @@ function invoiceOf(over: Partial<InvoiceView> = {}): InvoiceView {
     clientId: 'c-1',
     clientName: 'Gulf Trading LLC',
     statementId: 's-1',
+    branch: null,
     number: 'INV-2026-0001',
     status: 'issued',
     settlement: 'issued',
@@ -127,6 +130,8 @@ beforeEach(async () => {
   statements.mockResolvedValue([statementOf()]);
   statement.mockResolvedValue(statementOf());
   invoices.mockResolvedValue([invoiceOf()]);
+  // A firm with no branches set up, which asks nothing of anybody.
+  listBranches.mockResolvedValue([]);
 });
 
 describe('an invoice the firm is still working against', () => {
@@ -388,5 +393,64 @@ describe('a fixed-fee line', () => {
     const detail = await screen.findByText(/Hana Saeed/);
     expect(detail).toHaveTextContent('2.00h');
     expect(detail).toHaveTextContent('Fixed fee');
+  });
+});
+
+/*
+ * Which branch issues an invoice (feedback item 12b).
+ *
+ * Fixed from the moment it is raised, so it is asked before: the printed
+ * invoice takes its letterhead and its bank account from the branch, and an
+ * invoice that went out under the wrong one is paid to the wrong place.
+ */
+describe('raising an invoice under a branch', () => {
+  const branch = (code: string, nameEn: string) => ({
+    code,
+    nameEn,
+    nameAr: nameEn,
+    addresses: [],
+    bank: null,
+    logoUrl: null,
+    stampUrl: null,
+    retired: false,
+  });
+
+  async function openApproved() {
+    statement.mockResolvedValue(statementOf({ state: 'approved', approvedBy: 'Wael Ajam' }));
+    await showTab('Statements');
+    await userEvent.click(await screen.findByRole('button', { name: /Gulf Trading LLC/ }));
+    return screen.findByRole('button', { name: 'Raise invoice' });
+  }
+
+  it('asks nothing of a firm that has set no branches up', async () => {
+    const raise = await openApproved();
+    expect(raise).toBeEnabled();
+    expect(screen.queryByLabelText('Branch')).not.toBeInTheDocument();
+  });
+
+  it('will not raise it until a branch is chosen', async () => {
+    listBranches.mockResolvedValue([
+      branch('dubai', 'Dubai Branch'),
+      branch('ajman', 'Ajman Branch'),
+    ]);
+    const raise = await openApproved();
+
+    await screen.findByLabelText('Branch');
+    expect(raise).toBeDisabled();
+  });
+
+  it('raises it under the branch that was chosen', async () => {
+    listBranches.mockResolvedValue([
+      branch('dubai', 'Dubai Branch'),
+      branch('ajman', 'Ajman Branch'),
+    ]);
+    raiseInvoice.mockResolvedValue(invoiceOf());
+    const raise = await openApproved();
+
+    await userEvent.selectOptions(await screen.findByLabelText('Branch'), 'ajman');
+    expect(raise).toBeEnabled();
+    await userEvent.click(raise);
+
+    await waitFor(() => expect(raiseInvoice).toHaveBeenCalledWith('s-1', 'ajman'));
   });
 });

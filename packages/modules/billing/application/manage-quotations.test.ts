@@ -4,6 +4,7 @@ import {
   CountingIds,
   CountingLinkTokens,
   CountingNumbers,
+  FakeBranches,
   FakeClock,
   FakeDelivery,
   FakeRates,
@@ -27,6 +28,7 @@ function harness(at = now, delivery = new FakeDelivery()) {
     delivery,
     new CountingLinkTokens(),
     VAT,
+    new FakeBranches(),
   );
   return { manage, quotations, delivery };
 }
@@ -191,6 +193,7 @@ describe('the expiry sweep', () => {
       new FakeDelivery(),
       new CountingLinkTokens(),
       VAT,
+      new FakeBranches(),
     );
     const swept = await later.sweepExpired();
 
@@ -214,6 +217,7 @@ describe('the expiry sweep', () => {
       new FakeDelivery(),
       new CountingLinkTokens(),
       VAT,
+      new FakeBranches(),
     );
     // The client said yes. A sweep running later must not undo that.
     expect((await later.sweepExpired()).expired).toBe(0);
@@ -235,6 +239,7 @@ describe('the expiry sweep', () => {
       new FakeDelivery(),
       new CountingLinkTokens(),
       VAT,
+      new FakeBranches(),
     );
     await later.sweepExpired();
     expect((await later.accept(id)).ok).toBe(false);
@@ -380,5 +385,105 @@ describe('VAT and discounts on a line', () => {
       vat: 'standard',
     });
     expect(refused.ok).toBe(false);
+  });
+});
+
+/*
+ * Which branch it goes out under (feedback item 12b).
+ *
+ * Nothing un-sends a quotation, and the printed copy takes its letterhead from
+ * the branch, so a branch has to be named before it leaves — once the firm has
+ * any to choose between.
+ */
+describe('a quotation and its branch', () => {
+  function withBranches(codes: string[]) {
+    const quotations = new InMemoryQuotations();
+    const manage = new ManageQuotations(
+      quotations,
+      new FakeRates(),
+      new FakeClock(now),
+      new CountingIds(),
+      new CountingNumbers(192),
+      new FakeDelivery(),
+      new CountingLinkTokens(),
+      VAT,
+      new FakeBranches(codes),
+    );
+    return { manage, quotations };
+  }
+
+  async function drafted(manage: ManageQuotations, branchCode?: string) {
+    const made = await manage.draft('u-1', {
+      clientId: 'c-1',
+      ...(branchCode ? { branchCode } : {}),
+    });
+    if (!made.ok) throw made.error;
+    await manage.addLine(made.value.quotationId, {
+      descriptionEn: 'Work',
+      amountMinor: 1000,
+      vat: 'out_of_scope',
+    });
+    return made.value.quotationId;
+  }
+
+  it('is drafted under a branch', async () => {
+    const h = withBranches(['dubai', 'ajman']);
+    const id = await drafted(h.manage, 'ajman');
+    expect((await h.quotations.findById(id))?.snapshot().branchCode).toBe('ajman');
+  });
+
+  it('refuses a branch the firm does not have', async () => {
+    const h = withBranches(['dubai']);
+    const refused = await h.manage.draft('u-1', { clientId: 'c-1', branchCode: 'sharjah' });
+    expect(refused.ok).toBe(false);
+  });
+
+  it('can be moved to another branch while it is a draft, and says so in the audit trail', async () => {
+    const h = withBranches(['dubai', 'ajman']);
+    const id = await drafted(h.manage, 'dubai');
+
+    expect((await h.manage.setBranch(id, 'ajman')).ok).toBe(true);
+    const quotation = await h.quotations.findById(id);
+    expect(quotation?.snapshot().branchCode).toBe('ajman');
+    expect(quotation?.pullEvents().map((event) => event.name)).toContain(
+      'billing.quotation.branch_set',
+    );
+  });
+
+  it('will not move to a branch that does not exist', async () => {
+    const h = withBranches(['dubai']);
+    const id = await drafted(h.manage, 'dubai');
+    expect((await h.manage.setBranch(id, 'sharjah')).ok).toBe(false);
+  });
+
+  it('is not sent without a branch once the firm has any', async () => {
+    const h = withBranches(['dubai', 'ajman']);
+    const id = await drafted(h.manage);
+
+    const refused = await h.manage.send(id);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('Choose the branch');
+    expect((await h.quotations.findById(id))?.currentState).toBe('draft');
+  });
+
+  it('is sent once it has one', async () => {
+    const h = withBranches(['dubai', 'ajman']);
+    const id = await drafted(h.manage, 'dubai');
+    expect((await h.manage.send(id)).ok).toBe(true);
+  });
+
+  it('cannot change branch after it has been sent', async () => {
+    // The copy the client holds and the one in here have to say the same.
+    const h = withBranches(['dubai', 'ajman']);
+    const id = await drafted(h.manage, 'dubai');
+    await h.manage.send(id);
+
+    expect((await h.manage.setBranch(id, 'ajman')).ok).toBe(false);
+  });
+
+  it('asks nothing of a firm that has set no branches up', async () => {
+    const h = withBranches([]);
+    const id = await drafted(h.manage);
+    expect((await h.manage.send(id)).ok).toBe(true);
   });
 });
