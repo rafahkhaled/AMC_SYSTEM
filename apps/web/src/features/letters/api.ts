@@ -1,11 +1,16 @@
 import {
+  type CreateLetterTemplateRequest,
   type Letter,
   type LetterTemplate,
+  type LetterTemplateDetail,
+  type UpdateLetterTemplateRequest,
   letterSchema,
+  letterTemplateDetailSchema,
+  letterTemplateDetailsSchema,
   letterTemplateSchema,
 } from '@amc/contracts';
 import { z } from 'zod';
-import { request, send } from '../auth/api.js';
+import { patch, request, send } from '../auth/api.js';
 
 export async function letterTemplates(): Promise<LetterTemplate[]> {
   return z
@@ -32,5 +37,26 @@ export async function generateLetter(
       language,
       ...(authority ? { authority } : {}),
     }),
+  );
+}
+
+/* ----------------------------------------------- maintaining the letters (item 6) */
+
+export async function letterTemplateDetails(): Promise<LetterTemplateDetail[]> {
+  return letterTemplateDetailsSchema.parse(await request('/letter-templates/all')).templates;
+}
+
+export async function addLetterTemplate(
+  template: CreateLetterTemplateRequest,
+): Promise<LetterTemplateDetail> {
+  return letterTemplateDetailSchema.parse(await send('/letter-templates', template));
+}
+
+export async function changeLetterTemplate(
+  code: string,
+  changes: UpdateLetterTemplateRequest,
+): Promise<LetterTemplateDetail> {
+  return letterTemplateDetailSchema.parse(
+    await patch(`/letter-templates/${encodeURIComponent(code)}`, changes),
   );
 }

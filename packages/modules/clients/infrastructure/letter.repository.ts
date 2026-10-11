@@ -1,7 +1,8 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import type { LetterTemplateAdminRepository } from '../application/manage-letter-templates.js';
 import type { GeneratedLetter, LetterRepository } from '../application/ports.js';
-import { DocumentTemplate } from '../domain/letter.js';
+import { DocumentTemplate, type TemplateState } from '../domain/letter.js';
 import { documentTemplates, generatedDocuments } from './schema.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
@@ -64,5 +65,40 @@ export class DrizzleLetterRepository implements LetterRepository {
       generatedBy: row.generatedBy,
       createdAt: row.createdAt,
     }));
+  }
+}
+
+/** Writing the firm's own letter templates. Reading them for use is the repository above. */
+export class DrizzleLetterTemplateRepository implements LetterTemplateAdminRepository {
+  constructor(private readonly db: Db) {}
+
+  async all(): Promise<TemplateState[]> {
+    return this.db.select().from(documentTemplates).orderBy(documentTemplates.code);
+  }
+
+  async findByCode(code: string): Promise<TemplateState | null> {
+    const [row] = await this.db
+      .select()
+      .from(documentTemplates)
+      .where(eq(documentTemplates.code, code))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async insert(template: TemplateState): Promise<void> {
+    await this.db.insert(documentTemplates).values(template);
+  }
+
+  async update(template: TemplateState): Promise<void> {
+    await this.db
+      .update(documentTemplates)
+      .set({
+        nameEn: template.nameEn,
+        nameAr: template.nameAr,
+        bodyEn: template.bodyEn,
+        bodyAr: template.bodyAr,
+        retiredAt: template.retiredAt,
+      })
+      .where(eq(documentTemplates.id, template.id));
   }
 }

@@ -4,6 +4,7 @@ import {
   Conflict,
   Conflict as ConflictError,
   type IdGenerator,
+  type ReferenceLookup,
   type Result,
   actorFrom,
   err,
@@ -52,6 +53,8 @@ export class ClientVault {
     private readonly credentials: CredentialRepository,
     private readonly vault: SecretVault,
     private readonly ids: IdGenerator,
+    /** The portals an administrator maintains in Settings. */
+    private readonly references: ReferenceLookup,
   ) {}
 
   /** Usernames and notes. Never a password, so this is not a logged read. */
@@ -121,6 +124,11 @@ export class ClientVault {
   ): Promise<Result<{ credentialId: string }, Conflict>> {
     if (params.secret.trim().length === 0) {
       return err(new ConflictError('A credential needs a password'));
+    }
+    // On the list of portals, and still offered. One added in Settings is
+    // accepted at once; a typo, or a portal since retired, is not.
+    if (!(await this.references.isLive('portal', params.kind))) {
+      return err(new ConflictError('That is not a portal the firm keeps logins for'));
     }
 
     const scope = scopeFor(caller);

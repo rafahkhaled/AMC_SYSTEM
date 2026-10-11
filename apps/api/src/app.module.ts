@@ -26,6 +26,7 @@ import {
   ContactLog,
   GenerateLetter,
   LeadWorkflow,
+  ManageLetterTemplates,
   ReadClients,
   ReadLeads,
   ReceiveDocument,
@@ -39,8 +40,9 @@ import {
   DrizzleDocumentRepository,
   DrizzleLeadRepository,
   DrizzleLetterRepository,
+  DrizzleLetterTemplateRepository,
 } from '@amc/clients/infrastructure';
-import type { Database } from '@amc/database';
+import { type Database, referenceLookup } from '@amc/database';
 import { ReadCalendar } from '@amc/deadlines';
 import { CalendarModule } from '@amc/deadlines/http';
 import { IdentityModule } from '@amc/identity/http';
@@ -187,6 +189,7 @@ function peopleDirectory(db: Database) {
           new DrizzleDocumentRepository(db),
           documentFileStore(storage),
           { next: () => ulid() },
+          referenceLookup(db),
         ),
         /*
          * The vault writes the audit row before it hands back a plaintext, so
@@ -201,6 +204,7 @@ function peopleDirectory(db: Database) {
             secretAccessRecorder(db, { next: () => ulid() }),
           ),
           { next: () => ulid() },
+          referenceLookup(db),
         ),
         /*
          * The folder every client has (any file, not only the paperwork the
@@ -215,6 +219,20 @@ function peopleDirectory(db: Database) {
           },
           new DrizzleClientFileRepository(db),
           clientFileStore(storage),
+          { next: () => ulid() },
+        ),
+        /*
+         * The firm's own letters, added and reworded from Settings. Audited
+         * through the same unit of work: which wording went out under the
+         * firm's name is something somebody asks later.
+         */
+        letterTemplates: new ManageLetterTemplates(
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown) =>
+              new DrizzleLetterTemplateRepository(transaction as Database),
+          },
+          new DrizzleLetterTemplateRepository(db),
           { next: () => ulid() },
         ),
         contactLog: new ContactLog(new DrizzleContactLogRepository(db), contactFileStore(storage), {
@@ -386,6 +404,7 @@ function peopleDirectory(db: Database) {
           new DrizzleDocumentRepository(db),
           documentFileStore(storage),
           ids,
+          referenceLookup(db),
         );
 
         const conversations = new DrizzleConversationRepository(db);
@@ -502,7 +521,7 @@ function peopleDirectory(db: Database) {
               settings,
               branchDirectory(transaction),
             ),
-            settle: new SettleInvoice(invoices, clock, ids),
+            settle: new SettleInvoice(invoices, clock, ids, referenceLookup(transaction)),
             release: new ReleaseFromStatement(statements, attachment),
             /*
              * The client's link uses the same token service as a session: 32

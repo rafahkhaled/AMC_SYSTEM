@@ -4,6 +4,7 @@ import {
   Conflict,
   type IdGenerator,
   Money,
+  type ReferenceLookup,
   type Result,
   err,
   ok,
@@ -37,6 +38,8 @@ export class SettleInvoice {
     private readonly invoices: InvoiceRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    /** The payment methods an administrator maintains in Settings. */
+    private readonly references: ReferenceLookup,
   ) {}
 
   async record(
@@ -45,6 +48,12 @@ export class SettleInvoice {
   ): Promise<Result<{ paymentId: string; balanceMinor: number }, Conflict>> {
     const invoice = await this.invoices.findById(command.invoiceId);
     if (!invoice) return err(new Conflict('There is no such invoice'));
+
+    // On the list, and still offered. A method added in Settings is accepted at
+    // once; one that was never there, or has been retired, is not.
+    if (!(await this.references.isLive('payment_method', command.method))) {
+      return err(new Conflict('That is not a way of paying the firm accepts'));
+    }
 
     const currency = invoice.snapshot().currency;
     const payment: Payment = {

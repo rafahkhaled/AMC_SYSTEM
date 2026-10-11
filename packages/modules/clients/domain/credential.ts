@@ -1,12 +1,15 @@
 import { Conflict, type Result, err, ok } from '@amc/kernel';
 
-/** What a stored credential opens. */
-export type CredentialKind = 'emaratax' | 'ftaportal' | 'bank_portal' | 'other';
+/** What a stored credential opens: a code from the list of portals in Settings. */
+export type CredentialKind = string;
 
-const KINDS: readonly CredentialKind[] = ['emaratax', 'ftaportal', 'bank_portal', 'other'];
-
+/**
+ * Whether a string is shaped like a portal code. Only the shape: whether it is
+ * on the list an administrator maintains is asked of that list when the login
+ * is stored, so a portal the firm starts using tomorrow needs no deployment.
+ */
 export function isCredentialKind(value: string): value is CredentialKind {
-  return (KINDS as readonly string[]).includes(value);
+  return /^[a-z0-9_]{1,40}$/.test(value);
 }
 
 export interface CredentialState {

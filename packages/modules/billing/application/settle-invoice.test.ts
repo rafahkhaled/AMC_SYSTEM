@@ -39,10 +39,17 @@ function invoiceOf(id: string, dueOn = due) {
   return made.value;
 }
 
+/** The payment methods on the list, as Settings would have them. */
+const methods = (
+  live: readonly string[] = ['bank_transfer', 'cheque', 'cash', 'card', 'other'],
+) => ({
+  isLive: async (list: string, code: string) => list === 'payment_method' && live.includes(code),
+});
+
 async function harness(at: Date, invoices: Invoice[] = [invoiceOf('inv-1')]) {
   const repository = new InMemoryInvoices();
   for (const invoice of invoices) await repository.save(invoice);
-  const settle = new SettleInvoice(repository, new FakeClock(at), new CountingIds());
+  const settle = new SettleInvoice(repository, new FakeClock(at), new CountingIds(), methods());
   return { settle, repository };
 }
 
@@ -128,6 +135,7 @@ describe('the morning sweep', () => {
       h.repository,
       new FakeClock(new Date('2026-11-20T06:00:00Z')),
       new CountingIds(),
+      methods(),
     );
     const again = await later.sweepOverdue();
 
@@ -182,5 +190,50 @@ describe('the morning sweep', () => {
     const swept = await h.settle.sweepOverdue();
     expect(swept.marked).toBe(1);
     expect((await h.repository.findById('inv-late'))?.status()).toBe('overdue');
+  });
+});
+
+/*
+ * Payment methods an administrator adds (feedback item 7's sibling).
+ *
+ * Settings let somebody add one, and it appeared in the dropdown — and was
+ * then refused when the payment was recorded, by a fixed list in the request
+ * and again by a constraint on the table.
+ */
+describe('payment methods from the list in Settings', () => {
+  const pay = (method: string) => ({
+    invoiceId: 'inv-1',
+    amountMinor: 1000,
+    receivedOn: new Date('2026-10-12T00:00:00Z'),
+    method,
+  });
+
+  async function settleWith(live: string[]) {
+    const repository = new InMemoryInvoices();
+    await repository.save(invoiceOf('inv-1'));
+    return new SettleInvoice(
+      repository,
+      new FakeClock(new Date('2026-10-12T06:00:00Z')),
+      new CountingIds(),
+      methods(live),
+    );
+  }
+
+  it('takes a method added in Settings', async () => {
+    const settle = await settleWith(['bank_transfer', 'crypto']);
+    expect((await settle.record(actor, pay('crypto'))).ok).toBe(true);
+  });
+
+  it('refuses one that was never on the list', async () => {
+    const settle = await settleWith(['bank_transfer']);
+    const refused = await settle.record(actor, pay('barter'));
+
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.message).toContain('not a way of paying');
+  });
+
+  it('refuses one that has been retired', async () => {
+    const settle = await settleWith(['bank_transfer']);
+    expect((await settle.record(actor, pay('cash'))).ok).toBe(false);
   });
 });

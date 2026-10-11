@@ -9,42 +9,38 @@ export type DocumentId = string;
  * clients have a trade licence expiring in sixty days" and free text would
  * make that a guess.
  */
-export type DocumentTypeCode =
-  | 'trade_licence'
-  | 'emirates_id'
-  | 'passport'
-  | 'visa'
-  | 'memorandum'
-  | 'tenancy_contract'
-  | 'vat_certificate'
-  | 'corporate_tax_certificate'
-  | 'bank_letter'
-  | 'other';
-
-/** Which of those carry an expiry date and therefore need chasing. */
-export const EXPIRES: Readonly<Record<DocumentTypeCode, boolean>> = {
-  trade_licence: true,
-  emirates_id: true,
-  passport: true,
-  visa: true,
-  tenancy_contract: true,
-  memorandum: false,
-  vat_certificate: false,
-  corporate_tax_certificate: false,
-  bank_letter: false,
-  other: false,
-};
+export type DocumentTypeCode = string;
 
 /**
- * Whether a string names a document type this system keeps.
+ * Which types carry an expiry date and therefore must be given one.
  *
- * The check lives beside the list, so adding a type cannot leave a validator
- * somewhere else quietly rejecting it. The database has the same allowlist as
- * a constraint, and a value that got past both would be a type nobody can
- * chase for renewal.
+ * The five the practice has always chased. A type an administrator adds later
+ * is not in here, so its date is optional: it is still used for reminders when
+ * it is given, but the system will not refuse the upload for lacking one on the
+ * strength of a rule nobody has told it about.
+ */
+const MUST_EXPIRE: ReadonlySet<string> = new Set([
+  'trade_licence',
+  'emirates_id',
+  'passport',
+  'visa',
+  'tenancy_contract',
+]);
+
+export function mustHaveExpiry(type: string): boolean {
+  return MUST_EXPIRE.has(type);
+}
+
+/**
+ * Whether a string is shaped like a document type code.
+ *
+ * Only the shape. Whether it is on the list an administrator maintains, and
+ * still offered, is asked of that list when a document is received. The
+ * database holds the same shape as a constraint, so a value that got past both
+ * would be a column holding something no screen can label.
  */
 export function isDocumentType(value: string): value is DocumentTypeCode {
-  return Object.hasOwn(EXPIRES, value);
+  return /^[a-z0-9_]{1,40}$/.test(value);
 }
 
 /**
@@ -177,7 +173,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
     if (this.isSuperseded) {
       return err(new Conflict('This document has been replaced by a newer one'));
     }
-    if (EXPIRES[this.state.type] && !params.expiresOn) {
+    if (mustHaveExpiry(this.state.type) && !params.expiresOn) {
       return err(
         new Conflict('A document of this type needs an expiry date', { type: this.state.type }),
       );

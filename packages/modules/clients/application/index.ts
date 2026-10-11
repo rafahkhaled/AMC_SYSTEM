@@ -7,3 +7,4 @@ export * from './read-leads.js';
 export * from './read-clients.js';
 export * from './receive-document.js';
 export * from './client-files.js';
+export * from './manage-letter-templates.js';

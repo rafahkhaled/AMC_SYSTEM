@@ -1,3 +1,4 @@
+import { referenceLookup } from '@amc/database';
 import { type TestDatabase, createTestDatabase } from '@amc/database/testing';
 import type { Actor, UnitOfWork, UnitOfWorkContext } from '@amc/kernel';
 import type { drizzle } from 'drizzle-orm/postgres-js';
@@ -86,6 +87,9 @@ describe('receiving a document, against a real database', () => {
         linkTo: async (key) => `/api/files/${key}`,
       },
       { next: () => `doc-${++counter}` },
+      // The real one, against the real list: a stub that said yes to everything
+      // would prove nothing about a list that says no.
+      referenceLookup(db),
     );
 
     return { db, receive, documents: new DrizzleDocumentRepository(db), stored };
@@ -157,6 +161,90 @@ describe('receiving a document, against a real database', () => {
       const { receive } = await scenario(tx);
       const outcome = await receive.execute(CALLER, licence({ type: 'nonsense' }));
       expect(outcome.ok).toBe(false);
+    });
+  });
+
+  /*
+   * The lists an administrator edits actually being editable.
+   *
+   * Settings let somebody add "Establishment card" to the document types, and
+   * it appeared in the dropdown — and was then refused on upload, because a
+   * closed list was still enforced in the domain and again by a constraint on
+   * the table. Authorities happened not to have one, which is why only some of
+   * the lists were broken.
+   */
+  it('accepts a document type added from Settings, from the moment it is added', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { db, receive } = await scenario(tx);
+      await db.execute(
+        `INSERT INTO reference_options (id, list, code, name_en, name_ar, position)
+         VALUES ('ro-new', 'document_type', 'establishment_card', 'Establishment card', 'بطاقة المنشأة', 500)`,
+      );
+
+      const outcome = await receive.execute(
+        CALLER,
+        licence({ type: 'establishment_card', expiresOn: undefined }),
+      );
+      expect(outcome.ok).toBe(true);
+    });
+  });
+
+  it('refuses a document type that was retired, but not the ones already filed under it', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { db, receive, documents } = await scenario(tx);
+      await db.execute(
+        `INSERT INTO reference_options (id, list, code, name_en, name_ar, position)
+         VALUES ('ro-new', 'document_type', 'establishment_card', 'Establishment card', 'بطاقة المنشأة', 500)`,
+      );
+      const filed = await receive.execute(
+        CALLER,
+        licence({ type: 'establishment_card', expiresOn: undefined }),
+      );
+      expect(filed.ok).toBe(true);
+
+      await db.execute(`UPDATE reference_options SET retired_at = now() WHERE id = 'ro-new'`);
+
+      const again = await receive.execute(
+        CALLER,
+        licence({ type: 'establishment_card', expiresOn: undefined, label: 'second' }),
+      );
+      expect(again.ok).toBe(false);
+      // The one already filed still reads: retiring takes it out of the dropdown
+      // and leaves history legible.
+      const current = await documents.currentFor('c-1', { kind: 'all' });
+      expect(current.map((document) => document.type)).toContain('establishment_card');
+    });
+  });
+
+  it('refuses a replacement that is not good without touching the document it would replace', async () => {
+    /*
+     * The old one used to be marked superseded before the new one was checked.
+     * A replacement refused for lacking an expiry date left the old row pointing
+     * at a document that was never written, and the deferred foreign key then
+     * failed at commit — "Something went wrong" instead of the reason.
+     */
+    await database.inRollbackTransaction(async (tx) => {
+      const { receive, documents, db } = await scenario(tx);
+      expect((await receive.execute(CALLER, licence())).ok).toBe(true);
+
+      const refused = await receive.execute(CALLER, licence({ expiresOn: undefined }));
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.error.message).toContain('needs an expiry date');
+
+      // The licence on file is exactly as it was: current, and replaced by nothing.
+      const current = await documents.currentFor('c-1', { kind: 'all' });
+      expect(current.map((document) => document.id)).toEqual(['doc-1']);
+      const rows = (await db.execute(
+        `SELECT superseded_by_id FROM client_documents WHERE client_id = 'c-1'`,
+      )) as unknown as { superseded_by_id: string | null }[];
+      expect(rows.every((row) => row.superseded_by_id === null)).toBe(true);
+    });
+  });
+
+  it('still insists on an expiry date for the types that have always needed one', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { receive } = await scenario(tx);
+      expect((await receive.execute(CALLER, licence({ expiresOn: undefined }))).ok).toBe(false);
     });
   });
 

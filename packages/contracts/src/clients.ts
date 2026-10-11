@@ -93,8 +93,6 @@ export type ClientDetail = z.infer<typeof clientDetailSchema>;
 
 export const clientListSchema = z.object({ clients: z.array(clientSummarySchema) });
 
-export const credentialKinds = ['emaratax', 'ftaportal', 'bank_portal', 'other'] as const;
-
 /** A stored login, with the password still sealed. */
 export const credentialSummarySchema = z.object({
   id: z.string(),
@@ -106,7 +104,8 @@ export const credentialSummarySchema = z.object({
 export type CredentialSummary = z.infer<typeof credentialSummarySchema>;
 
 export const storeCredentialSchema = z.object({
-  kind: z.enum(credentialKinds),
+  // A code from the list of portals an administrator maintains in Settings.
+  kind: z.string().regex(/^[a-z0-9_]{1,40}$/, 'Choose which portal this is for'),
   username: z.string().trim().min(1, 'The portal needs a username'),
   secret: z.string().min(1, 'The portal needs a password'),
   note: z.string().trim().max(500).optional(),
@@ -230,6 +229,51 @@ export const letterTemplateSchema = z.object({
 });
 export type LetterTemplate = z.infer<typeof letterTemplateSchema>;
 
+/**
+ * What a letter may be told about the client it is for.
+ *
+ * The same closed set the domain renders from; `letter-placeholder-agreement`
+ * fails if the two ever differ. A screen offering them as buttons has to offer
+ * exactly the ones that will be filled in, and no others.
+ */
+export const letterPlaceholders = [
+  'client_name',
+  'client_name_arabic',
+  'trade_licence',
+  'vat_trn',
+  'ct_trn',
+  'today',
+  'firm_name',
+  'signatory',
+] as const;
+
+/**
+ * A letter as the person who maintains them sees it: the wording itself, and
+ * whether it is still offered (feedback item 6).
+ */
+export const letterTemplateDetailSchema = letterTemplateSchema.extend({
+  bodyEn: z.string(),
+  bodyAr: z.string(),
+  retired: z.boolean(),
+});
+export type LetterTemplateDetail = z.infer<typeof letterTemplateDetailSchema>;
+export const letterTemplateDetailsSchema = z.object({
+  templates: z.array(letterTemplateDetailSchema),
+});
+
+export const createLetterTemplateSchema = z.object({
+  nameEn: z.string().trim().min(1, 'Name the letter in English').max(120),
+  nameAr: z.string().trim().min(1, 'Name the letter in Arabic').max(120),
+  bodyEn: z.string().min(1, 'The letter needs its English wording').max(20_000),
+  bodyAr: z.string().min(1, 'The letter needs its Arabic wording').max(20_000),
+});
+export type CreateLetterTemplateRequest = z.infer<typeof createLetterTemplateSchema>;
+
+export const updateLetterTemplateSchema = createLetterTemplateSchema.partial().extend({
+  retired: z.boolean().optional(),
+});
+export type UpdateLetterTemplateRequest = z.infer<typeof updateLetterTemplateSchema>;
+
 export const letterSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -267,7 +311,7 @@ export const generateLetterSchema = z.object({
  * row in any of those is a name with no behaviour behind it, which is worse
  * than refusing to add one.
  */
-export const referenceLists = ['document_type', 'authority', 'payment_method'] as const;
+export const referenceLists = ['document_type', 'authority', 'payment_method', 'portal'] as const;
 export type ReferenceList = (typeof referenceLists)[number];
 
 export const referenceOptionSchema = z.object({

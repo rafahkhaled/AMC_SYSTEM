@@ -180,6 +180,27 @@ a {
   margin-block-end: var(--space-4);
 }
 
+/*
+ * Space between the things inside a card.
+ *
+ * A card's children were plain blocks with nothing between them, so a row of
+ * dropdowns, the button that acts on them and the heading of what follows sat
+ * flush against each other — on the Letters card the Generate button touched the
+ * dropdown above it. Every screen that put two blocks in a card had to remember
+ * to space them, and the ones that forgot looked broken. Said once, here, for
+ * all of them.
+ *
+ * Not after the header, which already carries its own margin, and a margin
+ * rather than a gap because a card is a block, not a grid: laying it out as a
+ * grid would change how every card's contents size themselves.
+ */
+.card > * + * {
+  margin-block-start: var(--space-4);
+}
+.card > .card__header + * {
+  margin-block-start: 0;
+}
+
 .page {
   max-inline-size: 72rem;
   margin-inline: auto;

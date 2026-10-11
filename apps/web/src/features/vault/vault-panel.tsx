@@ -3,9 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Field, Select } from '../../design/index.js';
+import { useOptions } from '../lists/use-options.js';
 import { listCredentials, retireCredential, revealCredential, storeCredential } from './api.js';
-
-const KINDS = ['emaratax', 'ftaportal', 'bank_portal', 'other'] as const;
 
 /** How long a revealed password stays on screen before it hides itself again. */
 const VISIBLE_SECONDS = 45;
@@ -71,6 +70,9 @@ function CredentialRow({
   retiring: boolean;
 }) {
   const { t } = useTranslation();
+  // Named from the list an administrator maintains, retired portals included:
+  // a login stored for one still has to say what it opens.
+  const portals = useOptions('portal');
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState('');
   const [secret, setSecret] = useState<string | null>(null);
@@ -98,7 +100,7 @@ function CredentialRow({
   return (
     <div className="u-stack-tight credential">
       <div className="line">
-        <Badge>{t(`vault.kinds.${credential.kind}`)}</Badge>
+        <Badge>{portals.label(credential.kind)}</Badge>
         <span className="u-ltr">{credential.username}</span>
         {credential.note ? <span className="u-text-faint">{credential.note}</span> : null}
         <span className="u-grow" />
@@ -161,8 +163,12 @@ function StoreCredential({
   onStored: (credentials: CredentialSummary[]) => void;
 }) {
   const { t } = useTranslation();
+  const portals = useOptions('portal');
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<string>('emaratax');
+  // Empty until the list arrives, then the first one on it. A hardcoded default
+  // would offer a portal an administrator has since retired.
+  const [kind, setKind] = useState<string>('');
+  const chosen = kind || portals.live[0]?.code || '';
   const [username, setUsername] = useState('');
   const [secret, setSecret] = useState('');
   const [note, setNote] = useState('');
@@ -170,7 +176,7 @@ function StoreCredential({
   const store = useMutation({
     mutationFn: () =>
       storeCredential(clientId, {
-        kind,
+        kind: chosen,
         username: username.trim(),
         secret,
         ...(note.trim() ? { note: note.trim() } : {}),
@@ -192,7 +198,7 @@ function StoreCredential({
     );
   }
 
-  const ready = username.trim().length > 0 && secret.length > 0;
+  const ready = chosen !== '' && username.trim().length > 0 && secret.length > 0;
 
   return (
     <form
@@ -205,10 +211,10 @@ function StoreCredential({
       <Field
         label={t('vault.portal')}
         control={(props) => (
-          <Select {...props} value={kind} onChange={(event) => setKind(event.target.value)}>
-            {KINDS.map((code) => (
-              <option key={code} value={code}>
-                {t(`vault.kinds.${code}`)}
+          <Select {...props} value={chosen} onChange={(event) => setKind(event.target.value)}>
+            {portals.live.map((option) => (
+              <option key={option.code} value={option.code}>
+                {portals.label(option.code)}
               </option>
             ))}
           </Select>

@@ -1,3 +1,4 @@
+import { referenceLookup } from '@amc/database';
 import { type TestDatabase, createTestDatabase } from '@amc/database/testing';
 import type { drizzle } from 'drizzle-orm/postgres-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -81,9 +82,12 @@ describe('the credential vault, against a real database', () => {
       reads,
       recorderFails,
       credentials: new DrizzleCredentialRepository(db),
-      vault: new ClientVault(new DrizzleCredentialRepository(db), vault, {
-        next: () => `cred-${++counter}`,
-      }),
+      vault: new ClientVault(
+        new DrizzleCredentialRepository(db),
+        vault,
+        { next: () => `cred-${++counter}` },
+        referenceLookup(db),
+      ),
     };
   }
 
@@ -93,6 +97,51 @@ describe('the credential vault, against a real database', () => {
     username: 'gulf@portal.ae',
     secret: 'S0me-P@ssword',
     ...over,
+  });
+
+  /*
+   * Which portals the firm keeps logins for (feedback item 7).
+   *
+   * A closed set of four in the domain and again in a constraint on the table,
+   * so a bank's own portal, or the next government service, meant a developer.
+   */
+  it('keeps a login for a portal added from Settings, from the moment it is added', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { db, vault } = await scenario(tx);
+      await db.execute(
+        `INSERT INTO reference_options (id, list, code, name_en, name_ar, position)
+         VALUES ('ro-new', 'portal', 'mohre', 'MOHRE', 'وزارة الموارد البشرية', 500)`,
+      );
+
+      expect((await vault.store(MANAGER, login({ kind: 'mohre' }))).ok).toBe(true);
+    });
+  });
+
+  it('refuses a portal that is not on the list, and one that has been retired', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { db, vault } = await scenario(tx);
+      expect((await vault.store(MANAGER, login({ kind: 'not_a_portal' }))).ok).toBe(false);
+
+      await db.execute(
+        `UPDATE reference_options SET retired_at = now() WHERE list = 'portal' AND code = 'ftaportal'`,
+      );
+      expect((await vault.store(MANAGER, login({ kind: 'ftaportal' }))).ok).toBe(false);
+    });
+  });
+
+  it('starts with the four portals it always had', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { db } = await scenario(tx);
+      const rows = (await db.execute(
+        `SELECT code FROM reference_options WHERE list = 'portal' ORDER BY position`,
+      )) as unknown as { code: string }[];
+      expect(rows.map((row) => row.code)).toEqual([
+        'emaratax',
+        'ftaportal',
+        'bank_portal',
+        'other',
+      ]);
+    });
   });
 
   it('never writes the password anywhere readable', async () => {

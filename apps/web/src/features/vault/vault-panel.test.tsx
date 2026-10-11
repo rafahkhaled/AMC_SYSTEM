@@ -9,6 +9,18 @@ const listCredentials = vi.hoisted(() => vi.fn());
 const revealCredential = vi.hoisted(() => vi.fn());
 const storeCredential = vi.hoisted(() => vi.fn());
 const retireCredential = vi.hoisted(() => vi.fn());
+const referenceOptions = vi.hoisted(() => vi.fn());
+vi.mock('../lists/api.js', () => ({ referenceOptions }));
+
+const portal = (code: string, nameEn: string, retired = false) => ({
+  id: code,
+  list: 'portal' as const,
+  code,
+  nameEn,
+  nameAr: nameEn,
+  position: 0,
+  retired,
+});
 vi.mock('./api.js', () => ({
   listCredentials,
   revealCredential,
@@ -41,6 +53,11 @@ describe('a client’s portal logins (FR-05)', () => {
     vi.clearAllMocks();
     vi.useRealTimers();
     await useLanguage('en');
+    referenceOptions.mockResolvedValue([
+      portal('emaratax', 'EmaraTax'),
+      portal('ftaportal', 'FTA portal'),
+      portal('mohre', 'MOHRE'),
+    ]);
   });
 
   afterEach(() => {
@@ -148,11 +165,76 @@ describe('a client’s portal logins (FR-05)', () => {
     await user.type(screen.getByLabelText('Password'), 'N3w-P@ssword');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(storeCredential).toHaveBeenCalledWith('c-1', {
-      kind: 'emaratax',
-      username: 'new@portal.ae',
-      secret: 'N3w-P@ssword',
-    });
+    await waitFor(() =>
+      expect(storeCredential).toHaveBeenCalledWith('c-1', {
+        kind: 'emaratax',
+        username: 'new@portal.ae',
+        secret: 'N3w-P@ssword',
+      }),
+    );
+  });
+
+  /*
+   * Which portals the firm keeps logins for (feedback item 7).
+   *
+   * The four it started with were a list in the screen, in the domain and in a
+   * constraint on the table. They are now the "Portals" list in Settings, so a
+   * bank's own portal or the next government service is added there.
+   */
+  it('offers the portals on the list, including one added later', async () => {
+    const user = userEvent.setup();
+    show([]);
+
+    await user.click(await screen.findByRole('button', { name: 'Add a login' }));
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+
+    expect(options).toEqual(['EmaraTax', 'FTA portal', 'MOHRE']);
+  });
+
+  it('stores a login for a portal added from Settings', async () => {
+    const user = userEvent.setup();
+    show([]);
+    storeCredential.mockResolvedValue([LOGIN]);
+
+    await user.click(await screen.findByRole('button', { name: 'Add a login' }));
+    await user.selectOptions(await screen.findByLabelText('Portal'), 'mohre');
+    await user.type(screen.getByLabelText('Username'), 'new@portal.ae');
+    await user.type(screen.getByLabelText('Password'), 'N3w-P@ssword');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(storeCredential).toHaveBeenCalledWith(
+        'c-1',
+        expect.objectContaining({ kind: 'mohre' }),
+      ),
+    );
+  });
+
+  it('does not offer a portal that has been retired, but still names one already stored', async () => {
+    referenceOptions.mockResolvedValue([
+      portal('emaratax', 'EmaraTax'),
+      portal('old_portal', 'Old portal', true),
+    ]);
+    const user = userEvent.setup();
+    show([{ ...LOGIN, kind: 'old_portal' }]);
+
+    // A login stored for it still says what it opens...
+    expect(await screen.findByText('Old portal')).toBeInTheDocument();
+    // ...and it is not offered for a new one.
+    await user.click(screen.getByRole('button', { name: 'Add a login' }));
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    expect(options).toEqual(['EmaraTax']);
+  });
+
+  it('will not offer to save before the portal list has arrived', async () => {
+    referenceOptions.mockResolvedValue([]);
+    const user = userEvent.setup();
+    show([]);
+
+    await user.click(await screen.findByRole('button', { name: 'Add a login' }));
+    await user.type(screen.getByLabelText('Username'), 'new@portal.ae');
+    await user.type(screen.getByLabelText('Password'), 'N3w-P@ssword');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('will not save a login with no password', async () => {

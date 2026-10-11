@@ -66,6 +66,79 @@ export function placeholdersIn(body: string): Placeholder[] {
   return [...found];
 }
 
+/**
+ * Placeholders in a body that the system will not fill in.
+ *
+ * `renderLetter` leaves an unknown one exactly as written, which is right for a
+ * letter being proofread and wrong for one being written: `{{client_nme}}` saved
+ * today is a letter that goes to a client in six months with the braces still
+ * in it. Asked when a template is saved, so the typo is found by the person who
+ * made it.
+ */
+export function unknownPlaceholdersIn(body: string): string[] {
+  const unknown = new Set<string>();
+  for (const match of body.matchAll(PLACEHOLDER_PATTERN)) {
+    const name = match[1];
+    if (name && !(PLACEHOLDERS as readonly string[]).includes(name)) unknown.add(name);
+  }
+  return [...unknown];
+}
+
+/**
+ * A code out of the English name: `Salary certificate` becomes `salary_certificate`.
+ *
+ * Generated rather than typed, and never reused — a letter already produced
+ * refers to its template by id, but the code is what the screens and the
+ * history show.
+ */
+export function templateCodeFor(nameEn: string, taken: ReadonlySet<string>): string | null {
+  const slug = nameEn
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 50);
+  if (slug.length === 0) return null;
+  if (!taken.has(slug)) return slug;
+  for (let suffix = 2; suffix < 100; suffix += 1) {
+    if (!taken.has(`${slug}_${suffix}`)) return `${slug}_${suffix}`;
+  }
+  return null;
+}
+
+/**
+ * Checks what somebody wrote before it becomes a template.
+ *
+ * Both languages are required, because the letter is generated in whichever the
+ * client reads and a template missing one fails at the moment somebody needs it.
+ * Placeholders must be ones the system fills in, in either language.
+ */
+export function checkTemplateWording(wording: {
+  nameEn: string;
+  nameAr: string;
+  bodyEn: string;
+  bodyAr: string;
+}): Conflict | null {
+  if (wording.nameEn.trim().length === 0 || wording.nameAr.trim().length === 0) {
+    return new Conflict('Name the letter in both English and Arabic');
+  }
+  if (wording.bodyEn.trim().length === 0 || wording.bodyAr.trim().length === 0) {
+    return new Conflict('A letter needs wording in both languages');
+  }
+  const unknown = [
+    ...new Set([
+      ...unknownPlaceholdersIn(wording.bodyEn),
+      ...unknownPlaceholdersIn(wording.bodyAr),
+    ]),
+  ];
+  if (unknown.length > 0) {
+    return new Conflict(
+      `The system cannot fill in ${unknown.map((name) => `{{${name}}}`).join(', ')}. Use one of: ${PLACEHOLDERS.map((name) => `{{${name}}}`).join(', ')}`,
+    );
+  }
+  return null;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

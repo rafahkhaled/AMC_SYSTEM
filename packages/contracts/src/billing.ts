@@ -204,7 +204,8 @@ export const recordPaymentRequestSchema = z
   .object({
     amountMinor: z.number().int().positive(),
     receivedOn: z.string(),
-    method: z.enum(['bank_transfer', 'cheque', 'cash', 'card', 'other']),
+    // A code from the payment methods an administrator maintains in Settings.
+    method: z.string().regex(/^[a-z0-9_]{1,40}$/, 'Choose how it was paid'),
     reference: z.string().trim().max(120).optional(),
     /** A cheque's own number and date, which is what gets chased. */
     chequeNumber: z.string().trim().max(60).optional(),

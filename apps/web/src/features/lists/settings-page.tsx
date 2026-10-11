@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Field, Loading, Select } from '../../design/index.js';
 import { BranchesPanel } from '../branches/branches-panel.js';
+import { LetterTemplatesPanel } from '../letters/templates-panel.js';
 import { ServicesPanel } from '../services/services-panel.js';
 import { addOption, referenceOptions, updateOption } from './api.js';
 
@@ -25,7 +26,9 @@ import { addOption, referenceOptions, updateOption } from './api.js';
  */
 export function SettingsPage() {
   const { t } = useTranslation();
-  const [list, setList] = useState<ReferenceList | 'services' | 'branches'>('document_type');
+  const [list, setList] = useState<ReferenceList | 'services' | 'branches' | 'letters'>(
+    'document_type',
+  );
 
   return (
     <div className="u-stack">
@@ -42,7 +45,7 @@ export function SettingsPage() {
               {...props}
               value={list}
               onChange={(event) =>
-                setList(event.target.value as ReferenceList | 'services' | 'branches')
+                setList(event.target.value as ReferenceList | 'services' | 'branches' | 'letters')
               }
             >
               {referenceLists.map((name) => (
@@ -54,6 +57,7 @@ export function SettingsPage() {
                   and by the same person, so it is chosen the same way. */}
               <option value="services">{t('settings.lists.services')}</option>
               <option value="branches">{t('settings.lists.branches')}</option>
+              <option value="letters">{t('settings.lists.letters')}</option>
             </Select>
           )}
         />
@@ -63,6 +67,8 @@ export function SettingsPage() {
         <ServicesPanel />
       ) : list === 'branches' ? (
         <BranchesPanel />
+      ) : list === 'letters' ? (
+        <LetterTemplatesPanel />
       ) : (
         <OptionList list={list} />
       )}

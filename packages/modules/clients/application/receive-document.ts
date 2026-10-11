@@ -3,6 +3,7 @@ import {
   Conflict as ConflictError,
   type EventCollector,
   type IdGenerator,
+  type ReferenceLookup,
   type Result,
   type UnitOfWork,
   actorFrom,
@@ -72,14 +73,22 @@ export class ReceiveDocument {
     private readonly documents: DocumentRepository,
     private readonly files: DocumentFileStore,
     private readonly ids: IdGenerator,
+    /** The lists an administrator edits: the type, and who issued it, must be on them. */
+    private readonly references: ReferenceLookup,
   ) {}
 
   async execute(
     caller: CallerLike,
     command: UploadCommand,
   ): Promise<Result<{ documentId: string }, Conflict>> {
-    if (!isDocumentType(command.type)) {
-      return err(new ConflictError('That is not a document type this system keeps'));
+    if (
+      !isDocumentType(command.type) ||
+      !(await this.references.isLive('document_type', command.type))
+    ) {
+      // On the list an administrator maintains, and still offered. A type
+      // added from Settings is accepted from the moment it is added; one that
+      // was never there, or has been retired, is not.
+      return err(new ConflictError('That is not a document type the firm keeps'));
     }
     const type: DocumentTypeCode = command.type;
 
@@ -116,21 +125,18 @@ export class ReceiveDocument {
       const replaced = replacing.value;
 
       const now = new Date();
-      /*
-       * The old one is superseded first and the new one inserted second.
-       *
-       * Both orders are refused by a different rule if attempted the other way
-       * round: the unique index on live documents will not have two, and the
-       * foreign key will not point at a row that does not exist yet. The key
-       * is deferred to commit for exactly this, so superseding first is the
-       * order that works. See migration 0008.
-       */
-      if (replaced) {
-        const superseded = replaced.supersede(documentId, now);
-        if (!superseded.ok) return err(superseded.error);
-        await documents.save(replaced);
-      }
 
+      /*
+       * The new document is built and checked *before* the old one is touched.
+       *
+       * The old one used to be superseded first, and then the new one checked.
+       * A replacement that was refused — a trade licence with no expiry date —
+       * left the old row marked as replaced by a document that was never
+       * written, and the deferred foreign key then failed at commit: the person
+       * saw "Something went wrong" instead of "this needs an expiry date", and
+       * the reason was in a log. Nothing is changed until it is known the
+       * replacement is good.
+       */
       const document = ClientDocument.require({
         id: documentId,
         clientId: command.clientId,
@@ -150,6 +156,21 @@ export class ReceiveDocument {
         now,
       });
       if (!received.ok) return err(received.error);
+
+      /*
+       * Then the old one is superseded and the new one inserted.
+       *
+       * Both orders are refused by a different rule if attempted the other way
+       * round: the unique index on live documents will not have two, and the
+       * foreign key will not point at a row that does not exist yet. The key
+       * is deferred to commit for exactly this, so superseding first is the
+       * order that works. See migration 0008.
+       */
+      if (replaced) {
+        const superseded = replaced.supersede(documentId, now);
+        if (!superseded.ok) return err(superseded.error);
+        await documents.save(replaced);
+      }
 
       await documents.save(document);
       return ok({ documentId });
