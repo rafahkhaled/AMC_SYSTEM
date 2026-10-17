@@ -55,6 +55,38 @@ export function projectContext(db: Database): ProjectContextReader {
       return byProject;
     },
 
+    async runningTimers(projectIds) {
+      if (projectIds.length === 0) return new Map();
+      const rows = await db.execute<{
+        project_id: string;
+        user_id: string;
+        display_name: string;
+        started_at: string;
+      }>(sql`
+        SELECT a.project_id, r.user_id, u.display_name, r.started_at
+        FROM running_timers r
+        JOIN project_assignments a ON a.id = r.assignment_id
+        JOIN users u ON u.id = r.user_id
+        WHERE a.project_id IN (${list(projectIds)})
+        ORDER BY r.started_at
+      `);
+
+      const byProject = new Map<
+        string,
+        { userId: string; displayName: string; startedAt: string }[]
+      >();
+      for (const row of rows) {
+        const timers = byProject.get(row.project_id) ?? [];
+        timers.push({
+          userId: row.user_id,
+          displayName: row.display_name,
+          startedAt: new Date(row.started_at).toISOString(),
+        });
+        byProject.set(row.project_id, timers);
+      }
+      return byProject;
+    },
+
     async recordedSeconds(projectIds) {
       if (projectIds.length === 0) return new Map();
       const rows = await db.execute<{ project_id: string; seconds: string | number }>(sql`

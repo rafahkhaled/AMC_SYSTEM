@@ -41,6 +41,7 @@ function detail(over: Partial<ProjectDetail> = {}): ProjectDetail {
     missingDocuments: ['vat_certificate'],
     assignees: [],
     recordedSeconds: 0,
+    timersRunning: [],
     requirements: [
       {
         type: 'vat_certificate',

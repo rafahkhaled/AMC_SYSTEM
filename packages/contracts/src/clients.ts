@@ -68,6 +68,8 @@ export const projectSummarySchema = z.object({
   dueAt: z.string().nullable(),
   missingDocuments: z.array(z.string()),
   isOverdue: z.boolean(),
+  /** Names of the people with a timer running on it. */
+  timersRunning: z.array(z.string()),
 });
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 

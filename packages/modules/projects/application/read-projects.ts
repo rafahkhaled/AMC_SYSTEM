@@ -31,6 +31,10 @@ export interface ProjectContextReader {
     projectIds: readonly string[],
   ): Promise<Map<string, { userId: string; displayName: string; role: string }[]>>;
   recordedSeconds(projectIds: readonly string[]): Promise<Map<string, number>>;
+  /** Timers running on these projects now, by project. */
+  runningTimers(
+    projectIds: readonly string[],
+  ): Promise<Map<string, { userId: string; displayName: string; startedAt: string }[]>>;
   /** Current documents on a client's file, for satisfying a requirement. */
   documentsFor(
     clientId: string,
@@ -161,10 +165,11 @@ export class ReadProjects {
 
     const now = this.clock.now();
     const ids = projects.map((project) => project.id);
-    const [names, assignees, seconds] = await Promise.all([
+    const [names, assignees, seconds, timers] = await Promise.all([
       this.context.clientNames([...new Set(projects.map((project) => project.clientId))]),
       this.context.assignees(ids),
       this.context.recordedSeconds(ids),
+      this.context.runningTimers(ids),
     ]);
 
     return projects.map((project) => ({
@@ -179,6 +184,7 @@ export class ReadProjects {
       missingDocuments: project.missingDocuments,
       assignees: assignees.get(project.id) ?? [],
       recordedSeconds: seconds.get(project.id) ?? 0,
+      timersRunning: timers.get(project.id) ?? [],
     }));
   }
 }

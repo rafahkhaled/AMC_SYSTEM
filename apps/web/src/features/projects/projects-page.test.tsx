@@ -29,6 +29,7 @@ function card(over: Partial<BoardProject> = {}): BoardProject {
     missingDocuments: [],
     assignees: [],
     recordedSeconds: 0,
+    timersRunning: [],
     ...over,
   };
 }
@@ -102,6 +103,27 @@ describe('the board', () => {
 
     expect(await screen.findByText('1 document missing')).toBeInTheDocument();
     expect(screen.getByText('2026-10-28')).toHaveClass('u-danger');
+  });
+
+  it('marks a job that has a timer running, and says whose', async () => {
+    show(
+      board({
+        ready: [
+          card({
+            timersRunning: [
+              { userId: 'u-1', displayName: 'Wael Ajam', startedAt: '2026-10-17T08:00:00.000Z' },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(await screen.findByText('Timer running: Wael Ajam')).toBeInTheDocument();
+  });
+
+  it('shows nothing about timers on a job nobody is timing', async () => {
+    show(board({ ready: [card()] }));
+    await screen.findAllByText(/./);
+    expect(screen.queryByText(/Timer running/)).toBeNull();
   });
 
   it('never reports a recorded span as 0:00', async () => {

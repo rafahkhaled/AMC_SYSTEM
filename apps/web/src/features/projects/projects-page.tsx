@@ -107,6 +107,15 @@ function ProjectCard({ project, onOpen }: { project: BoardProject; onOpen: () =>
             {t('clients.missingDocuments', { count: project.missingDocuments.length })}
           </Badge>
         ) : null}
+        {project.timersRunning.length > 0 ? (
+          <Badge tone="success">
+            {t('jobs.timerRunningBy', {
+              names: project.timersRunning
+                .map((timer) => timer.displayName)
+                .join(t('listSeparator')),
+            })}
+          </Badge>
+        ) : null}
         {project.recordedSeconds > 0 ? (
           <Badge>{t('projects.recorded', { hours: duration(project.recordedSeconds, t) })}</Badge>
         ) : null}

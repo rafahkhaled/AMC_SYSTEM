@@ -353,6 +353,11 @@ function ProjectRow({
           {project.dueAt.slice(0, 10)}
         </span>
       ) : null}
+      {project.timersRunning.length > 0 ? (
+        <Badge tone="success">
+          {t('jobs.timerRunningBy', { names: project.timersRunning.join(t('listSeparator')) })}
+        </Badge>
+      ) : null}
       <Badge>{t(`projectStates.${project.state}`)}</Badge>
       {OPEN_STATES.has(project.state) ? <StartTimerButton projectId={project.id} /> : null}
     </div>

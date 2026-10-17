@@ -38,6 +38,20 @@ export function projectSummaries(db: Database): ProjectSummaryReader {
         ORDER BY t.due_at NULLS LAST, t.created_at DESC
       `);
 
+      const running = await db.execute<{ project_id: string; display_name: string }>(sql`
+        SELECT a.project_id, u.display_name
+        FROM running_timers r
+        JOIN project_assignments a ON a.id = r.assignment_id
+        JOIN projects t ON t.id = a.project_id
+        JOIN users u ON u.id = r.user_id
+        WHERE t.client_id = ${clientId} AND ${visible(scope)}
+        ORDER BY r.started_at
+      `);
+      const timers = new Map<string, string[]>();
+      for (const row of running) {
+        timers.set(row.project_id, [...(timers.get(row.project_id) ?? []), row.display_name]);
+      }
+
       const now = Date.now();
       return rows.map(
         (row): ProjectSummary => ({
@@ -47,6 +61,7 @@ export function projectSummaries(db: Database): ProjectSummaryReader {
           state: row.state,
           dueAt: row.due_at ? new Date(row.due_at).toISOString() : null,
           missingDocuments: row.missing ?? [],
+          timersRunning: timers.get(row.id) ?? [],
           isOverdue:
             row.due_at !== null &&
             !['completed', 'cancelled'].includes(row.state) &&

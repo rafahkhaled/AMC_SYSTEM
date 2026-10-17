@@ -62,6 +62,7 @@ export const translations = {
       data_entry: 'إدخال البيانات',
       client: 'العميل',
     },
+    jobs: { timerRunning: 'المؤقّت يعمل', timerRunningBy: 'المؤقّت يعمل: {{names}}' },
     clients: {
       tabs: { clients: 'العملاء', leads: 'الاستفسارات' },
       search: 'بحث',
@@ -1075,6 +1076,7 @@ export const translations = {
       data_entry: 'Data entry',
       client: 'Client',
     },
+    jobs: { timerRunning: 'Timer running', timerRunningBy: 'Timer running: {{names}}' },
     clients: {
       tabs: { clients: 'Clients', leads: 'Enquiries' },
       search: 'Search',

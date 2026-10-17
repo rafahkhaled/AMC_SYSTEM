@@ -98,6 +98,15 @@ export function ProjectPage({
           <span className="u-text-soft">{t(`services.${detail.service}`)}</span>
           {detail.periodKey ? <span className="u-text-faint u-ltr">{detail.periodKey}</span> : null}
           <Badge>{t(`projectStates.${detail.state}`)}</Badge>
+          {detail.timersRunning.length > 0 ? (
+            <Badge tone="success">
+              {t('jobs.timerRunningBy', {
+                names: detail.timersRunning
+                  .map((timer) => timer.displayName)
+                  .join(t('listSeparator')),
+              })}
+            </Badge>
+          ) : null}
           {detail.isOverdue ? <Badge tone="danger">{t('projects.overdue')}</Badge> : null}
         </div>
       </header>

@@ -399,4 +399,31 @@ describe('services and the work opened under them', () => {
       );
     });
   });
+
+  describe('a job with a timer running', () => {
+    it('says so on the board, the job and the client, and stops saying so when it stops', async () => {
+      const mine = await accountant.get('/projects').expect(200);
+      const first = mine.body.columns.flatMap((c: { projects: { id: string }[] }) => c.projects)[0];
+      if (!first) throw new Error('no job to time');
+
+      await accountant.post('/timer/start').send({ projectId: first.id }).expect(201);
+
+      const board = await manager.get('/projects').expect(200);
+      const timed = board.body.columns
+        .flatMap((c: { projects: { id: string; timersRunning: unknown[] }[] }) => c.projects)
+        .find((p: { id: string }) => p.id === first.id);
+      expect(timed.timersRunning).toHaveLength(1);
+
+      const detail = await manager.get(`/projects/${first.id}`).expect(200);
+      expect(detail.body.timersRunning).toHaveLength(1);
+
+      const client = await manager.get(`/clients/${detail.body.clientId}`).expect(200);
+      const row = client.body.projects.find((p: { id: string }) => p.id === first.id);
+      expect(row.timersRunning).toHaveLength(1);
+
+      await accountant.post('/timer/stop').send({}).expect(201);
+      const after = await manager.get(`/projects/${first.id}`).expect(200);
+      expect(after.body.timersRunning).toEqual([]);
+    });
+  });
 });

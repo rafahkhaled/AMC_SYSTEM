@@ -25,6 +25,10 @@ export const boardProjectSchema = z.object({
   /** Who is on it. Empty means nobody has picked it up yet. */
   assignees: z.array(z.object({ userId: z.string(), displayName: z.string(), role: z.string() })),
   recordedSeconds: z.number().int().nonnegative(),
+  /** Who has a timer running on it right now. Empty when nobody does. */
+  timersRunning: z.array(
+    z.object({ userId: z.string(), displayName: z.string(), startedAt: z.string() }),
+  ),
 });
 export type BoardProject = z.infer<typeof boardProjectSchema>;
 
