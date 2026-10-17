@@ -134,6 +134,13 @@ export const paymentSchema = z.object({
   receivedOn: z.string(),
   method: z.string(),
   reference: z.string().nullable(),
+  /** A cheque's own number, date and bank: what gets chased when it bounces. */
+  chequeNumber: z.string().nullable(),
+  chequeDate: z.string().nullable(),
+  bankName: z.string().nullable(),
+  /** What the firm agreed to drop with this payment, and why. Zero when nothing was. */
+  discount: moneySchema,
+  discountReason: z.string().nullable(),
   recordedBy: z.string(),
 });
 export type PaymentView = z.infer<typeof paymentSchema>;
@@ -161,6 +168,8 @@ export const invoiceSchema = z.object({
   vat: moneySchema,
   total: moneySchema,
   paid: moneySchema,
+  /** Everything forgiven across the payments. Counts towards settling, and is not cash. */
+  discounted: moneySchema,
   balance: moneySchema,
   issuedOn: z.string(),
   dueOn: z.string(),

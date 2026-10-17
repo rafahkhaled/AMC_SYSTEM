@@ -152,6 +152,7 @@ export class DrizzleReportReader implements ReportReader {
       net_minor: string;
       gross_minor: string;
       paid_minor: string;
+      discount_minor: string;
       standard_minor: string | null;
       currency: string;
     }>(sql`
@@ -189,7 +190,8 @@ export class DrizzleReportReader implements ReportReader {
         GROUP BY client_id, currency
       ),
       received AS (
-        SELECT i.client_id, sum(pay.amount_minor) AS paid_minor
+        SELECT i.client_id, sum(pay.amount_minor) AS paid_minor,
+               sum(coalesce(pay.discount_minor, 0)) AS discount_minor
         FROM payments pay
         JOIN invoices i ON i.id = pay.invoice_id
         WHERE i.settlement <> 'cancelled'
@@ -210,6 +212,7 @@ export class DrizzleReportReader implements ReportReader {
              coalesce(billed.net_minor, 0)::text AS net_minor,
              coalesce(billed.gross_minor, 0)::text AS gross_minor,
              coalesce(received.paid_minor, 0)::text AS paid_minor,
+             coalesce(received.discount_minor, 0)::text AS discount_minor,
              standard.per_hour_minor::text AS standard_minor,
              coalesce(billed.currency, standard.currency, 'AED') AS currency
       FROM clients c
@@ -230,6 +233,7 @@ export class DrizzleReportReader implements ReportReader {
         const net = Number(row.net_minor);
         const gross = Number(row.gross_minor);
         const paid = Number(row.paid_minor);
+        const forgiven = Number(row.discount_minor);
 
         return {
           clientId: row.client_id,
@@ -247,7 +251,9 @@ export class DrizzleReportReader implements ReportReader {
            * Never negative, matching Invoice.balance(): an overpayment is
            * shown as settled rather than as money the firm owes back.
            */
-          outstanding: money(Math.max(0, gross - paid), row.currency),
+          // Less what the firm forgave: a client who was given a discount and
+          // paid the rest owes nothing, and the report said they owed the discount.
+          outstanding: money(Math.max(0, gross - paid - forgiven), row.currency),
           /*
            * Null rather than a number when no hours were recorded.
            *

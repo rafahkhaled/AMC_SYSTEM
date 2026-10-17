@@ -171,6 +171,18 @@ describe('projects against a real database', () => {
       ).rejects.toThrow();
     });
   });
+  it('knows which clients a scope may work on, before anything is written', async () => {
+    await database.inRollbackTransaction(async (tx) => {
+      const { projects } = await scenario(tx);
+      // user-a is assigned to c-1 and not c-2.
+      expect(await projects.clientIsReachable('c-1', assignedTo('user-a'))).toBe(true);
+      expect(await projects.clientIsReachable('c-2', assignedTo('user-a'))).toBe(false);
+      expect(await projects.clientIsReachable('c-2', ALL)).toBe(true);
+      expect(await projects.clientIsReachable('c-1', { kind: 'none' })).toBe(false);
+      // A client that does not exist reads the same as one out of scope.
+      expect(await projects.clientIsReachable('no-such-client', ALL)).toBe(false);
+    });
+  });
 });
 
 describe('recurring work (FR-14)', () => {

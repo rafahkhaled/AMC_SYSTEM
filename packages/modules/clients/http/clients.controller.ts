@@ -1,6 +1,19 @@
-import type { ClientDetail, ClientSummary } from '@amc/contracts';
-import { type Caller, CurrentCaller } from '@amc/http-kit';
-import { Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
+import { type ClientDetail, type ClientSummary, changeClientDetailsSchema } from '@amc/contracts';
+import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
+import { NotFound } from '@amc/kernel';
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Param,
+  Patch,
+  Query,
+} from '@nestjs/common';
+import { ManageClientDetails } from '../application/manage-client-details.js';
 import { ReadClients } from '../application/read-clients.js';
 
 /**
@@ -19,7 +32,10 @@ import { ReadClients } from '../application/read-clients.js';
  */
 @Controller('clients')
 export class ClientsController {
-  constructor(@Inject(ReadClients) private readonly clients: ReadClients) {}
+  constructor(
+    @Inject(ReadClients) private readonly clients: ReadClients,
+    @Inject(ManageClientDetails) private readonly details: ManageClientDetails,
+  ) {}
 
   @Get()
   async list(
@@ -36,5 +52,25 @@ export class ClientsController {
     // confirm that a particular company is on the firm's books.
     if (!client) throw new NotFoundException('No such client');
     return client;
+  }
+
+  /** Contact, licence, tax numbers, weekly day off and reference numbers. */
+  @RequirePermissions('clients.edit')
+  @Patch(':id/details')
+  async change(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<ClientDetail> {
+    const parsed = changeClientDetailsSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Check the details');
+    }
+    const outcome = await this.details.change(caller, id, parsed.data);
+    if (!outcome.ok) {
+      if (outcome.error instanceof NotFound) throw new NotFoundException(outcome.error.message);
+      throw new ConflictException(outcome.error.message);
+    }
+    return this.detail(caller, id);
   }
 }

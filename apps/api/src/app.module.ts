@@ -26,6 +26,7 @@ import {
   ContactLog,
   GenerateLetter,
   LeadWorkflow,
+  ManageClientDetails,
   ManageLetterTemplates,
   ReadClients,
   ReadLeads,
@@ -205,12 +206,24 @@ function peopleDirectory(db: Database) {
           ),
           { next: () => ulid() },
           referenceLookup(db),
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) =>
+              new DrizzleCredentialRepository(transaction as Database, collector),
+          },
         ),
         /*
          * The folder every client has (any file, not only the paperwork the
          * practice chases). Audited through the same unit of work, so who
          * put a file there or took it out is on record.
          */
+        clientDetails: new ManageClientDetails(
+          new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
+          {
+            forTransaction: (transaction: unknown, collector: EventCollector) =>
+              new DrizzleClientRepository(transaction as Database, collector),
+          },
+        ),
         clientFiles: new ClientFiles(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
           {

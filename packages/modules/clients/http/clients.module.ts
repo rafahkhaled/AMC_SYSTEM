@@ -11,6 +11,7 @@ import { ClientVault } from '../application/client-vault.js';
 import { ContactLog } from '../application/contact-log.js';
 import { GenerateLetter } from '../application/generate-letter.js';
 import { LeadWorkflow } from '../application/lead-workflow.js';
+import { ManageClientDetails } from '../application/manage-client-details.js';
 import { ManageLetterTemplates } from '../application/manage-letter-templates.js';
 import { ReadClients } from '../application/read-clients.js';
 import { ReadLeads } from '../application/read-leads.js';
@@ -32,6 +33,7 @@ interface Parts {
   leadWorkflow: LeadWorkflow;
   letters: GenerateLetter;
   clientFiles: ClientFiles;
+  clientDetails: ManageClientDetails;
   letterTemplates: ManageLetterTemplates;
 }
 
@@ -90,6 +92,11 @@ export class ClientsModule {
         { provide: LeadWorkflow, inject: [PARTS], useFactory: (p: Parts) => p.leadWorkflow },
         { provide: GenerateLetter, inject: [PARTS], useFactory: (p: Parts) => p.letters },
         { provide: ClientFiles, inject: [PARTS], useFactory: (p: Parts) => p.clientFiles },
+        {
+          provide: ManageClientDetails,
+          inject: [PARTS],
+          useFactory: (p: Parts) => p.clientDetails,
+        },
         {
           provide: ManageLetterTemplates,
           inject: [PARTS],

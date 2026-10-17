@@ -95,6 +95,24 @@ export const environmentSchema = z.object({
    * billed at. Clients almost always have one; this is the floor under the
    * arithmetic so a missing rate bills at something visible rather than zero.
    */
+  /**
+   * How many reverse proxies sit between the internet and this process.
+   *
+   * The audit log records where each action came from, and behind the proxy
+   * every connection arrives from the proxy itself: in production all of it
+   * was recorded as one internal address, so the trail could say who did
+   * something and not where from. Trusting the forwarded address fixes that,
+   * and trusting it blindly would let anybody write whatever address they like
+   * into the trail with a header. So it is a number of hops, not a switch: the
+   * address is taken from that many steps back, and anything a client put in
+   * front of it is ignored.
+   *
+   * Zero by default, which trusts nothing — correct for a development machine
+   * with no proxy and for anything exposed directly. Production runs behind one
+   * (Caddy) and sets 1.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+
   BILLING_VAT_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   BILLING_PAYMENT_TERMS_DAYS: z.coerce.number().int().positive().max(365).default(30),
   BILLING_DEFAULT_RATE_MINOR: z.coerce.number().int().nonnegative().default(30_000),

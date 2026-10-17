@@ -135,6 +135,7 @@ function Screen({
       return (
         <ClientPage
           id={view.id}
+          canEdit={caller.permissions.includes('clients.edit')}
           onBack={() => go({ name: 'clients' })}
           onOpenProject={(projectId) => go({ name: 'project', id: projectId })}
         />

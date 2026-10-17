@@ -327,6 +327,10 @@ export class DrizzleBillingReader implements BillingReader {
       const vat = Math.round((net * row.vat_basis_points) / 10_000);
       const total = net + vat;
       const paid = payments.reduce((sum, payment) => sum + Number(payment.amount_minor), 0);
+      const discounted = payments.reduce(
+        (sum, payment) => sum + Number(payment.discount_minor ?? 0),
+        0,
+      );
 
       return {
         id: row.id,
@@ -355,6 +359,11 @@ export class DrizzleBillingReader implements BillingReader {
           receivedOn: new Date(payment.received_on).toISOString(),
           method: payment.method,
           reference: payment.reference,
+          chequeNumber: payment.cheque_number,
+          chequeDate: payment.cheque_date ? payment.cheque_date.slice(0, 10) : null,
+          bankName: payment.bank_name,
+          discount: money(payment.discount_minor ?? 0, currency),
+          discountReason: payment.discount_reason,
           recordedBy: payment.recorded_by_name ?? payment.recorded_by,
         })),
         vatBasisPoints: row.vat_basis_points,
@@ -362,7 +371,14 @@ export class DrizzleBillingReader implements BillingReader {
         vat: money(vat, currency),
         total: money(total, currency),
         paid: money(paid, currency),
-        balance: money(Math.max(0, total - paid), currency),
+        discounted: money(discounted, currency),
+        /*
+         * What is still owed: the total less money received *and* what was
+         * forgiven. Counting only the money showed an invoice the firm had
+         * settled, with a discount, as "paid" with the forgiven amount still
+         * standing against the client.
+         */
+        balance: money(Math.max(0, total - paid - discounted), currency),
         issuedOn: new Date(row.issued_on).toISOString(),
         dueOn: new Date(row.due_on).toISOString(),
         overdueSince: row.overdue_since ? new Date(row.overdue_since).toISOString() : null,
@@ -454,6 +470,11 @@ type PaymentRow = {
   received_on: string;
   method: string;
   reference: string | null;
+  cheque_number: string | null;
+  cheque_date: string | null;
+  bank_name: string | null;
+  discount_minor: string | null;
+  discount_reason: string | null;
   recorded_by: string;
   recorded_by_name: string | null;
 };

@@ -12,6 +12,7 @@ import { useOptions } from '../lists/use-options.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import { VaultPanel } from '../vault/vault-panel.js';
 import { getClient } from './api.js';
+import { ClientDetailsCard } from './client-details.js';
 
 const MONTHS_AR = [
   'يناير',
@@ -47,8 +48,11 @@ export function ClientPage({
   id,
   onBack,
   onOpenProject,
+  canEdit = false,
 }: {
   id: string;
+  /** Whether this person may change the client's details. */
+  canEdit?: boolean;
   onBack: () => void;
   /** Go to one of this client's jobs, finished ones included. */
   onOpenProject?: (projectId: string) => void;
@@ -115,6 +119,8 @@ export function ClientPage({
           />
         </dl>
       </Card>
+
+      <ClientDetailsCard detail={detail} canEdit={canEdit} months={months} />
 
       <Card title={t('clients.documents')} description={t('clients.documentsHint')}>
         {detail.documents.length === 0 ? (

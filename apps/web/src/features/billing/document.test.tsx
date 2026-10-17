@@ -45,6 +45,7 @@ const invoice = (over: Partial<InvoiceView> = {}): InvoiceView => ({
   vat: aed(0),
   total: aed(175_000),
   paid: aed(0),
+  discounted: aed(0),
   balance: aed(175_000),
   issuedOn: '2026-09-11T08:00:00.000Z',
   dueOn: '2026-10-11T08:00:00.000Z',

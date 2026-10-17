@@ -55,6 +55,14 @@ export async function reviseLine(
   );
 }
 
+export async function restoreLine(statementId: string, lineId: string): Promise<StatementView> {
+  return statementSchema.parse(
+    await send(
+      `/billing/statements/${encodeURIComponent(statementId)}/lines/${encodeURIComponent(lineId)}/restore`,
+    ),
+  );
+}
+
 export async function approve(id: string): Promise<StatementView> {
   return statementSchema.parse(await send(`/billing/statements/${encodeURIComponent(id)}/approve`));
 }

@@ -1,3 +1,4 @@
+import type { EventCollector } from '@amc/kernel';
 import type {
   Client,
   ClientCredential,
@@ -38,7 +39,12 @@ export interface ClientRepository {
    * in use even when the caller cannot see the client using it. It returns
    * only whether one exists, never which.
    */
-  isVatTrnTaken(trn: Trn): Promise<boolean>;
+  isVatTrnTaken(trn: Trn, exceptClientId?: string): Promise<boolean>;
+  referencesOf(clientId: ClientId): Promise<{ label: string; value: string }[]>;
+  replaceReferences(
+    clientId: ClientId,
+    references: readonly { label: string; value: string }[],
+  ): Promise<void>;
   save(client: Client): Promise<void>;
 }
 
@@ -96,6 +102,14 @@ export interface CredentialRepository {
   currentFor(clientId: string, scope: ClientScope): Promise<ClientCredential[]>;
   findById(id: string, scope: ClientScope): Promise<ClientCredential | null>;
   save(credential: ClientCredential): Promise<void>;
+}
+
+export interface ClientRepositoryFactory {
+  forTransaction(db: unknown, collector: EventCollector): ClientRepository;
+}
+
+export interface CredentialRepositoryFactory {
+  forTransaction(db: unknown, collector: EventCollector): CredentialRepository;
 }
 
 export interface DocumentRepository {

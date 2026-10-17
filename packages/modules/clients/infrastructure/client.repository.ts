@@ -1,5 +1,5 @@
 import { type CurrencyCode, type EventCollector, Money, Rate } from '@amc/kernel';
-import { and, asc, eq, exists, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, ne, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ClientRepository, ClientSummary } from '../application/ports.js';
 import {
@@ -17,7 +17,7 @@ import {
   type VatFrequency,
   VatPeriods,
 } from '../domain/index.js';
-import { clientRates, clientStaffAccess, clients } from './schema.js';
+import { clientRates, clientReferences, clientStaffAccess, clients } from './schema.js';
 
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
@@ -70,6 +70,32 @@ export class DrizzleClientRepository implements ClientRepository {
       .limit(options.limit ?? 100);
   }
 
+  async referencesOf(clientId: ClientId): Promise<{ label: string; value: string }[]> {
+    const rows = await this.db
+      .select({ label: clientReferences.label, value: clientReferences.value })
+      .from(clientReferences)
+      .where(eq(clientReferences.clientId, clientId))
+      .orderBy(asc(clientReferences.position));
+    return rows;
+  }
+
+  /** The whole list at once: what the form shows is what is stored. */
+  async replaceReferences(
+    clientId: ClientId,
+    references: readonly { label: string; value: string }[],
+  ): Promise<void> {
+    await this.db.delete(clientReferences).where(eq(clientReferences.clientId, clientId));
+    if (references.length === 0) return;
+    await this.db.insert(clientReferences).values(
+      references.map((reference, position) => ({
+        clientId,
+        label: reference.label,
+        value: reference.value,
+        position,
+      })),
+    );
+  }
+
   /**
    * Unscoped on purpose, and answers only yes or no.
    *
@@ -77,11 +103,15 @@ export class DrizzleClientRepository implements ClientRepository {
    * doing it cannot see the client using it. Returning that client instead
    * would leak exactly what the scoping exists to protect.
    */
-  async isVatTrnTaken(trn: Trn): Promise<boolean> {
+  async isVatTrnTaken(trn: Trn, exceptClientId?: string): Promise<boolean> {
     const [row] = await this.db
       .select({ id: clients.id })
       .from(clients)
-      .where(eq(clients.vatTrn, trn.value))
+      .where(
+        exceptClientId
+          ? and(eq(clients.vatTrn, trn.value), ne(clients.id, exceptClientId))
+          : eq(clients.vatTrn, trn.value),
+      )
       .limit(1);
     return row !== undefined;
   }
@@ -118,6 +148,11 @@ export class DrizzleClientRepository implements ClientRepository {
       legalName: state.legalName,
       legalNameArabic: state.legalNameArabic,
       tradeLicenceNumber: state.tradeLicenceNumber,
+      contactPerson: state.contactPerson,
+      contactEmail: state.contactEmail,
+      mobile: state.mobile,
+      landline: state.landline,
+      weeklyDayOff: state.weeklyDayOff,
       status: state.status,
       vatState: state.vat.state,
       vatTrn: state.vat.trn?.value ?? null,
@@ -184,6 +219,11 @@ export class DrizzleClientRepository implements ClientRepository {
       legalName: row.legalName,
       legalNameArabic: row.legalNameArabic,
       tradeLicenceNumber: row.tradeLicenceNumber,
+      contactPerson: row.contactPerson,
+      contactEmail: row.contactEmail,
+      mobile: row.mobile,
+      landline: row.landline,
+      weeklyDayOff: row.weeklyDayOff,
       status: row.status as ClientStatus,
       vat: registrationOf(row.vatState, row.vatTrn, row.vatRegisteredOn, row.vatDeregisteredOn),
       corporateTax: registrationOf(

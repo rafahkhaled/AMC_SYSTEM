@@ -32,6 +32,15 @@ export interface ProjectRepository {
    */
   existsForPeriod(clientServiceId: string, periodKey: string): Promise<boolean>;
   save(project: Project): Promise<void>;
+  /**
+   * Whether the client is one this scope may work on.
+   *
+   * Opening work writes a project and, for a first-time service, an
+   * engagement; reading the result back is scoped, but the writing happened
+   * first. Asked before anything is written, so somebody cannot open work on a
+   * client they are not assigned to and be told it "does not exist" afterwards.
+   */
+  clientIsReachable(clientId: string, scope: ProjectScope): Promise<boolean>;
 }
 
 export interface ClientServiceRepository {

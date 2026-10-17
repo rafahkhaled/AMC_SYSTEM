@@ -7,6 +7,7 @@ import {
   taskDueSchema,
 } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
+import { NotFound } from '@amc/kernel';
 import {
   BadRequestException,
   Body,
@@ -76,7 +77,10 @@ export class ProjectsController {
       ...(parsed.data.dueOn ? { dueAt: new Date(`${parsed.data.dueOn}T00:00:00.000Z`) } : {}),
       ...(parsed.data.periodKey ? { periodKey: parsed.data.periodKey } : {}),
     });
-    if (!started.ok) throw new ConflictException(started.error.message);
+    if (!started.ok) {
+      if (started.error instanceof NotFound) throw new NotFoundException(started.error.message);
+      throw new ConflictException(started.error.message);
+    }
 
     const detail = await this.projects.detail(caller, started.value.id);
     if (!detail) throw new NotFoundException('No such project');

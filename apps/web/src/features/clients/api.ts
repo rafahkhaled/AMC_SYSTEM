@@ -1,10 +1,11 @@
 import {
+  type ChangeClientDetails,
   type ClientDetail,
   type ClientSummary,
   clientDetailSchema,
   clientListSchema,
 } from '@amc/contracts';
-import { request } from '../auth/api.js';
+import { patch, request } from '../auth/api.js';
 
 export async function listClients(): Promise<ClientSummary[]> {
   return clientListSchema.parse(await request('/clients')).clients;
@@ -12,4 +13,12 @@ export async function listClients(): Promise<ClientSummary[]> {
 
 export async function getClient(id: string): Promise<ClientDetail> {
   return clientDetailSchema.parse(await request(`/clients/${encodeURIComponent(id)}`));
+}
+
+/** Only the fields named are changed; a field sent as null is cleared. */
+export async function changeClientDetails(
+  id: string,
+  body: ChangeClientDetails,
+): Promise<ClientDetail> {
+  return clientDetailSchema.parse(await patch(`/clients/${encodeURIComponent(id)}/details`, body));
 }

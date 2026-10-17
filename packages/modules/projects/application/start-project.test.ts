@@ -1,3 +1,4 @@
+import { NotFound } from '@amc/kernel';
 import { describe, expect, it } from 'vitest';
 import {
   ALL_SERVICES,
@@ -26,7 +27,15 @@ class Ids {
 
 class Projects implements ProjectRepository {
   readonly saved: Project[] = [];
-  constructor(private readonly existing: Project[] = []) {}
+  constructor(
+    private readonly existing: Project[] = [],
+    /** Clients the caller may work on. Everybody's, unless a test says otherwise. */
+    private readonly reachable: ReadonlySet<string> | null = null,
+  ) {}
+
+  async clientIsReachable(clientId: string): Promise<boolean> {
+    return this.reachable === null || this.reachable.has(clientId);
+  }
 
   async forClient(clientId: string): Promise<Project[]> {
     return this.existing.filter((project) => project.clientId === clientId);
@@ -321,5 +330,39 @@ describe('starting a service the firm added (feedback item 8)', () => {
 
     expect(refused.ok).toBe(false);
     if (!refused.ok) expect(refused.error.message).toContain('not one of the services');
+  });
+});
+
+describe('opening work on a client that is not the caller’s (scope)', () => {
+  it('refuses, and writes nothing, for a client outside the scope', async () => {
+    // An accountant used to be able to open work on a client assigned to
+    // somebody else: the job and its engagement were written, and only reading
+    // them back — which is scoped — failed, as "no such project".
+    const projects = new Projects([], new Set(['c-mine']));
+    const services = new Services();
+    const start = new StartProject(projects, services, clock, new Ids(), catalogue);
+
+    const refused = await start.execute({
+      clientId: 'c-theirs',
+      service: 'emaratax_request',
+      scope: { kind: 'assigned', userId: 'u-1' },
+    });
+
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error).toBeInstanceOf(NotFound);
+    expect(projects.saved).toEqual([]);
+    expect(services.created).toEqual([]);
+  });
+
+  it('opens it for a client inside the scope', async () => {
+    const projects = new Projects([], new Set(['c-mine']));
+    const start = new StartProject(projects, new Services(), clock, new Ids(), catalogue);
+
+    const opened = await start.execute({
+      clientId: 'c-mine',
+      service: 'emaratax_request',
+      scope: { kind: 'assigned', userId: 'u-1' },
+    });
+    expect(opened.ok).toBe(true);
   });
 });

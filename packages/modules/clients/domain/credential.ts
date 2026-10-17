@@ -1,4 +1,4 @@
-import { Conflict, type Result, err, ok } from '@amc/kernel';
+import { AggregateRoot, Conflict, type Result, domainEvent, err, ok } from '@amc/kernel';
 
 /** What a stored credential opens: a code from the list of portals in Settings. */
 export type CredentialKind = string;
@@ -38,8 +38,10 @@ export interface CredentialState {
  * the vault, which writes the audit row before it returns the plaintext, so
  * there is exactly one route in and it is a recorded one.
  */
-export class ClientCredential {
-  private constructor(private state: CredentialState) {}
+export class ClientCredential extends AggregateRoot<string> {
+  private constructor(private state: CredentialState) {
+    super(state.id);
+  }
 
   static rehydrate(state: CredentialState): ClientCredential {
     return new ClientCredential(state);
@@ -64,24 +66,29 @@ export class ClientCredential {
       return err(new Conflict('A credential needs a password'));
     }
 
-    return ok(
-      new ClientCredential({
-        id: params.id,
+    const credential = new ClientCredential({
+      id: params.id,
+      clientId: params.clientId,
+      kind: params.kind,
+      username,
+      secretSealed: params.secretSealed,
+      note: params.note?.trim() || null,
+      retiredAt: null,
+      retiredBy: null,
+      createdBy: params.by,
+      createdAt: params.now,
+    });
+    // Which portal and whose login, never the password or the sealed secret:
+    // the log says that a login changed hands, not what it was.
+    credential.record(
+      domainEvent('clients.credential.stored', params.id, params.now, {
+        credentialId: params.id,
         clientId: params.clientId,
         kind: params.kind,
         username,
-        secretSealed: params.secretSealed,
-        note: params.note?.trim() || null,
-        retiredAt: null,
-        retiredBy: null,
-        createdBy: params.by,
-        createdAt: params.now,
       }),
     );
-  }
-
-  get id(): string {
-    return this.state.id;
+    return ok(credential);
   }
 
   get clientId(): string {
@@ -115,6 +122,13 @@ export class ClientCredential {
   retire(by: string, now: Date): Result<true, Conflict> {
     if (this.state.retiredAt) return err(new Conflict('That credential is already retired'));
     this.state = { ...this.state, retiredAt: now, retiredBy: by };
+    this.record(
+      domainEvent('clients.credential.retired', this.id, now, {
+        credentialId: this.id,
+        clientId: this.state.clientId,
+        kind: this.state.kind,
+      }),
+    );
     return ok(true);
   }
 

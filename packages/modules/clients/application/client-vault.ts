@@ -6,13 +6,14 @@ import {
   type IdGenerator,
   type ReferenceLookup,
   type Result,
+  type UnitOfWork,
   actorFrom,
   err,
   heldBy,
   ok,
 } from '@amc/kernel';
 import { ClientCredential, scopeFor } from '../domain/index.js';
-import type { CallerLike, CredentialRepository } from './ports.js';
+import type { CallerLike, CredentialRepository, CredentialRepositoryFactory } from './ports.js';
 
 /**
  * The vault, as this module needs it.
@@ -55,6 +56,9 @@ export class ClientVault {
     private readonly ids: IdGenerator,
     /** The portals an administrator maintains in Settings. */
     private readonly references: ReferenceLookup,
+    /** Storing and retiring are writes, so they are audited in one transaction. */
+    private readonly unitOfWork: UnitOfWork,
+    private readonly repositories: CredentialRepositoryFactory,
   ) {}
 
   /** Usernames and notes. Never a password, so this is not a logged read. */
@@ -132,47 +136,59 @@ export class ClientVault {
     }
 
     const scope = scopeFor(caller);
-    const existing = (await this.credentials.currentFor(params.clientId, scope)).find(
-      (candidate) => candidate.kind === params.kind,
-    );
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
+      const repository = this.repositories.forTransaction(
+        (context as unknown as { db: unknown }).db,
+        context,
+      );
+      const existing = (await repository.currentFor(params.clientId, scope)).find(
+        (candidate) => candidate.kind === params.kind,
+      );
 
-    const now = new Date();
-    const credential = ClientCredential.store({
-      id: this.ids.next(),
-      clientId: params.clientId,
-      kind: params.kind,
-      username: params.username,
-      secretSealed: await this.vault.seal(params.secret),
-      ...(params.note === undefined ? {} : { note: params.note }),
-      by: caller.userId,
-      now,
+      const now = new Date();
+      const credential = ClientCredential.store({
+        id: this.ids.next(),
+        clientId: params.clientId,
+        kind: params.kind,
+        username: params.username,
+        secretSealed: await this.vault.seal(params.secret),
+        ...(params.note === undefined ? {} : { note: params.note }),
+        by: caller.userId,
+        now,
+      });
+      if (!credential.ok) return err(credential.error);
+
+      /*
+       * Retire first, then store. One live credential of each kind per client
+       * is a unique index, and inserting the replacement while the old one is
+       * still live is refused by it.
+       */
+      if (existing) {
+        const retired = existing.retire(caller.userId, now);
+        if (!retired.ok) return err(retired.error);
+        await repository.save(existing);
+      }
+
+      await repository.save(credential.value);
+      return ok({ credentialId: credential.value.id });
     });
-    if (!credential.ok) return err(credential.error);
-
-    /*
-     * Retire first, then store. One live credential of each kind per client
-     * is a unique index, and inserting the replacement while the old one is
-     * still live is refused by it.
-     */
-    if (existing) {
-      const retired = existing.retire(caller.userId, now);
-      if (!retired.ok) return err(retired.error);
-      await this.credentials.save(existing);
-    }
-
-    await this.credentials.save(credential.value);
-    return ok({ credentialId: credential.value.id });
   }
 
   /** Take a login out of use, keeping the record that it existed. */
   async retire(caller: CallerLike, credentialId: string): Promise<Result<true, Conflict>> {
-    const credential = await this.credentials.findById(credentialId, scopeFor(caller));
-    if (!credential) return err(new ConflictError('No such credential'));
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
+      const repository = this.repositories.forTransaction(
+        (context as unknown as { db: unknown }).db,
+        context,
+      );
+      const credential = await repository.findById(credentialId, scopeFor(caller));
+      if (!credential) return err(new ConflictError('No such credential'));
 
-    const retired = credential.retire(caller.userId, new Date());
-    if (!retired.ok) return err(retired.error);
+      const retired = credential.retire(caller.userId, new Date());
+      if (!retired.ok) return err(retired.error);
 
-    await this.credentials.save(credential);
-    return ok(true);
+      await repository.save(credential);
+      return ok(true as const);
+    });
   }
 }

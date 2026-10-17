@@ -1,4 +1,12 @@
-import { type Clock, Conflict, type IdGenerator, type Result, err, ok } from '@amc/kernel';
+import {
+  type Clock,
+  Conflict,
+  type IdGenerator,
+  NotFound,
+  type Result,
+  err,
+  ok,
+} from '@amc/kernel';
 import { Project, type ServiceCode, type ServiceTemplate } from '../domain/index.js';
 import type {
   ClientServiceRepository,
@@ -36,11 +44,21 @@ export class StartProject {
     dueAt?: Date | null;
     periodKey?: string | null;
     scope: ProjectScope;
-  }): Promise<Result<Project, Conflict>> {
-    // Out of scope reads as not there, the way it does everywhere else: a
-    // refusal would confirm the client exists to somebody who may not see it.
-    if (params.scope.kind === 'none') {
-      return err(new Conflict('That client is not there'));
+  }): Promise<Result<Project, Conflict | NotFound>> {
+    /*
+     * Out of scope reads as not there, the way it does everywhere else: a
+     * refusal would confirm the client exists to somebody who may not see it.
+     *
+     * Checked against the client itself, not only against the caller having
+     * *some* scope. An accountant has one, and used to be able to open work on
+     * a client assigned to somebody else: the job was written, and only reading
+     * it back — which is scoped — failed, as "no such project".
+     */
+    if (
+      params.scope.kind === 'none' ||
+      !(await this.projects.clientIsReachable(params.clientId, params.scope))
+    ) {
+      return err(new NotFound('That client is not there'));
     }
 
     const template = await this.catalogue.find(params.service);

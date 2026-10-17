@@ -78,8 +78,21 @@ export const rateChangeSchema = z.object({
   note: z.string().nullable(),
 });
 
+/** A named reference number: establishment card, MOL, chamber of commerce. */
+export const clientReferenceSchema = z.object({
+  label: z.string().trim().min(1).max(60),
+  value: z.string().trim().min(1).max(80),
+});
+export type ClientReference = z.infer<typeof clientReferenceSchema>;
+
 export const clientDetailSchema = clientSummarySchema.extend({
   tradeLicenceNumber: z.string().nullable(),
+  contactPerson: z.string().nullable(),
+  contactEmail: z.string().nullable(),
+  mobile: z.string().nullable(),
+  landline: z.string().nullable(),
+  weeklyDayOff: z.number().int().nullable(),
+  references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
   /** Which months this client's VAT periods end in. Staggered per client. */
   vatPeriodEndMonths: z.array(z.number().int()),
@@ -375,3 +388,43 @@ export const clientFilesUploadedSchema = clientFilesSchema.extend({
   refused: z.array(z.object({ name: z.string(), reason: z.string() })),
 });
 export type ClientFilesUploaded = z.infer<typeof clientFilesUploadedSchema>;
+
+/**
+ * The details of a client the firm keeps and corrects.
+ *
+ * A field left out stays as it is and a field sent as null is cleared, so a
+ * form can send only what was touched. A tax number is a registration: for a
+ * client not yet registered it also needs the cycle that makes a deadline.
+ */
+export const changeClientDetailsSchema = z.object({
+  tradeLicenceNumber: z.string().trim().max(60).nullable().optional(),
+  contactPerson: z.string().trim().max(120).nullable().optional(),
+  contactEmail: z.string().trim().max(200).nullable().optional(),
+  mobile: z.string().trim().max(30).nullable().optional(),
+  landline: z.string().trim().max(30).nullable().optional(),
+  /** 0 is Sunday, 6 is Saturday. */
+  weeklyDayOff: z.number().int().min(0).max(6).nullable().optional(),
+  vat: z
+    .object({
+      trn: z.string().trim().min(1),
+      registeredOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+      frequency: z.enum(['monthly', 'quarterly']).optional(),
+      anchorEndMonth: z.number().int().min(1).max(12).optional(),
+    })
+    .optional(),
+  corporateTax: z
+    .object({
+      trn: z.string().trim().min(1),
+      registeredOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+      financialYearEndMonth: z.number().int().min(1).max(12).optional(),
+    })
+    .optional(),
+  references: z.array(clientReferenceSchema).max(30).optional(),
+});
+export type ChangeClientDetails = z.infer<typeof changeClientDetailsSchema>;

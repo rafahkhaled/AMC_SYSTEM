@@ -83,6 +83,16 @@ export class DrizzleProjectRepository implements ProjectRepository {
     return rows.length > 0;
   }
 
+  async clientIsReachable(clientId: string, scope: ProjectScope): Promise<boolean> {
+    if (scope.kind === 'none') return false;
+    const rows = await this.db.execute<{ one: number }>(sql`
+      SELECT 1 AS one FROM clients c
+      WHERE c.id = ${clientId} AND ${scopePredicate(scope, sql`c.id`)}
+      LIMIT 1
+    `);
+    return rows.length > 0;
+  }
+
   async save(project: Project): Promise<void> {
     this.collector?.collect(project.pullEvents());
     const state = project.snapshot();

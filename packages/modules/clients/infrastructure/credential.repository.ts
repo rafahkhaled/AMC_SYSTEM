@@ -1,3 +1,4 @@
+import type { EventCollector } from '@amc/kernel';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { CredentialRepository } from '../application/ports.js';
@@ -9,7 +10,10 @@ import { clientIsReachable } from './scoping.js';
 type Db = PostgresJsDatabase<Record<string, unknown>>;
 
 export class DrizzleCredentialRepository implements CredentialRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly collector?: EventCollector,
+  ) {}
 
   async currentFor(clientId: string, scope: ClientScope): Promise<ClientCredential[]> {
     if (!(await clientIsReachable(this.db, clientId, scope))) return [];
@@ -36,6 +40,7 @@ export class DrizzleCredentialRepository implements CredentialRepository {
   }
 
   async save(credential: ClientCredential): Promise<void> {
+    this.collector?.collect(credential.pullEvents());
     const state = credential.snapshot();
     const row = {
       id: state.id,

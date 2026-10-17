@@ -1,4 +1,13 @@
-import { AggregateRoot, Conflict, Rate, type Result, domainEvent, err, ok } from '@amc/kernel';
+import {
+  AggregateRoot,
+  Conflict,
+  Rate,
+  type Result,
+  domainEvent,
+  err,
+  ok,
+  toE164,
+} from '@amc/kernel';
 import { type RateChange, RateHistory } from './client-rate.js';
 import type { FinancialYear, VatPeriods } from './tax-period.js';
 import type { Trn } from './trn.js';
@@ -35,6 +44,12 @@ export interface ClientState {
   readonly legalName: string;
   readonly legalNameArabic: string | null;
   readonly tradeLicenceNumber: string | null;
+  readonly contactPerson: string | null;
+  readonly contactEmail: string | null;
+  readonly mobile: string | null;
+  readonly landline: string | null;
+  /** 0 is Sunday, 6 is Saturday. */
+  readonly weeklyDayOff: number | null;
   readonly status: ClientStatus;
   readonly vat: TaxRegistration;
   readonly corporateTax: TaxRegistration;
@@ -44,6 +59,24 @@ export interface ClientState {
   readonly onboardedOn: Date;
   readonly notes: string | null;
 }
+
+/**
+ * What can be changed about a client's details in one go.
+ *
+ * `undefined` leaves a field as it is and `null` clears it, so a form can send
+ * only what the person touched.
+ */
+export interface ClientDetailsChange {
+  readonly tradeLicenceNumber?: string | null;
+  readonly contactPerson?: string | null;
+  readonly contactEmail?: string | null;
+  readonly mobile?: string | null;
+  readonly landline?: string | null;
+  readonly weeklyDayOff?: number | null;
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const blank = (value: string | null): string | null => value?.trim() || null;
 
 export class Client extends AggregateRoot<ClientId> {
   private constructor(private state: ClientState) {
@@ -71,6 +104,11 @@ export class Client extends AggregateRoot<ClientId> {
       legalName,
       legalNameArabic: params.legalNameArabic?.trim() || null,
       tradeLicenceNumber: params.tradeLicenceNumber?.trim() || null,
+      contactPerson: null,
+      contactEmail: null,
+      mobile: null,
+      landline: null,
+      weeklyDayOff: null,
       status: 'active',
       vat: NOT_REGISTERED,
       corporateTax: NOT_REGISTERED,
@@ -88,6 +126,95 @@ export class Client extends AggregateRoot<ClientId> {
       }),
     );
     return ok(client);
+  }
+
+  /**
+   * Change the details the firm keeps about reaching and identifying a client.
+   *
+   * Phone numbers are checked by reading them, the same way an inbound
+   * WhatsApp number is, so what is stored can be matched against one later.
+   * The event names the fields that changed and not their values: an audit
+   * row is for who changed what, and should not become a second copy of a
+   * client's phone number.
+   */
+  changeDetails(change: ClientDetailsChange, now: Date): Result<true, Conflict> {
+    const next = { ...this.state };
+    const changed: string[] = [];
+    const set = <K extends keyof ClientDetailsChange>(
+      key: K,
+      value: ClientState[K & keyof ClientState],
+    ) => {
+      if (this.state[key as keyof ClientState] !== value) {
+        (next as Record<string, unknown>)[key] = value;
+        changed.push(key);
+      }
+    };
+
+    if (change.tradeLicenceNumber !== undefined) {
+      set('tradeLicenceNumber', blank(change.tradeLicenceNumber));
+    }
+    if (change.contactPerson !== undefined) set('contactPerson', blank(change.contactPerson));
+    if (change.contactEmail !== undefined) {
+      const email = blank(change.contactEmail);
+      if (email && !EMAIL.test(email)) return err(new Conflict('That is not an email address'));
+      set('contactEmail', email);
+    }
+    for (const key of ['mobile', 'landline'] as const) {
+      const given = change[key];
+      if (given === undefined) continue;
+      const number = blank(given);
+      if (number && toE164(number) === null) {
+        return err(new Conflict(`The ${key} number could not be read as a phone number`));
+      }
+      set(key, number);
+    }
+    if (change.weeklyDayOff !== undefined) {
+      const day = change.weeklyDayOff;
+      if (day !== null && (!Number.isInteger(day) || day < 0 || day > 6)) {
+        return err(new Conflict('The weekly day off is a day of the week'));
+      }
+      set('weeklyDayOff', day);
+    }
+
+    if (changed.length === 0) return ok(true);
+    this.state = next;
+    this.record(
+      domainEvent('clients.client.details_changed', this.id, now, {
+        clientId: this.id,
+        fields: changed,
+      }),
+    );
+    return ok(true);
+  }
+
+  /** The firm's own reference numbers for this client were replaced. */
+  noteReferencesChanged(labels: readonly string[], now: Date): void {
+    this.record(
+      domainEvent('clients.client.references_changed', this.id, now, {
+        clientId: this.id,
+        labels,
+      }),
+    );
+  }
+
+  /** A TRN typed wrongly, corrected. Registration state and dates are untouched. */
+  correctTrn(tax: 'vat' | 'corporate_tax', trn: Trn, now: Date): Result<true, Conflict> {
+    const key = tax === 'vat' ? 'vat' : 'corporateTax';
+    const current = this.state[key];
+    if (current.state === 'not_registered') {
+      return err(new Conflict('This client is not registered, so there is no number to correct'));
+    }
+    if (current.trn?.value === trn.value) return ok(true);
+    this.state = { ...this.state, [key]: { ...current, trn } };
+    this.record(
+      domainEvent('clients.client.trn_corrected', this.id, now, {
+        clientId: this.id,
+        tax,
+        from: current.trn?.value ?? null,
+        to: trn.value,
+      }),
+    );
+    return ok(true);
   }
 
   get legalName(): string {

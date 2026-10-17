@@ -115,6 +115,12 @@ export class ReadClients {
       ctState: state.corporateTax.state,
       ctTrn: state.corporateTax.trn?.value ?? null,
       tradeLicenceNumber: state.tradeLicenceNumber,
+      contactPerson: state.contactPerson,
+      contactEmail: state.contactEmail,
+      mobile: state.mobile,
+      landline: state.landline,
+      weeklyDayOff: state.weeklyDayOff,
+      references: await this.clients.referencesOf(clientId),
       // Staggered per client, so the screen shows which months rather than
       // implying everyone files on calendar quarters.
       vatPeriodEndMonths: state.vatPeriods?.endMonths() ?? [],

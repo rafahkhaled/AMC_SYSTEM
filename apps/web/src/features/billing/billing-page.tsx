@@ -13,6 +13,7 @@ import {
   firmProfile,
   raiseInvoice,
   recordPayment,
+  restoreLine,
   reviseLine,
   statement as statementById,
 } from './api.js';
@@ -269,6 +270,10 @@ function StatementLineRow({
 }) {
   const { t, i18n } = useTranslation();
   const [revising, setRevising] = useState(false);
+  const restore = useMutation({
+    mutationFn: () => restoreLine(statementId, line.id),
+    onSuccess: onRevised,
+  });
 
   return (
     <div className={`line${line.excluded ? ' line--excluded' : ''}`}>
@@ -294,7 +299,12 @@ function StatementLineRow({
             <s className="u-text-faint u-numeric">{formatMoney(line.asWorked, i18n.language)}</s>
           ) : null}
           <span className="u-numeric">{formatMoney(line.amount, i18n.language)}</span>
-          {editable ? (
+          {editable && line.excluded ? (
+            <Button small tone="quiet" busy={restore.isPending} onClick={() => restore.mutate()}>
+              {t('billing.restore')}
+            </Button>
+          ) : null}
+          {editable && !line.excluded ? (
             <Button small tone="quiet" onClick={() => setRevising(!revising)}>
               {t('billing.revise')}
             </Button>
@@ -580,6 +590,12 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <span className="u-text-faint">{t('billing.total')}</span>
           <strong className="u-numeric">{formatMoney(invoice.total, i18n.language)}</strong>
         </span>
+        {invoice.discounted.minorUnits > 0 ? (
+          <span>
+            <span className="u-text-faint">{t('billing.forgiven')}</span>
+            <strong className="u-numeric">{formatMoney(invoice.discounted, i18n.language)}</strong>
+          </span>
+        ) : null}
         <span>
           <span className="u-text-faint">{t('billing.owing')}</span>
           <strong className="u-numeric">{formatMoney(invoice.balance, i18n.language)}</strong>
@@ -599,13 +615,40 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <div className="u-stack-tight">
           <strong>{t('billing.payments')}</strong>
           {invoice.payments.map((payment) => (
-            <div key={payment.id} className="u-row u-spread">
-              <span className="u-text-faint">
-                <span className="u-ltr">{payment.receivedOn.slice(0, 10)}</span>
-                {` · ${t(`billing.method.${payment.method}`)}`}
-                {payment.reference ? ` · ${payment.reference}` : null}
-              </span>
-              <span className="u-numeric">{formatMoney(payment.amount, i18n.language)}</span>
+            <div key={payment.id} className="u-stack-tight">
+              <div className="u-row u-spread">
+                <span className="u-text-faint">
+                  <span className="u-ltr">{payment.receivedOn.slice(0, 10)}</span>
+                  {/* From the list in Settings, so a method added there is named
+                      and not shown as a translation key. */}
+                  {` · ${methods.label(payment.method)}`}
+                  {payment.reference ? ` · ${payment.reference}` : null}
+                </span>
+                <span className="u-numeric">{formatMoney(payment.amount, i18n.language)}</span>
+              </div>
+              {/* What was recorded about a cheque: the number and date are what gets
+                  chased when it bounces, and they used to be saved and never shown. */}
+              {payment.chequeNumber || payment.bankName ? (
+                <span className="u-text-faint">
+                  {[
+                    payment.chequeNumber
+                      ? t('billing.chequeDetails', { number: payment.chequeNumber })
+                      : null,
+                    payment.chequeDate ?? null,
+                    payment.bankName,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              ) : null}
+              {payment.discount.minorUnits > 0 ? (
+                <span className="u-text-faint">
+                  {t('billing.discountGiven', {
+                    amount: formatMoney(payment.discount, i18n.language),
+                    reason: payment.discountReason ?? '',
+                  })}
+                </span>
+              ) : null}
             </div>
           ))}
         </div>

@@ -26,6 +26,8 @@ const invoices = vi.hoisted(() => vi.fn());
 const recordPayment = vi.hoisted(() => vi.fn());
 const firmProfile = vi.hoisted(() => vi.fn());
 const listBranches = vi.hoisted(() => vi.fn());
+const referenceOptions = vi.hoisted(() => vi.fn());
+vi.mock('../lists/api.js', () => ({ referenceOptions }));
 vi.mock('../branches/api.js', () => ({ listBranches }));
 
 vi.mock('./api.js', () => ({
@@ -114,6 +116,7 @@ function invoiceOf(over: Partial<InvoiceView> = {}): InvoiceView {
     vat: aed(3_000),
     total: aed(63_000),
     paid: aed(0),
+    discounted: aed(0),
     balance: aed(63_000),
     issuedOn: '2026-10-01T08:00:00.000Z',
     dueOn: '2026-10-31T08:00:00.000Z',
@@ -132,6 +135,22 @@ beforeEach(async () => {
   invoices.mockResolvedValue([invoiceOf()]);
   // A firm with no branches set up, which asks nothing of anybody.
   listBranches.mockResolvedValue([]);
+  referenceOptions.mockResolvedValue(
+    [
+      ['bank_transfer', 'Bank transfer'],
+      ['cheque', 'Cheque'],
+      ['cash', 'Cash'],
+      ['crypto', 'Crypto'],
+    ].map(([code, nameEn]) => ({
+      id: code,
+      list: 'payment_method',
+      code,
+      nameEn,
+      nameAr: nameEn,
+      position: 0,
+      retired: false,
+    })),
+  );
 });
 
 describe('an invoice the firm is still working against', () => {
@@ -452,5 +471,95 @@ describe('raising an invoice under a branch', () => {
     await userEvent.click(raise);
 
     await waitFor(() => expect(raiseInvoice).toHaveBeenCalledWith('s-1', 'ajman'));
+  });
+});
+
+/*
+ * What an invoice shows about the money that came in (feedback item 12c).
+ *
+ * The cheque's number, date and bank, and any discount, were saved when the
+ * payment was recorded and never returned — so nobody could see the number of
+ * the cheque they would have to chase. And an invoice settled with a discount
+ * said "paid" while still showing the forgiven amount as owing.
+ */
+describe('the payments on an invoice', () => {
+  const settled = (over: Record<string, unknown> = {}) =>
+    invoiceOf({
+      status: 'paid',
+      settlement: 'paid',
+      total: aed(105_000),
+      paid: aed(95_000),
+      discounted: aed(10_000),
+      balance: aed(0),
+      payments: [
+        {
+          id: 'pay-1',
+          amount: aed(95_000),
+          receivedOn: '2026-10-12T00:00:00.000Z',
+          method: 'cheque',
+          reference: null,
+          chequeNumber: '004217',
+          chequeDate: '2026-10-15',
+          bankName: 'Emirates NBD',
+          discount: aed(10_000),
+          discountReason: 'Early payment',
+          recordedBy: 'Wael Ajam',
+        },
+      ],
+      ...over,
+    });
+
+  it('shows the cheque number, its date and the bank', async () => {
+    invoices.mockResolvedValue([settled()]);
+    await showTab('Invoices');
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Gulf Trading LLC|3001|2071/ }),
+    );
+
+    expect(
+      await screen.findByText(/Cheque no\. 004217 · 2026-10-15 · Emirates NBD/),
+    ).toBeInTheDocument();
+  });
+
+  it('says what was forgiven and why, and does not show it as still owing', async () => {
+    invoices.mockResolvedValue([settled()]);
+    await showTab('Invoices');
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Gulf Trading LLC|3001|2071/ }),
+    );
+
+    expect(await screen.findByText(/Discount .*100\.00.*: Early payment/)).toBeInTheDocument();
+    expect(screen.getByText('Forgiven')).toBeInTheDocument();
+    const owing = screen.getByText('Owing').parentElement as HTMLElement;
+    expect(owing.textContent).toContain('0.00');
+  });
+
+  it('names a payment method added in Settings, not its translation key', async () => {
+    invoices.mockResolvedValue([
+      settled({
+        payments: [
+          {
+            id: 'pay-2',
+            amount: aed(95_000),
+            receivedOn: '2026-10-12T00:00:00.000Z',
+            method: 'crypto',
+            reference: null,
+            chequeNumber: null,
+            chequeDate: null,
+            bankName: null,
+            discount: aed(0),
+            discountReason: null,
+            recordedBy: 'Wael Ajam',
+          },
+        ],
+      }),
+    ]);
+    await showTab('Invoices');
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Gulf Trading LLC|3001|2071/ }),
+    );
+
+    expect(await screen.findByText(/· Crypto/)).toBeInTheDocument();
+    expect(screen.queryByText(/billing\.method\.crypto/)).not.toBeInTheDocument();
   });
 });

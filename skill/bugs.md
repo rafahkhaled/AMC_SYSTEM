@@ -832,3 +832,40 @@ wants one run against a real database before it is believed.
 - **An old server kept answering, again.** A process from a previous session
   was still holding port 3000 with a build that predated the module being
   tested. `ps aux | grep dist/main.js` before believing a 404.
+
+## Found by driving the real HTTP surface (e2e suites in `apps/api/src/e2e`)
+
+Every one of these passed its unit tests.
+
+- **A closed list in the domain and a CHECK in the database** meant a document
+  type or payment method added in Settings was refused on first use. The domain
+  now checks only the code's *shape*; whether it is on the live list is asked of
+  `ReferenceLookup` at the point of use (migration 0043).
+- **Replacing a document without an expiry returned 500.** The old version was
+  superseded before the new one was validated, and the deferred FK failed at
+  commit. Validate the new thing first, then supersede.
+- **An accountant could open work on a client not assigned to them.** The job
+  was written and the read-back returned 404, so the manager was then told it
+  was "already open". `StartProject` now asks `clientIsReachable` before writing.
+- **`POST quotations/:id/resend` was unreachable.** The `:act` route above it
+  matched first and answered 400. Express matches in declaration order; specific
+  routes go before parameterised ones. `security.e2e` sweeps for shadowing.
+- **Cheque number, date, bank and discount were saved and never returned**, so
+  a forgiven amount showed as a balance still owing, and the outstanding report
+  ignored discounts. `balance = max(0, total − paid − discounted)` everywhere.
+- **Audit log IPs were all the proxy's.** Behind Caddy, Express needs
+  `trust proxy` set by hop count (`TRUST_PROXY_HOPS`); never `true`, which
+  trusts a spoofed `X-Forwarded-For`.
+- **Webhook signature checks need the raw body.** The test app must be created
+  with the same options as `main.ts` (`APPLICATION_OPTIONS`, `rawBody: true`),
+  or the HMAC fails with 403 only under test.
+- **An excluded statement line could never be put back.** The aggregate had
+  `restore`, nothing called it. Added the route and a "Put back" button.
+- **Storing, replacing and retiring a portal login was not audited**; only the
+  reveal was. They now run in the unit of work and record
+  `clients.credential.stored` / `.retired`, never the secret.
+- **Tests that assert a no-op:** a "tampered signature" test that swapped a
+  character for the one already there passed 1 time in 16. Flip
+  deterministically.
+- **Dependency audit**: multer < 2.4 and proxy-addr < 2.0.8 had advisories;
+  pinned through `pnpm.overrides`. Run `pnpm audit --prod` before a release.

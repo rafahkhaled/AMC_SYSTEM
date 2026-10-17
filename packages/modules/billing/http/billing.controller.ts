@@ -167,6 +167,30 @@ export class BillingController {
   }
 
   /**
+   * Emailing it again, with a new link.
+   *
+   * Declared before the route that takes the act as a parameter, and it has to
+   * be: `quotations/:id/:act` would otherwise match "resend" first and answer
+   * that it is not something to do to a quotation, which is exactly what it did
+   * — the route existed and could not be reached. Express matches in the order
+   * routes are declared.
+   *
+   * The same permission as sending it the first time. It sends the client a
+   * quotation, and a link, and revokes the one they were holding.
+   */
+  @RequirePermissions('billing.approve')
+  @Post('quotations/:id/resend')
+  async resendQuotation(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+  ): Promise<QuotationView> {
+    await this.mustReadQuotation(caller, id);
+    const again = await this.billing.run(caller, (billing) => billing.quotations.sendAgain(id));
+    if (!again.ok) throw new ConflictException(again.error.message);
+    return this.mustReadQuotation(caller, id);
+  }
+
+  /**
    * Sending, and the client's answer.
    *
    * One route with the act in the path rather than a state in the body: the
@@ -233,18 +257,6 @@ export class BillingController {
    * For the one that went to the wrong address or that the client has lost.
    * The previous link stops working, which is the point.
    */
-  @RequirePermissions('billing.view')
-  @Post('quotations/:id/resend')
-  async resendQuotation(
-    @CurrentCaller() caller: Caller,
-    @Param('id') id: string,
-  ): Promise<QuotationView> {
-    await this.mustReadQuotation(caller, id);
-    const again = await this.billing.run(caller, (billing) => billing.quotations.sendAgain(id));
-    if (!again.ok) throw new ConflictException(again.error.message);
-    return this.mustReadQuotation(caller, id);
-  }
-
   /* ---------------------------------------------------------- reports -- */
 
   /**
@@ -367,6 +379,31 @@ export class BillingController {
 
     if (revised === null) throw new NotFoundException('No such statement');
     if (!revised.ok) throw new ConflictException(revised.error.message);
+    return this.mustRead(caller, id);
+  }
+
+  /** Puts an excluded line back, which the domain allows and nothing could reach. */
+  @RequirePermissions('billing.approve')
+  @Post('statements/:id/lines/:lineId/restore')
+  async restoreLine(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+  ): Promise<StatementView> {
+    const visible = await this.read.statement(caller, id);
+    if (!visible) throw new NotFoundException('No such statement');
+
+    const restored = await this.billing.run(caller, async (billing) => {
+      const statement = await billing.statements.findById(id);
+      if (!statement) return null;
+      const outcome = statement.restore(lineId, new Date());
+      if (!outcome.ok) return outcome;
+      await billing.statements.save(statement);
+      return outcome;
+    });
+
+    if (restored === null) throw new NotFoundException('No such statement');
+    if (!restored.ok) throw new ConflictException(restored.error.message);
     return this.mustRead(caller, id);
   }
 

@@ -23,6 +23,11 @@ export const clients = pgTable(
     legalName: text('legal_name').notNull(),
     legalNameArabic: text('legal_name_arabic'),
     tradeLicenceNumber: text('trade_licence_number'),
+    contactPerson: text('contact_person'),
+    contactEmail: citext('contact_email'),
+    mobile: text('mobile'),
+    landline: text('landline'),
+    weeklyDayOff: smallint('weekly_day_off'),
     status: text('status').notNull().default('active'),
 
     vatState: text('vat_state').notNull().default('not_registered'),
@@ -219,3 +224,14 @@ export const generatedDocuments = pgTable('generated_documents', {
   authority: text('authority'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const clientReferences = pgTable(
+  'client_references',
+  {
+    clientId: text('client_id').notNull(),
+    label: text('label').notNull(),
+    value: text('value').notNull(),
+    position: smallint('position').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.clientId, table.label] })],
+);

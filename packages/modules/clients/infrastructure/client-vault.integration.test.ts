@@ -87,6 +87,16 @@ describe('the credential vault, against a real database', () => {
         vault,
         { next: () => `cred-${++counter}` },
         referenceLookup(db),
+        // The scenario is already one transaction that is rolled back, so the
+        // unit of work here only has to hand the work that transaction.
+        {
+          run: async (_actor, work) =>
+            work({ db, collect: () => undefined } as unknown as Parameters<typeof work>[0]),
+        },
+        {
+          forTransaction: (transaction: unknown) =>
+            new DrizzleCredentialRepository(transaction as typeof db),
+        },
       ),
     };
   }
