@@ -48,6 +48,7 @@ function toView(lead: Lead, now: Date): LeadView {
     email: state.email,
     source: state.source,
     sourceDetail: state.sourceDetail,
+    campaignId: state.campaignId,
     requestedService: state.requestedService,
     status: state.status,
     convertedClientId: state.convertedClientId,

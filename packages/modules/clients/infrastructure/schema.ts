@@ -79,6 +79,7 @@ export const leads = pgTable(
     email: citext('email'),
     source: text('source').notNull(),
     sourceDetail: text('source_detail'),
+    campaignId: text('campaign_id'),
     requestedService: text('requested_service'),
     status: text('status').notNull().default('new'),
     convertedClientId: text('converted_client_id').references(() => clients.id, {

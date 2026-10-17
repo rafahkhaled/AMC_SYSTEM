@@ -194,6 +194,8 @@ export const leadSchema = z.object({
   email: z.string().nullable(),
   source: z.enum(leadSources),
   sourceDetail: z.string().nullable(),
+  /** The campaign that brought this enquiry in, when it was one. */
+  campaignId: z.string().nullable(),
   requestedService: z.string().nullable(),
   status: z.enum(leadStatuses),
   convertedClientId: z.string().nullable(),
@@ -219,6 +221,7 @@ export const captureLeadSchema = z
     email: z.string().trim().optional(),
     source: z.enum(leadSources),
     sourceDetail: z.string().trim().max(200).optional(),
+    campaignId: z.string().trim().min(1).optional(),
     requestedService: z.string().trim().max(200).optional(),
   })
   .refine((lead) => Boolean(lead.phone || lead.email), {
@@ -326,7 +329,13 @@ export const generateLetterSchema = z.object({
  * row in any of those is a name with no behaviour behind it, which is worse
  * than refusing to add one.
  */
-export const referenceLists = ['document_type', 'authority', 'payment_method', 'portal'] as const;
+export const referenceLists = [
+  'document_type',
+  'authority',
+  'payment_method',
+  'portal',
+  'campaign_type',
+] as const;
 export type ReferenceList = (typeof referenceLists)[number];
 
 export const referenceOptionSchema = z.object({

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Field, Loading, Select } from '../../design/index.js';
 import { BranchesPanel } from '../branches/branches-panel.js';
+import { CampaignsPanel } from '../campaigns/campaigns-panel.js';
 import { LetterTemplatesPanel } from '../letters/templates-panel.js';
 import { ServicesPanel } from '../services/services-panel.js';
 import { addOption, referenceOptions, updateOption } from './api.js';
@@ -26,9 +27,9 @@ import { addOption, referenceOptions, updateOption } from './api.js';
  */
 export function SettingsPage() {
   const { t } = useTranslation();
-  const [list, setList] = useState<ReferenceList | 'services' | 'branches' | 'letters'>(
-    'document_type',
-  );
+  const [list, setList] = useState<
+    ReferenceList | 'services' | 'branches' | 'letters' | 'campaigns'
+  >('document_type');
 
   return (
     <div className="u-stack">
@@ -45,7 +46,14 @@ export function SettingsPage() {
               {...props}
               value={list}
               onChange={(event) =>
-                setList(event.target.value as ReferenceList | 'services' | 'branches' | 'letters')
+                setList(
+                  event.target.value as
+                    | ReferenceList
+                    | 'services'
+                    | 'branches'
+                    | 'letters'
+                    | 'campaigns',
+                )
               }
             >
               {referenceLists.map((name) => (
@@ -58,6 +66,7 @@ export function SettingsPage() {
               <option value="services">{t('settings.lists.services')}</option>
               <option value="branches">{t('settings.lists.branches')}</option>
               <option value="letters">{t('settings.lists.letters')}</option>
+              <option value="campaigns">{t('settings.lists.campaigns')}</option>
             </Select>
           )}
         />
@@ -69,6 +78,8 @@ export function SettingsPage() {
         <BranchesPanel />
       ) : list === 'letters' ? (
         <LetterTemplatesPanel />
+      ) : list === 'campaigns' ? (
+        <CampaignsPanel />
       ) : (
         <OptionList list={list} />
       )}

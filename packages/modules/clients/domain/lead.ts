@@ -36,6 +36,7 @@ export interface LeadState {
   readonly email: string | null;
   readonly source: LeadSource;
   readonly sourceDetail: string | null;
+  readonly campaignId: string | null;
   readonly requestedService: string | null;
   readonly status: LeadStatus;
   readonly convertedClientId: string | null;
@@ -59,6 +60,7 @@ export class Lead extends AggregateRoot<LeadId> {
     email?: string | null;
     source: LeadSource;
     sourceDetail?: string | null;
+    campaignId?: string | null;
     requestedService?: string | null;
     now: Date;
   }): Result<Lead, Conflict> {
@@ -80,6 +82,7 @@ export class Lead extends AggregateRoot<LeadId> {
       email,
       source: params.source,
       sourceDetail: params.sourceDetail?.trim() || null,
+      campaignId: params.campaignId ?? null,
       requestedService: params.requestedService?.trim() || null,
       status: 'new',
       convertedClientId: null,
@@ -91,6 +94,7 @@ export class Lead extends AggregateRoot<LeadId> {
       domainEvent('clients.lead.captured', params.id, params.now, {
         leadId: params.id,
         source: params.source,
+        campaignId: params.campaignId ?? null,
         requestedService: params.requestedService ?? null,
       }),
     );

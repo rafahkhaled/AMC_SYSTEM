@@ -12,6 +12,7 @@ export async function captureLead(lead: {
   email?: string;
   source: string;
   sourceDetail?: string;
+  campaignId?: string;
   requestedService?: string;
 }): Promise<LeadBoard> {
   return leadBoardSchema.parse(await send('/leads', lead));

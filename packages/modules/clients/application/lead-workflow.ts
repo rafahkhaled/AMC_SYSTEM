@@ -10,7 +10,7 @@ import {
   ok,
 } from '@amc/kernel';
 import { Client, Lead, type LeadSource, type LeadStatus } from '../domain/index.js';
-import type { CallerLike, ClientRepository, LeadRepository } from './ports.js';
+import type { CallerLike, CampaignDirectory, ClientRepository, LeadRepository } from './ports.js';
 
 export interface LeadRepositoryFactory {
   forTransaction(
@@ -25,9 +25,10 @@ export class LeadWorkflow {
     private readonly unitOfWork: UnitOfWork,
     private readonly repositories: LeadRepositoryFactory,
     private readonly ids: IdGenerator,
+    private readonly campaigns: CampaignDirectory,
   ) {}
 
-  capture(
+  async capture(
     caller: CallerLike,
     params: {
       name: string;
@@ -35,9 +36,14 @@ export class LeadWorkflow {
       email?: string | undefined;
       source: string;
       sourceDetail?: string | undefined;
+      campaignId?: string | undefined;
       requestedService?: string | undefined;
     },
   ): Promise<Result<{ leadId: string }, Conflict>> {
+    if (params.campaignId !== undefined && !(await this.campaigns.exists(params.campaignId))) {
+      return err(new ConflictError('That campaign does not exist'));
+    }
+
     return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const { leads } = this.repositories.forTransaction(
         (context as unknown as { db: unknown }).db,
@@ -52,6 +58,7 @@ export class LeadWorkflow {
         ...(params.email === undefined ? {} : { email: params.email }),
         source: params.source as LeadSource,
         ...(params.sourceDetail === undefined ? {} : { sourceDetail: params.sourceDetail }),
+        ...(params.campaignId === undefined ? {} : { campaignId: params.campaignId }),
         ...(params.requestedService === undefined
           ? {}
           : { requestedService: params.requestedService }),

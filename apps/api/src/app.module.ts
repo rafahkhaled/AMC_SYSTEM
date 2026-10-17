@@ -111,6 +111,7 @@ import { branchDirectory } from './billing/branches.js';
 import { quotationDelivery } from './billing/delivery.js';
 import { BranchesModule } from './branches/branches.module.js';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
+import { CampaignsModule } from './campaigns/campaigns.module.js';
 import { projectSummaries } from './clients/project-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
@@ -169,6 +170,7 @@ function peopleDirectory(db: Database) {
     HealthModule,
     ListsModule,
     BranchesModule,
+    CampaignsModule,
     StorageModule,
     ClientsModule.forRootAsync({
       imports: [StorageModule],
@@ -269,6 +271,10 @@ function peopleDirectory(db: Database) {
             }),
           },
           { next: () => ulid() },
+          {
+            exists: async (id: string) =>
+              (await db.execute(sql`SELECT 1 FROM campaigns WHERE id = ${id}`)).length > 0,
+          },
         ),
       }),
     }),

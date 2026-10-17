@@ -7,3 +7,4 @@ export * from './notifications.js';
 export * from './projects.js';
 export * from './time.js';
 export * from './whatsapp.js';
+export * from './campaigns.js';

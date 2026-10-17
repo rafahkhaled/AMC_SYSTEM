@@ -12,6 +12,9 @@ const convertLead = vi.hoisted(() => vi.fn());
 const quoteLead = vi.hoisted(() => vi.fn());
 vi.mock('./api.js', () => ({ leadBoard, captureLead, moveLead, convertLead, quoteLead }));
 
+const listCampaigns = vi.hoisted(() => vi.fn());
+vi.mock('../campaigns/api.js', () => ({ listCampaigns }));
+
 const draftQuotation = vi.hoisted(() => vi.fn());
 vi.mock('../billing/api.js', () => ({ draftQuotation }));
 
@@ -23,6 +26,7 @@ function lead(over: Partial<LeadView> = {}): LeadView {
     email: null,
     source: 'whatsapp',
     sourceDetail: null,
+    campaignId: null,
     requestedService: 'VAT registration',
     status: 'new',
     convertedClientId: null,
@@ -49,6 +53,7 @@ describe('the enquiry pipeline (FR-01)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await useLanguage('en');
+    listCampaigns.mockResolvedValue([]);
   });
 
   it('shows what is being lost as well as what is in play', async () => {
@@ -213,5 +218,57 @@ describe('quoting an enquiry', () => {
     // A price going out before a conversation is the thing the lead state
     // machine exists to prevent.
     expect(screen.queryByRole('button', { name: 'Make a quote' })).not.toBeInTheDocument();
+  });
+
+  describe('campaigns', () => {
+    const campaign = {
+      id: 'camp-1',
+      name: 'Ramadan offer',
+      typeCode: 'instagram',
+      startsOn: '2026-10-01',
+      durationDays: 30,
+      endsOn: '2026-10-30',
+      salespersonId: null,
+      salespersonName: null,
+      notes: null,
+      status: 'active' as const,
+      costMinor: 450_000,
+      currency: 'AED',
+      leads: 0,
+      clients: 0,
+    };
+
+    it('says which campaign brought an enquiry in', async () => {
+      listCampaigns.mockResolvedValue([campaign]);
+      show(board({ new: [lead({ campaignId: 'camp-1' })] }));
+      expect(await screen.findByText('Ramadan offer')).toBeInTheDocument();
+    });
+
+    it('attributes a new enquiry to the campaign that was chosen', async () => {
+      const user = userEvent.setup();
+      listCampaigns.mockResolvedValue([campaign]);
+      captureLead.mockResolvedValue(board());
+      show(board());
+
+      await user.click(await screen.findByRole('button', { name: 'New enquiry' }));
+      await user.type(screen.getByLabelText('Name'), 'Noor Clinic');
+      await user.type(screen.getByLabelText('Phone'), '0501234567');
+      await user.selectOptions(await screen.findByLabelText('Campaign'), 'camp-1');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await vi.waitFor(() => expect(captureLead).toHaveBeenCalled());
+      expect(captureLead.mock.calls[0]?.[0]).toMatchObject({
+        name: 'Noor Clinic',
+        campaignId: 'camp-1',
+      });
+    });
+
+    it('does not offer an ended campaign for a new enquiry', async () => {
+      listCampaigns.mockResolvedValue([{ ...campaign, status: 'ended' }]);
+      const user = userEvent.setup();
+      show(board());
+      await user.click(await screen.findByRole('button', { name: 'New enquiry' }));
+      expect(screen.queryByLabelText('Campaign')).toBeNull();
+    });
   });
 });

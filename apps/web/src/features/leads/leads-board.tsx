@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { draftQuotation } from '../billing/api.js';
+import { useCampaigns } from '../campaigns/use-campaigns.js';
 import { captureLead, convertLead, leadBoard, moveLead, quoteLead } from './api.js';
 
 const SOURCES = ['whatsapp', 'phone', 'referral', 'advertisement', 'walk_in', 'other'] as const;
@@ -85,6 +86,7 @@ function LeadCard({
   onQuoted: (quotationId: string) => void;
 }) {
   const { t } = useTranslation();
+  const campaignName = useCampaigns().nameOf(lead.campaignId);
   const [converting, setConverting] = useState(false);
   /*
    * One form, two outcomes.
@@ -145,6 +147,7 @@ function LeadCard({
         <span className={lead.waitingDays >= 7 ? 'u-danger' : 'u-text-faint'}>{waiting}</span>
       </div>
 
+      {campaignName ? <Badge tone="accent">{campaignName}</Badge> : null}
       {lead.sourceDetail ? <span className="u-text-faint">{lead.sourceDetail}</span> : null}
       {lead.notes ? <span className="u-text-faint">{lead.notes}</span> : null}
 
@@ -227,6 +230,8 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
   const [email, setEmail] = useState('');
   const [source, setSource] = useState('whatsapp');
   const [sourceDetail, setSourceDetail] = useState('');
+  const [campaignId, setCampaignId] = useState('');
+  const campaigns = useCampaigns();
   const [requestedService, setRequestedService] = useState('');
 
   const capture = useMutation({
@@ -237,6 +242,7 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
         ...(email.trim() ? { email: email.trim() } : {}),
         source,
         ...(sourceDetail.trim() ? { sourceDetail: sourceDetail.trim() } : {}),
+        ...(campaignId ? { campaignId } : {}),
         ...(requestedService.trim() ? { requestedService: requestedService.trim() } : {}),
       }),
     onSuccess: (board) => {
@@ -246,6 +252,7 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
       setPhone('');
       setEmail('');
       setSourceDetail('');
+      setCampaignId('');
       setRequestedService('');
     },
   });
@@ -308,6 +315,21 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
             onChange={(e) => setSourceDetail(e.target.value)}
           />
         </div>
+        {campaigns.open.length > 0 ? (
+          <Field
+            label={t('campaigns.pick')}
+            control={(props) => (
+              <Select {...props} value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
+                <option value="">{t('campaigns.none_')}</option>
+                {campaigns.open.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          />
+        ) : null}
         <Field
           label={t('leads.wants')}
           value={requestedService}

@@ -155,3 +155,8 @@ export interface ClientFileRepository {
   findById(id: string, scope: ClientScope): Promise<ClientFile | null>;
   save(file: ClientFile): Promise<void>;
 }
+
+/** Whether a campaign exists, so an enquiry is never attributed to one that does not. */
+export interface CampaignDirectory {
+  exists(id: string): Promise<boolean>;
+}

@@ -40,6 +40,7 @@ describe('the lists in Settings', () => {
         const lists = new Set(response.body.options.map((o: { list: string }) => o.list));
         expect([...lists].sort()).toEqual([
           'authority',
+          'campaign_type',
           'document_type',
           'payment_method',
           'portal',
