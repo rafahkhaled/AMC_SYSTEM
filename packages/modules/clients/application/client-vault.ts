@@ -73,6 +73,8 @@ export class ClientVault {
         kind: state.kind,
         username: state.username,
         note: state.note,
+        link: state.link,
+        slot: state.slot,
         createdAt: state.createdAt.toISOString(),
       };
     });
@@ -124,6 +126,8 @@ export class ClientVault {
       username: string;
       secret: string;
       note?: string | undefined;
+      link?: string | undefined;
+      slot?: 1 | 2 | undefined;
     },
   ): Promise<Result<{ credentialId: string }, Conflict>> {
     if (params.secret.trim().length === 0) {
@@ -142,7 +146,8 @@ export class ClientVault {
         context,
       );
       const existing = (await repository.currentFor(params.clientId, scope)).find(
-        (candidate) => candidate.kind === params.kind,
+        (candidate) =>
+          candidate.kind === params.kind && candidate.snapshot().slot === (params.slot ?? 1),
       );
 
       const now = new Date();
@@ -153,6 +158,8 @@ export class ClientVault {
         username: params.username,
         secretSealed: await this.vault.seal(params.secret),
         ...(params.note === undefined ? {} : { note: params.note }),
+        ...(params.link === undefined ? {} : { link: params.link }),
+        ...(params.slot === undefined ? {} : { slot: params.slot }),
         by: caller.userId,
         now,
       });

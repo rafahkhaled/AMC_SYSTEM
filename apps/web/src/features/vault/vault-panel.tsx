@@ -101,8 +101,14 @@ function CredentialRow({
     <div className="u-stack-tight credential">
       <div className="line">
         <Badge>{portals.label(credential.kind)}</Badge>
+        {credential.slot === 2 ? <Badge tone="accent">{t('vault.userTwo')}</Badge> : null}
         <span className="u-ltr">{credential.username}</span>
         {credential.note ? <span className="u-text-faint">{credential.note}</span> : null}
+        {credential.link ? (
+          <a href={credential.link} target="_blank" rel="noopener noreferrer" className="u-ltr">
+            {t('vault.openPortal')}
+          </a>
+        ) : null}
         <span className="u-grow" />
         {secret === null ? (
           <Button small tone="secondary" onClick={() => setAsking(!asking)}>
@@ -172,6 +178,8 @@ function StoreCredential({
   const [username, setUsername] = useState('');
   const [secret, setSecret] = useState('');
   const [note, setNote] = useState('');
+  const [link, setLink] = useState('');
+  const [slot, setSlot] = useState<'1' | '2'>('1');
 
   const store = useMutation({
     mutationFn: () =>
@@ -180,6 +188,8 @@ function StoreCredential({
         username: username.trim(),
         secret,
         ...(note.trim() ? { note: note.trim() } : {}),
+        ...(link.trim() ? { link: link.trim() } : {}),
+        slot: slot === '2' ? 2 : 1,
       }),
     onSuccess: (credentials) => {
       onStored(credentials);
@@ -187,6 +197,8 @@ function StoreCredential({
       setUsername('');
       setSecret('');
       setNote('');
+      setLink('');
+      setSlot('1');
     },
   });
 
@@ -219,6 +231,27 @@ function StoreCredential({
             ))}
           </Select>
         )}
+      />
+      <Field
+        label={t('vault.user')}
+        control={(props) => (
+          <Select
+            {...props}
+            value={slot}
+            onChange={(event) => setSlot(event.target.value as '1' | '2')}
+          >
+            <option value="1">{t('vault.userOne')}</option>
+            <option value="2">{t('vault.userTwo')}</option>
+          </Select>
+        )}
+      />
+      <Field
+        label={t('vault.link')}
+        hint={t('vault.linkHint')}
+        ltr
+        inputMode="url"
+        value={link}
+        onChange={(event) => setLink(event.target.value)}
       />
       <Field
         label={t('vault.username')}

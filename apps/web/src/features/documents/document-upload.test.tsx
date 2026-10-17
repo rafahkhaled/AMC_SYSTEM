@@ -124,6 +124,23 @@ describe('adding a document', () => {
     expect(onUploaded).toHaveBeenCalledWith([]);
   });
 
+  it('sends the reference number printed on the document', async () => {
+    const user = userEvent.setup();
+    show();
+    uploadDocument.mockResolvedValue({ documentId: 'doc-1', documents: [] });
+
+    await user.upload(fileInput(), pdf());
+    await user.type(screen.getByLabelText('Reference number'), 'CN-1234567');
+    await user.type(screen.getByLabelText('Expires on (required)'), '2027-01-31');
+    await user.click(screen.getByRole('button', { name: 'Upload' }));
+
+    expect(uploadDocument).toHaveBeenCalledWith(
+      'c-1',
+      expect.any(File),
+      expect.objectContaining({ referenceNumber: 'CN-1234567' }),
+    );
+  });
+
   it('shows what the server said when it refuses', async () => {
     const user = userEvent.setup();
     show();

@@ -397,4 +397,102 @@ describe('clients, their conversations and their logins', () => {
       expect(JSON.stringify(rows)).not.toContain('050 123 4567');
     });
   });
+
+  describe('what the whiteboard asked for', () => {
+    const PDF = Buffer.from('%PDF-1.4 test');
+
+    it('keeps a client’s address and daily hours, both or neither', async () => {
+      const set = await manager
+        .patch('/clients/c-mine/details')
+        .send({ address: 'Office 523, Block C, DAFZA', opensAt: '08:30', closesAt: '17:30' })
+        .expect(200);
+      expect(set.body).toMatchObject({
+        address: 'Office 523, Block C, DAFZA',
+        opensAt: '08:30',
+        closesAt: '17:30',
+      });
+
+      await manager.patch('/clients/c-mine/details').send({ opensAt: null }).expect(409);
+      await manager.patch('/clients/c-mine/details').send({ closesAt: '07:00' }).expect(409);
+      await manager
+        .patch('/clients/c-mine/details')
+        .send({ opensAt: '25:00', closesAt: '26:00' })
+        .expect(409);
+
+      const cleared = await manager
+        .patch('/clients/c-mine/details')
+        .send({ opensAt: null, closesAt: null, address: null })
+        .expect(200);
+      expect(cleared.body).toMatchObject({ address: null, opensAt: null, closesAt: null });
+    });
+
+    it('keeps the number printed on a document, and shows it in the file', async () => {
+      const stored = await manager
+        .post('/clients/c-mine/documents')
+        .field('type', 'trade_licence')
+        .field('referenceNumber', 'CN-1234567')
+        .field('expiresOn', '2027-06-30')
+        .attach('file', PDF, 'licence.pdf')
+        .expect(201);
+      const stored_ = stored.body.documents.find(
+        (d: { referenceNumber: string | null }) => d.referenceNumber === 'CN-1234567',
+      );
+      expect(stored_).toBeDefined();
+
+      const detail = (await accountant.get('/clients/c-mine').expect(200)).body;
+      expect(
+        detail.documents.map((d: { referenceNumber: string | null }) => d.referenceNumber),
+      ).toContain('CN-1234567');
+    });
+
+    it('lets a portal have two users, each replaced on its own, with a link to the portal', async () => {
+      const one = {
+        kind: 'ftaportal',
+        username: 'one@portal.ae',
+        secret: 'One-Passw0rd!',
+        link: 'https://eservices.tax.gov.ae',
+      };
+      await accountant.post('/clients/c-mine/credentials').send(one).expect(201);
+      const both = await accountant
+        .post('/clients/c-mine/credentials')
+        .send({ kind: 'ftaportal', username: 'two@portal.ae', secret: 'Two-Passw0rd!', slot: 2 })
+        .expect(201);
+
+      const fta = both.body.credentials.filter((c: { kind: string }) => c.kind === 'ftaportal');
+      expect(fta).toHaveLength(2);
+      expect(fta.map((c: { slot: number }) => c.slot).sort()).toEqual([1, 2]);
+      expect(fta.find((c: { slot: number }) => c.slot === 1).link).toBe(
+        'https://eservices.tax.gov.ae',
+      );
+      expect(JSON.stringify(both.body)).not.toContain('Passw0rd');
+
+      // Replacing user 2 leaves user 1 alone.
+      const replaced = await accountant
+        .post('/clients/c-mine/credentials')
+        .send({
+          kind: 'ftaportal',
+          username: 'two@portal.ae',
+          secret: 'Two-New-Passw0rd!',
+          slot: 2,
+        })
+        .expect(201);
+      const after = replaced.body.credentials.filter(
+        (c: { kind: string }) => c.kind === 'ftaportal',
+      );
+      expect(after).toHaveLength(2);
+      expect(after.find((c: { slot: number }) => c.slot === 1).username).toBe('one@portal.ae');
+    });
+
+    it('refuses a portal link that is not a web address, and a third user', async () => {
+      const base = { kind: 'ftaportal', username: 'x@portal.ae', secret: 'S3cret-Passw0rd!' };
+      await accountant
+        .post('/clients/c-mine/credentials')
+        .send({ ...base, link: 'javascript:alert(1)' })
+        .expect(400);
+      await accountant
+        .post('/clients/c-mine/credentials')
+        .send({ ...base, slot: 3 })
+        .expect(400);
+    });
+  });
 });

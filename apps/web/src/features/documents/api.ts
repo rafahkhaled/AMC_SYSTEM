@@ -12,6 +12,7 @@ export interface UploadFields {
   /** A code from the authority list, when somebody said who issued it. */
   readonly authority?: string;
   readonly label?: string;
+  readonly referenceNumber?: string;
   readonly issuedOn?: string;
   readonly expiresOn?: string;
 }

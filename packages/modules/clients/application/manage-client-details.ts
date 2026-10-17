@@ -49,6 +49,9 @@ export class ManageClientDetails {
           ...(command.mobile !== undefined && { mobile: command.mobile }),
           ...(command.landline !== undefined && { landline: command.landline }),
           ...(command.weeklyDayOff !== undefined && { weeklyDayOff: command.weeklyDayOff }),
+          ...(command.address !== undefined && { address: command.address }),
+          ...(command.opensAt !== undefined && { opensAt: command.opensAt }),
+          ...(command.closesAt !== undefined && { closesAt: command.closesAt }),
         },
         now,
       );

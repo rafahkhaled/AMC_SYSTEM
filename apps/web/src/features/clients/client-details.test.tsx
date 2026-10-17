@@ -39,6 +39,9 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   mobile: '050 123 4567',
   landline: '04 123 4567',
   weeklyDayOff: 0,
+  address: 'Office 523, Block C, DAFZA, Dubai',
+  opensAt: '08:30',
+  closesAt: '17:30',
   references: [{ label: 'MOL number', value: '99887766' }],
   ctTrn: null,
   vatPeriodEndMonths: [],
@@ -119,5 +122,30 @@ describe('a client’s contact details', () => {
 
     expect(await screen.findByText('That is not an email address')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+  });
+
+  it('shows the address and the hours the client keeps', () => {
+    renderScreen(<ClientDetailsCard detail={client()} canEdit={false} months={MONTHS} />);
+    expect(screen.getByText('Office 523, Block C, DAFZA, Dubai')).toBeInTheDocument();
+    expect(screen.getByText('08:30 – 17:30')).toBeInTheDocument();
+  });
+
+  it('sends the address and hours that were typed', async () => {
+    const user = userEvent.setup();
+    renderScreen(<ClientDetailsCard detail={client()} canEdit months={MONTHS} />);
+
+    await user.click(screen.getByRole('button', { name: 'Edit details' }));
+    await user.clear(screen.getByLabelText('Address'));
+    await user.type(screen.getByLabelText('Address'), 'Ajman Media City');
+    await user.clear(screen.getByLabelText('Closes'));
+    await user.type(screen.getByLabelText('Closes'), '18:00');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(changeClientDetails).toHaveBeenCalled());
+    expect(changeClientDetails.mock.calls[0]?.[1]).toMatchObject({
+      address: 'Ajman Media City',
+      opensAt: '08:30',
+      closesAt: '18:00',
+    });
   });
 });

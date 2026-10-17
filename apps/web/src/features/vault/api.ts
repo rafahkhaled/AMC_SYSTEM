@@ -16,7 +16,14 @@ export async function listCredentials(clientId: string): Promise<CredentialSumma
 
 export async function storeCredential(
   clientId: string,
-  entry: { kind: string; username: string; secret: string; note?: string },
+  entry: {
+    kind: string;
+    username: string;
+    secret: string;
+    note?: string;
+    link?: string;
+    slot?: 1 | 2;
+  },
 ): Promise<CredentialSummary[]> {
   return listSchema.parse(await send(`/clients/${encodeURIComponent(clientId)}/credentials`, entry))
     .credentials;

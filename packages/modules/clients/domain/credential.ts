@@ -20,6 +20,10 @@ export interface CredentialState {
   /** Sealed. The plaintext never exists on this object. */
   readonly secretSealed: string;
   readonly note: string | null;
+  /** The portal's address, so the login can be opened from the file. */
+  readonly link: string | null;
+  /** 1 or 2: a portal may have two users. */
+  readonly slot: 1 | 2;
   readonly retiredAt: Date | null;
   readonly retiredBy: string | null;
   readonly createdBy: string | null;
@@ -54,6 +58,8 @@ export class ClientCredential extends AggregateRoot<string> {
     username: string;
     secretSealed: string;
     note?: string | null;
+    link?: string | null;
+    slot?: 1 | 2;
     by: string;
     now: Date;
   }): Result<ClientCredential, Conflict> {
@@ -66,6 +72,11 @@ export class ClientCredential extends AggregateRoot<string> {
       return err(new Conflict('A credential needs a password'));
     }
 
+    const link = params.link?.trim() || null;
+    if (link !== null && !/^https?:\/\/\S+$/i.test(link)) {
+      return err(new Conflict('The portal link has to start with http:// or https://'));
+    }
+
     const credential = new ClientCredential({
       id: params.id,
       clientId: params.clientId,
@@ -73,6 +84,8 @@ export class ClientCredential extends AggregateRoot<string> {
       username,
       secretSealed: params.secretSealed,
       note: params.note?.trim() || null,
+      link,
+      slot: params.slot ?? 1,
       retiredAt: null,
       retiredBy: null,
       createdBy: params.by,
@@ -85,6 +98,7 @@ export class ClientCredential extends AggregateRoot<string> {
         credentialId: params.id,
         clientId: params.clientId,
         kind: params.kind,
+        slot: params.slot ?? 1,
         username,
       }),
     );

@@ -37,6 +37,14 @@ export function ClientDetailsCard({
         <Row label={t('clients.mobile')} value={detail.mobile} ltr />
         <Row label={t('clients.landline')} value={detail.landline} ltr />
         <Row label={t('clients.dayOff')} value={dayName(detail.weeklyDayOff)} />
+        <Row
+          label={t('clients.hours')}
+          value={
+            detail.opensAt && detail.closesAt ? `${detail.opensAt} – ${detail.closesAt}` : null
+          }
+          ltr
+        />
+        <Row label={t('clients.address')} value={detail.address} />
         {detail.references.map((reference) => (
           <Row key={reference.label} label={reference.label} value={reference.value} ltr />
         ))}
@@ -81,6 +89,9 @@ function DetailsForm({
   const [dayOff, setDayOff] = useState(
     detail.weeklyDayOff === null ? '' : String(detail.weeklyDayOff),
   );
+  const [address, setAddress] = useState(detail.address ?? '');
+  const [opensAt, setOpensAt] = useState(detail.opensAt ?? '');
+  const [closesAt, setClosesAt] = useState(detail.closesAt ?? '');
   const [references, setReferences] = useState(detail.references.map((r) => ({ ...r })));
   const [vatTrn, setVatTrn] = useState(detail.vatTrn ?? '');
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly'>('quarterly');
@@ -101,6 +112,9 @@ function DetailsForm({
         mobile: text(mobile),
         landline: text(landline),
         weeklyDayOff: dayOff === '' ? null : Number(dayOff),
+        address: text(address),
+        opensAt: text(opensAt),
+        closesAt: text(closesAt),
         references: references.filter((r) => r.label.trim() !== '' && r.value.trim() !== ''),
       };
       // A number is sent only when it was typed or changed. For a client not yet
@@ -182,6 +196,28 @@ function DetailsForm({
             </Select>
           )}
         />
+
+        <Field
+          label={t('clients.address')}
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+        <div className="u-row u-row-top">
+          <Field
+            label={t('clients.opensAt')}
+            ltr
+            type="time"
+            value={opensAt}
+            onChange={(e) => setOpensAt(e.target.value)}
+          />
+          <Field
+            label={t('clients.closesAt')}
+            ltr
+            type="time"
+            value={closesAt}
+            onChange={(e) => setClosesAt(e.target.value)}
+          />
+        </div>
 
         <Field
           label={t('clients.licence')}

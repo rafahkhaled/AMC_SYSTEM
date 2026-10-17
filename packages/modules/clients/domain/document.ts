@@ -64,6 +64,8 @@ export interface DocumentState {
   readonly clientId: string;
   readonly type: DocumentTypeCode;
   readonly label: string | null;
+  /** The number printed on the document: licence, certificate or policy number. */
+  readonly referenceNumber: string | null;
   readonly status: DocumentStatus;
   readonly storageKey: string | null;
   readonly originalName: string | null;
@@ -105,6 +107,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
       clientId: params.clientId,
       type: params.type,
       label: params.label?.trim() || null,
+      referenceNumber: null,
       // Nobody has sent it, so nobody has said who issues it.
       authority: null,
       status: 'required',
@@ -165,6 +168,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
     checksum: string;
     /** Who issued it, as a code from the authority list. */
     authority?: string | null;
+    referenceNumber?: string | null;
     issuedOn?: Date | null;
     expiresOn?: Date | null;
     uploadedBy: string;
@@ -189,6 +193,7 @@ export class ClientDocument extends AggregateRoot<DocumentId> {
       originalName: params.originalName,
       checksum: params.checksum,
       authority: params.authority ?? null,
+      referenceNumber: params.referenceNumber?.trim() || null,
       issuedOn: params.issuedOn ?? null,
       expiresOn: params.expiresOn ?? null,
       uploadedBy: params.uploadedBy,

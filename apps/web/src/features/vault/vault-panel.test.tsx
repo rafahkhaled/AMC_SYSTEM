@@ -1,5 +1,5 @@
 import type { CredentialSummary } from '@amc/contracts';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, useLanguage } from '../../test-support.js';
@@ -33,6 +33,8 @@ const LOGIN: CredentialSummary = {
   kind: 'emaratax',
   username: 'gulf.trading@portal.ae',
   note: 'Dubai portal',
+  link: null,
+  slot: 1,
   createdAt: '2026-09-01T06:00:00.000Z',
 };
 
@@ -170,6 +172,7 @@ describe('a client’s portal logins (FR-05)', () => {
         kind: 'emaratax',
         username: 'new@portal.ae',
         secret: 'N3w-P@ssword',
+        slot: 1,
       }),
     );
   });
@@ -186,7 +189,9 @@ describe('a client’s portal logins (FR-05)', () => {
     show([]);
 
     await user.click(await screen.findByRole('button', { name: 'Add a login' }));
-    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    const options = within(await screen.findByLabelText('Portal'))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
 
     expect(options).toEqual(['EmaraTax', 'FTA portal', 'MOHRE']);
   });
@@ -222,7 +227,9 @@ describe('a client’s portal logins (FR-05)', () => {
     expect(await screen.findByText('Old portal')).toBeInTheDocument();
     // ...and it is not offered for a new one.
     await user.click(screen.getByRole('button', { name: 'Add a login' }));
-    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    const options = within(await screen.findByLabelText('Portal'))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
     expect(options).toEqual(['EmaraTax']);
   });
 
@@ -257,5 +264,40 @@ describe('a client’s portal logins (FR-05)', () => {
     await user.click(await screen.findByRole('button', { name: 'Retire' }));
 
     expect(retireCredential).toHaveBeenCalledWith('c-1', 'cred-1');
+  });
+
+  describe('the portal link and the second user', () => {
+    it('shows a link to the portal beside a login that has one', async () => {
+      show([{ ...LOGIN, link: 'https://eservices.tax.gov.ae/login' }]);
+      const link = await screen.findByRole('link', { name: 'Open the portal' });
+      expect(link).toHaveAttribute('href', 'https://eservices.tax.gov.ae/login');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('marks the second user of a portal', async () => {
+      show([LOGIN, { ...LOGIN, id: 'cred-2', slot: 2, username: 'second@portal.ae' }]);
+      expect(await screen.findByText('second@portal.ae')).toBeInTheDocument();
+      expect(screen.getByText('User 2')).toBeInTheDocument();
+    });
+
+    it('stores the link and which user it is', async () => {
+      const user = userEvent.setup();
+      show([]);
+      storeCredential.mockResolvedValue([LOGIN]);
+
+      await user.click(await screen.findByRole('button', { name: 'Add a login' }));
+      await user.selectOptions(await screen.findByLabelText('User'), '2');
+      await user.type(screen.getByLabelText('Portal link'), 'https://eservices.tax.gov.ae');
+      await user.type(screen.getByLabelText('Username'), 'second@portal.ae');
+      await user.type(screen.getByLabelText('Password'), 'N3w-P@ssword');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(storeCredential).toHaveBeenCalledWith(
+          'c-1',
+          expect.objectContaining({ link: 'https://eservices.tax.gov.ae', slot: 2 }),
+        ),
+      );
+    });
   });
 });

@@ -33,6 +33,8 @@ export const documentSummarySchema = z.object({
   status: z.enum(['required', 'held', 'renewing']),
   /** What somebody called this one, where the type alone would not tell them apart. */
   label: z.string().nullable(),
+  /** The number printed on the document itself. */
+  referenceNumber: z.string().nullable(),
   /** The day printed on the document, not the day it was filed. */
   issuedOn: z.string().nullable(),
   expiresOn: z.string().nullable(),
@@ -53,6 +55,7 @@ export const documentUploadSchema = z.object({
   type: z.string().min(1),
   authority: z.string().trim().max(40).optional(),
   label: z.string().trim().max(200).optional(),
+  referenceNumber: z.string().trim().max(120).optional(),
   issuedOn: calendarDay.optional(),
   expiresOn: calendarDay.optional(),
   /** Set when replacing a document already on file, which supersedes it. */
@@ -94,6 +97,10 @@ export const clientDetailSchema = clientSummarySchema.extend({
   mobile: z.string().nullable(),
   landline: z.string().nullable(),
   weeklyDayOff: z.number().int().nullable(),
+  address: z.string().nullable(),
+  /** "HH:MM": the hours the client keeps. Both or neither. */
+  opensAt: z.string().nullable(),
+  closesAt: z.string().nullable(),
   references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
   /** Which months this client's VAT periods end in. Staggered per client. */
@@ -114,6 +121,9 @@ export const credentialSummarySchema = z.object({
   kind: z.string(),
   username: z.string(),
   note: z.string().nullable(),
+  link: z.string().nullable(),
+  /** 1 or 2: a portal may have two users. */
+  slot: z.union([z.literal(1), z.literal(2)]),
   createdAt: z.string(),
 });
 export type CredentialSummary = z.infer<typeof credentialSummarySchema>;
@@ -124,6 +134,9 @@ export const storeCredentialSchema = z.object({
   username: z.string().trim().min(1, 'The portal needs a username'),
   secret: z.string().min(1, 'The portal needs a password'),
   note: z.string().trim().max(500).optional(),
+  link: z.string().trim().max(500).optional(),
+  /** Which of the portal's two users this is. Storing again replaces that user's login. */
+  slot: z.union([z.literal(1), z.literal(2)]).default(1),
 });
 
 /**
@@ -415,6 +428,9 @@ export const changeClientDetailsSchema = z.object({
   landline: z.string().trim().max(30).nullable().optional(),
   /** 0 is Sunday, 6 is Saturday. */
   weeklyDayOff: z.number().int().min(0).max(6).nullable().optional(),
+  address: z.string().trim().max(400).nullable().optional(),
+  opensAt: z.string().trim().nullable().optional(),
+  closesAt: z.string().trim().nullable().optional(),
   vat: z
     .object({
       trn: z.string().trim().min(1),

@@ -50,6 +50,10 @@ export interface ClientState {
   readonly landline: string | null;
   /** 0 is Sunday, 6 is Saturday. */
   readonly weeklyDayOff: number | null;
+  readonly address: string | null;
+  /** "HH:MM", both or neither. */
+  readonly opensAt: string | null;
+  readonly closesAt: string | null;
   readonly status: ClientStatus;
   readonly vat: TaxRegistration;
   readonly corporateTax: TaxRegistration;
@@ -73,9 +77,14 @@ export interface ClientDetailsChange {
   readonly mobile?: string | null;
   readonly landline?: string | null;
   readonly weeklyDayOff?: number | null;
+  readonly address?: string | null;
+  /** "HH:MM". Both, or neither: hours with one end are not hours. */
+  readonly opensAt?: string | null;
+  readonly closesAt?: string | null;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 const blank = (value: string | null): string | null => value?.trim() || null;
 
 export class Client extends AggregateRoot<ClientId> {
@@ -109,6 +118,9 @@ export class Client extends AggregateRoot<ClientId> {
       mobile: null,
       landline: null,
       weeklyDayOff: null,
+      address: null,
+      opensAt: null,
+      closesAt: null,
       status: 'active',
       vat: NOT_REGISTERED,
       corporateTax: NOT_REGISTERED,
@@ -174,6 +186,25 @@ export class Client extends AggregateRoot<ClientId> {
         return err(new Conflict('The weekly day off is a day of the week'));
       }
       set('weeklyDayOff', day);
+    }
+
+    if (change.address !== undefined) set('address', blank(change.address));
+    if (change.opensAt !== undefined || change.closesAt !== undefined) {
+      const opens = blank(change.opensAt === undefined ? this.state.opensAt : change.opensAt);
+      const closes = blank(change.closesAt === undefined ? this.state.closesAt : change.closesAt);
+      if ((opens === null) !== (closes === null)) {
+        return err(new Conflict('Give both the opening and the closing time, or neither'));
+      }
+      for (const time of [opens, closes]) {
+        if (time !== null && !TIME.test(time)) {
+          return err(new Conflict('Times are written like 08:30'));
+        }
+      }
+      if (opens !== null && closes !== null && closes <= opens) {
+        return err(new Conflict('Closing time has to be after opening time'));
+      }
+      set('opensAt', opens);
+      set('closesAt', closes);
     }
 
     if (changed.length === 0) return ok(true);

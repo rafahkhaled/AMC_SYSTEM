@@ -50,6 +50,7 @@ export function DocumentUpload({
     if (type === '' && firstType) setType(firstType);
   }, [type, firstType]);
   const [label, setLabel] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState('');
   const [dragging, setDragging] = useState(false);
 
   const upload = useMutation({
@@ -59,6 +60,7 @@ export function DocumentUpload({
         type,
         ...(authority ? { authority } : {}),
         ...(label.trim() ? { label: label.trim() } : {}),
+        ...(referenceNumber.trim() ? { referenceNumber: referenceNumber.trim() } : {}),
         ...(issuedOn ? { issuedOn } : {}),
         ...(expiresOn ? { expiresOn } : {}),
       });
@@ -162,6 +164,14 @@ export function DocumentUpload({
             ))}
           </Select>
         )}
+      />
+
+      <Field
+        label={t('documents.referenceNumber')}
+        hint={t('documents.referenceHint')}
+        ltr
+        value={referenceNumber}
+        onChange={(event) => setReferenceNumber(event.target.value)}
       />
 
       {type === 'other' ? (

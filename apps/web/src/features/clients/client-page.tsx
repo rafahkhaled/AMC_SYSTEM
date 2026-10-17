@@ -248,6 +248,11 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
         {document.label ? (
           <span className="u-block u-text-faint u-typed">{document.label}</span>
         ) : null}
+        {document.referenceNumber ? (
+          <span className="u-block u-text-faint">
+            {t('documents.ref')} <span className="u-ltr u-mono">{document.referenceNumber}</span>
+          </span>
+        ) : null}
         {document.status === 'required' ? (
           <span className="u-block">
             <Badge tone="warning">{t('clients.awaited')}</Badge>

@@ -93,6 +93,7 @@ export class ReadClients {
         authority: detail.authority,
         status: detail.status,
         label: detail.label,
+        referenceNumber: detail.referenceNumber,
         issuedOn: day(detail.issuedOn),
         uploadedAt: detail.uploadedAt?.toISOString() ?? null,
         uploadedBy: detail.uploadedBy ? (names?.get(detail.uploadedBy) ?? null) : null,
@@ -120,6 +121,9 @@ export class ReadClients {
       mobile: state.mobile,
       landline: state.landline,
       weeklyDayOff: state.weeklyDayOff,
+      address: state.address,
+      opensAt: state.opensAt,
+      closesAt: state.closesAt,
       references: await this.clients.referencesOf(clientId),
       // Staggered per client, so the screen shows which months rather than
       // implying everyone files on calendar quarters.
