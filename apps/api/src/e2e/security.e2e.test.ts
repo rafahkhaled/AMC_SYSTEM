@@ -18,6 +18,8 @@ const PUBLIC = new Set([
   'GET /api/files/*key', // authorised by a signed, expiring link, not a session
   'GET /api/public/quotations/:token', // the client's own link
   'POST /api/public/quotations/:token/answer', // the client's own answer
+  'POST /api/public/enquiries', // the firm's website sending an enquiry
+  'OPTIONS /api/public/enquiries', // the browser's permission check for it
   'GET /api/whatsapp/webhook', // Meta's verification handshake
   'POST /api/whatsapp/webhook', // authorised by an HMAC over the body
   'POST /api/auth/two-factor/verify', // the second step of signing in

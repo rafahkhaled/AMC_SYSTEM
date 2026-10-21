@@ -42,6 +42,8 @@ export const MAX_FILE_NAME = 200;
 export interface ClientFileState {
   readonly id: string;
   readonly clientId: string;
+  /** The folder it is in, or null at the top of the client's folder. */
+  readonly folderId: string | null;
   readonly storageKey: string;
   readonly originalName: string;
   readonly contentType: string;
@@ -109,6 +111,7 @@ export class ClientFile extends AggregateRoot<string> {
   static receive(params: {
     id: string;
     clientId: string;
+    folderId?: string | null;
     storageKey: string;
     name: string;
     contentType: string;
@@ -124,6 +127,7 @@ export class ClientFile extends AggregateRoot<string> {
     const file = new ClientFile({
       id: params.id,
       clientId: params.clientId,
+      folderId: params.folderId ?? null,
       storageKey: params.storageKey,
       originalName: name,
       contentType: params.contentType,
@@ -138,6 +142,7 @@ export class ClientFile extends AggregateRoot<string> {
       domainEvent('clients.file.uploaded', params.id, params.now, {
         fileId: params.id,
         clientId: params.clientId,
+        folderId: params.folderId ?? null,
         name,
         sizeBytes: params.sizeBytes,
         checksum: params.checksum,
@@ -173,6 +178,29 @@ export class ClientFile extends AggregateRoot<string> {
       }),
     );
     return ok(undefined);
+  }
+
+  /** Puts it in another folder, or at the top when null. The bytes do not move. */
+  moveTo(folderId: string | null, now: Date): Result<void, Conflict> {
+    if (this.state.removedAt) return err(new Conflict('That file has been removed'));
+    if (this.state.folderId === folderId) return ok(undefined);
+
+    const from = this.state.folderId;
+    this.state = { ...this.state, folderId };
+    this.record(
+      domainEvent('clients.file.moved', this.id, now, {
+        fileId: this.id,
+        clientId: this.state.clientId,
+        name: this.state.originalName,
+        from,
+        to: folderId,
+      }),
+    );
+    return ok(undefined);
+  }
+
+  get folderId(): string | null {
+    return this.state.folderId;
   }
 
   snapshot(): ClientFileState {

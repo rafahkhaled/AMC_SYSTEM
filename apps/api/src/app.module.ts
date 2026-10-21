@@ -219,6 +219,9 @@ function peopleDirectory(db: Database) {
          * practice chases). Audited through the same unit of work, so who
          * put a file there or took it out is on record.
          */
+        publicSiteOrigins: environment.PUBLIC_SITE_ORIGINS.split(',')
+          .map((origin) => origin.trim())
+          .filter((origin) => origin.length > 0),
         clientDetails: new ManageClientDetails(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
           {

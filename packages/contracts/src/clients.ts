@@ -197,6 +197,7 @@ export const leadSources = [
   'referral',
   'advertisement',
   'walk_in',
+  'website',
   'other',
 ] as const;
 
@@ -396,6 +397,8 @@ export type UpdateReferenceOptionRequest = z.infer<typeof updateReferenceOptionS
  */
 export const clientFileSchema = z.object({
   id: z.string(),
+  /** The folder it is in, or null at the top of the client's folder. */
+  folderId: z.string().nullable(),
   name: z.string(),
   contentType: z.string(),
   sizeBytes: z.number().int().nonnegative(),
@@ -404,6 +407,26 @@ export const clientFileSchema = z.object({
   uploadedBy: z.string().nullable(),
 });
 export type ClientFileView = z.infer<typeof clientFileSchema>;
+export const clientFolderSchema = z.object({
+  id: z.string(),
+  /** The folder it is inside, or null at the top of the client's folder. */
+  parentId: z.string().nullable(),
+  name: z.string(),
+  /** Files directly in it, not counting what is in folders below. */
+  fileCount: z.number().int().nonnegative(),
+});
+export type ClientFolderView = z.infer<typeof clientFolderSchema>;
+export const clientFoldersSchema = z.object({ folders: z.array(clientFolderSchema) });
+
+export const createFolderSchema = z.object({
+  name: z.string().trim().min(1, 'Give the folder a name').max(80),
+  parentId: z.string().min(1).nullable().optional(),
+});
+export const renameFolderSchema = z.object({
+  name: z.string().trim().min(1, 'Give the folder a name').max(80),
+});
+export const moveFileSchema = z.object({ folderId: z.string().min(1).nullable() });
+
 export const clientFilesSchema = z.object({ files: z.array(clientFileSchema) });
 export type ClientFiles = z.infer<typeof clientFilesSchema>;
 
@@ -455,3 +478,29 @@ export const changeClientDetailsSchema = z.object({
   references: z.array(clientReferenceSchema).max(30).optional(),
 });
 export type ChangeClientDetails = z.infer<typeof changeClientDetailsSchema>;
+
+/**
+ * What the firm's website sends when a visitor asks for a consultation.
+ *
+ * Public, so everything is bounded and nothing is trusted: lengths are capped,
+ * the service is free text rather than a code the site would have to keep in
+ * step with the application, and `website` is a hidden field a person never
+ * fills and a bot usually does.
+ */
+export const publicEnquirySchema = z.object({
+  name: z.string().trim().min(1, 'Please give your name').max(120),
+  email: z
+    .string()
+    .trim()
+    .max(200)
+    .regex(/^\S+@\S+\.\S+$/, 'Please give a valid email address'),
+  company: z.string().trim().max(160).optional(),
+  phone: z.string().trim().max(40).optional(),
+  service: z.string().trim().max(120).optional(),
+  message: z.string().trim().max(2000).optional(),
+  /** The page the form was on, for knowing which one is working. */
+  page: z.string().trim().max(200).optional(),
+  /** Honeypot. */
+  website: z.string().max(200).optional(),
+});
+export type PublicEnquiry = z.infer<typeof publicEnquirySchema>;

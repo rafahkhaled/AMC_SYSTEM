@@ -1,5 +1,5 @@
-import type { ClientFileView } from '@amc/contracts';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import type { ClientFileView, ClientFolderView } from '@amc/contracts';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, useLanguage } from '../../test-support.js';
@@ -9,10 +9,26 @@ const clientFiles = vi.hoisted(() => vi.fn());
 const uploadClientFiles = vi.hoisted(() => vi.fn());
 const clientFileLink = vi.hoisted(() => vi.fn());
 const removeClientFile = vi.hoisted(() => vi.fn());
-vi.mock('./api.js', () => ({ clientFiles, uploadClientFiles, clientFileLink, removeClientFile }));
+const clientFolders = vi.hoisted(() => vi.fn());
+const createClientFolder = vi.hoisted(() => vi.fn());
+const renameClientFolder = vi.hoisted(() => vi.fn());
+const removeClientFolder = vi.hoisted(() => vi.fn());
+const moveClientFile = vi.hoisted(() => vi.fn());
+vi.mock('./api.js', () => ({
+  clientFiles,
+  uploadClientFiles,
+  clientFileLink,
+  removeClientFile,
+  clientFolders,
+  createClientFolder,
+  renameClientFolder,
+  removeClientFolder,
+  moveClientFile,
+}));
 
 const kept = (over: Partial<ClientFileView> = {}): ClientFileView => ({
   id: 'f-1',
+  folderId: null,
   name: 'Bank statements 2026.xlsx',
   contentType: 'application/octet-stream',
   sizeBytes: 2_621_440,
@@ -27,6 +43,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   await useLanguage('en');
   clientFiles.mockResolvedValue([kept()]);
+  clientFolders.mockResolvedValue([]);
 });
 
 describe('the client’s folder', () => {
@@ -159,5 +176,166 @@ describe('the client’s folder', () => {
       file('setup.exe'),
     );
     expect(await screen.findByText(/programs are not kept/)).toBeInTheDocument();
+  });
+});
+
+const folder = (over: Partial<ClientFolderView> = {}): ClientFolderView => ({
+  id: 'd-1',
+  parentId: null,
+  name: '2025',
+  fileCount: 2,
+  ...over,
+});
+
+describe('folders inside the client’s folder', () => {
+  it('shows a folder with how many files it holds, and keeps its files out of the top', async () => {
+    clientFolders.mockResolvedValue([folder()]);
+    clientFiles.mockResolvedValue([
+      kept(),
+      kept({ id: 'f-2', name: 'inside.pdf', folderId: 'd-1' }),
+    ]);
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    expect(await screen.findByRole('button', { name: '2025' })).toBeInTheDocument();
+    expect(screen.getByText('2 files')).toBeInTheDocument();
+    expect(screen.getByText('Bank statements 2026.xlsx')).toBeInTheDocument();
+    expect(screen.queryByText('inside.pdf')).toBeNull();
+  });
+
+  it('opens a folder, shows its files and a path back, and uploads into it', async () => {
+    const user = userEvent.setup();
+    clientFolders.mockResolvedValue([
+      folder(),
+      folder({ id: 'd-2', parentId: 'd-1', name: 'Statements', fileCount: 0 }),
+    ]);
+    clientFiles.mockResolvedValue([kept({ id: 'f-2', name: 'inside.pdf', folderId: 'd-1' })]);
+    uploadClientFiles.mockResolvedValue({ files: [], refused: [] });
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click(await screen.findByRole('button', { name: '2025' }));
+    expect(screen.getByText('inside.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Statements' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Folder path' })).getByRole('button', {
+        name: '2025',
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(document.querySelector('input[type=file]') as HTMLInputElement, {
+      target: { files: [file('new.pdf')] },
+    });
+    await waitFor(() => expect(uploadClientFiles).toHaveBeenCalled());
+    expect(uploadClientFiles.mock.calls[0]?.[2]).toBe('d-1');
+
+    await user.click(screen.getByRole('button', { name: 'All files' }));
+    expect(screen.queryByText('inside.pdf')).toBeNull();
+  });
+
+  it('makes a folder where you are', async () => {
+    const user = userEvent.setup();
+    createClientFolder.mockResolvedValue([folder({ name: 'Audit' })]);
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click(await screen.findByRole('button', { name: 'New folder' }));
+    await user.type(screen.getByLabelText('Folder name'), 'Audit');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(createClientFolder).toHaveBeenCalledWith('c-1', 'Audit', null));
+  });
+
+  it('makes a folder inside the one that is open', async () => {
+    const user = userEvent.setup();
+    clientFolders.mockResolvedValue([folder()]);
+    createClientFolder.mockResolvedValue([folder()]);
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click(await screen.findByRole('button', { name: '2025' }));
+    await user.click(screen.getByRole('button', { name: 'New folder' }));
+    await user.type(screen.getByLabelText('Folder name'), 'Invoices');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(createClientFolder).toHaveBeenCalledWith('c-1', 'Invoices', 'd-1'));
+  });
+
+  it('shows the server’s refusal, such as a name already used', async () => {
+    const user = userEvent.setup();
+    createClientFolder.mockRejectedValue(
+      new Error('There is already a folder with that name here'),
+    );
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click(await screen.findByRole('button', { name: 'New folder' }));
+    await user.type(screen.getByLabelText('Folder name'), 'Audit');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(
+      await screen.findByText('There is already a folder with that name here'),
+    ).toBeInTheDocument();
+  });
+
+  it('renames a folder', async () => {
+    const user = userEvent.setup();
+    clientFolders.mockResolvedValue([folder()]);
+    renameClientFolder.mockResolvedValue(undefined);
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click(await screen.findByRole('button', { name: 'Rename' }));
+    const field = screen.getByLabelText('Folder name');
+    await user.clear(field);
+    await user.type(field, 'Archive');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(renameClientFolder).toHaveBeenCalledWith('d-1', 'Archive'));
+  });
+
+  it('asks before deleting a folder, and says why when it is not empty', async () => {
+    const user = userEvent.setup();
+    clientFolders.mockResolvedValue([folder()]);
+    removeClientFolder.mockRejectedValue(
+      new Error('Move or remove what is inside this folder first'),
+    );
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click((await screen.findAllByRole('button', { name: 'Remove' }))[0] as HTMLElement);
+    expect(removeClientFolder).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Delete folder' }));
+
+    expect(
+      await screen.findByText('Move or remove what is inside this folder first'),
+    ).toBeInTheDocument();
+  });
+
+  it('moves a file into a folder, listing folders by their full path', async () => {
+    const user = userEvent.setup();
+    clientFolders.mockResolvedValue([
+      folder(),
+      folder({ id: 'd-2', parentId: 'd-1', name: 'Statements' }),
+    ]);
+    moveClientFile.mockResolvedValue(undefined);
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await user.click(await screen.findByRole('button', { name: 'Move' }));
+    const select = await screen.findByLabelText('Move to');
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Top level', '2025', '2025 / Statements']);
+    await user.selectOptions(select, 'd-2');
+
+    await waitFor(() => expect(moveClientFile).toHaveBeenCalledWith('f-1', 'd-2'));
+  });
+
+  it('offers no way to change anything to somebody who may not edit clients', async () => {
+    clientFolders.mockResolvedValue([folder()]);
+    renderScreen(<ClientFilesPanel clientId="c-1" canEdit={false} />);
+
+    expect(await screen.findByRole('button', { name: '2025' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New folder' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Move' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Rename' })).toBeNull();
+    expect(screen.queryByText(/Drop files here/)).toBeNull();
+    // Reading is still possible.
+    expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
   });
 });

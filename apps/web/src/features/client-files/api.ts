@@ -1,11 +1,13 @@
 import {
   type ClientFileView,
   type ClientFilesUploaded,
+  type ClientFolderView,
   clientFilesSchema,
   clientFilesUploadedSchema,
+  clientFoldersSchema,
 } from '@amc/contracts';
 import { z } from 'zod';
-import { ApiError, del, request } from '../auth/api.js';
+import { ApiError, del, patch, request, send } from '../auth/api.js';
 
 export async function clientFiles(clientId: string): Promise<ClientFileView[]> {
   return clientFilesSchema.parse(await request(`/clients/${encodeURIComponent(clientId)}/files`))
@@ -21,8 +23,11 @@ export async function clientFiles(clientId: string): Promise<ClientFileView[]> {
 export async function uploadClientFiles(
   clientId: string,
   files: readonly File[],
+  folderId: string | null = null,
 ): Promise<ClientFilesUploaded> {
   const form = new FormData();
+  // Before the files: multer reads fields in order, and the folder is wanted first.
+  if (folderId) form.append('folderId', folderId);
   for (const file of files) form.append('files', file);
 
   const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/files`, {
@@ -59,4 +64,36 @@ export async function clientFileLink(id: string): Promise<string> {
 
 export async function removeClientFile(id: string): Promise<void> {
   await del(`/client-files/${encodeURIComponent(id)}`);
+}
+
+export async function clientFolders(clientId: string): Promise<ClientFolderView[]> {
+  return clientFoldersSchema.parse(
+    await request(`/clients/${encodeURIComponent(clientId)}/folders`),
+  ).folders;
+}
+
+export async function createClientFolder(
+  clientId: string,
+  name: string,
+  parentId: string | null,
+): Promise<ClientFolderView[]> {
+  return clientFoldersSchema.parse(
+    await send(`/clients/${encodeURIComponent(clientId)}/folders`, {
+      name,
+      ...(parentId ? { parentId } : {}),
+    }),
+  ).folders;
+}
+
+export async function renameClientFolder(id: string, name: string): Promise<void> {
+  await patch(`/client-folders/${encodeURIComponent(id)}`, { name });
+}
+
+export async function removeClientFolder(id: string): Promise<void> {
+  await del(`/client-folders/${encodeURIComponent(id)}`);
+}
+
+/** Null puts it back at the top of the client's folder. */
+export async function moveClientFile(id: string, folderId: string | null): Promise<void> {
+  await send(`/client-files/${encodeURIComponent(id)}/move`, { folderId });
 }

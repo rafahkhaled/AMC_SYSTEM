@@ -20,8 +20,10 @@ import { ClientFilesController } from './client-files.controller.js';
 import { ClientsController } from './clients.controller.js';
 import { ContactLogController } from './contact-log.controller.js';
 import { DocumentsController } from './documents.controller.js';
+import { EnquiryThrottle } from './enquiry-throttle.js';
 import { LeadsController } from './leads.controller.js';
 import { LettersController } from './letters.controller.js';
+import { PUBLIC_SITE_ORIGINS, PublicEnquiriesController } from './public-enquiries.controller.js';
 import { VaultController } from './vault.controller.js';
 
 interface Parts {
@@ -34,6 +36,8 @@ interface Parts {
   letters: GenerateLetter;
   clientFiles: ClientFiles;
   clientDetails: ManageClientDetails;
+  /** The websites allowed to send an enquiry. */
+  publicSiteOrigins: readonly string[];
   letterTemplates: ManageLetterTemplates;
 }
 
@@ -63,6 +67,7 @@ export class ClientsModule {
         ContactLogController,
         DocumentsController,
         LeadsController,
+        PublicEnquiriesController,
         LettersController,
         VaultController,
       ],
@@ -92,6 +97,12 @@ export class ClientsModule {
         { provide: LeadWorkflow, inject: [PARTS], useFactory: (p: Parts) => p.leadWorkflow },
         { provide: GenerateLetter, inject: [PARTS], useFactory: (p: Parts) => p.letters },
         { provide: ClientFiles, inject: [PARTS], useFactory: (p: Parts) => p.clientFiles },
+        EnquiryThrottle,
+        {
+          provide: PUBLIC_SITE_ORIGINS,
+          inject: [PARTS],
+          useFactory: (p: Parts) => p.publicSiteOrigins,
+        },
         {
           provide: ManageClientDetails,
           inject: [PARTS],

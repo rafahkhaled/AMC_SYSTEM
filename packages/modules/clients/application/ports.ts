@@ -4,6 +4,7 @@ import type {
   ClientCredential,
   ClientDocument,
   ClientFile,
+  ClientFolder,
   ClientId,
   ClientScope,
   ContactLogEntry,
@@ -154,6 +155,24 @@ export interface ClientFileRepository {
   /** Null when it does not exist, and equally when its client is out of scope. */
   findById(id: string, scope: ClientScope): Promise<ClientFile | null>;
   save(file: ClientFile): Promise<void>;
+
+  /** Folders still in use, with how many files sit directly in each. */
+  foldersFor(
+    clientId: ClientId,
+    scope: ClientScope,
+  ): Promise<{ folder: ClientFolder; fileCount: number }[]>;
+  /** Null when it does not exist, and equally when its client is out of scope. */
+  findFolder(id: string, scope: ClientScope): Promise<ClientFolder | null>;
+  /** Levels from the top: 1 for a folder directly in the client's folder. */
+  depthOf(folderId: string): Promise<number>;
+  nameTaken(
+    clientId: ClientId,
+    parentId: string | null,
+    name: string,
+    exceptId?: string,
+  ): Promise<boolean>;
+  folderHasContents(folderId: string): Promise<boolean>;
+  saveFolder(folder: ClientFolder): Promise<void>;
 }
 
 /** Whether a campaign exists, so an enquiry is never attributed to one that does not. */

@@ -213,4 +213,135 @@ describe('a client’s folder of files', () => {
       await accountant.delete('/client-files/anything').expect(403);
     });
   });
+
+  describe('folders inside it', () => {
+    const folderIn = (who: Session, client: string, name: string, parentId?: string) =>
+      who.post(`/clients/${client}/folders`).send({ name, ...(parentId ? { parentId } : {}) });
+    const idOf = (body: { folders: { id: string; name: string }[] }, name: string) =>
+      body.folders.find((f) => f.name === name)?.id ?? '';
+    const into = (who: Session, client: string, folderId: string, name: string, body: string) =>
+      who
+        .post(`/clients/${client}/files`)
+        .field('folderId', folderId)
+        .attach('files', Buffer.from(body), name);
+
+    let year: string;
+    let statements: string;
+
+    it('is closed to a stranger and to people who may not edit clients', async () => {
+      await t.anonymous().get('/clients/c-mine/folders').expect(401);
+      await t.anonymous().post('/clients/c-mine/folders').expect(401);
+      await dataEntry.post('/clients/c-mine/folders').send({ name: 'x' }).expect(403);
+    });
+
+    it('creates a folder, and one inside it', async () => {
+      const first = await folderIn(manager, 'c-mine', '2025').expect(201);
+      year = idOf(first.body, '2025');
+      const second = await folderIn(manager, 'c-mine', 'Bank statements', year).expect(201);
+      statements = idOf(second.body, 'Bank statements');
+
+      expect(second.body.folders).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: '2025', parentId: null }),
+          expect.objectContaining({ name: 'Bank statements', parentId: year }),
+        ]),
+      );
+    });
+
+    it('refuses a bad name, a duplicate in the same place, and a folder that is not there', async () => {
+      await folderIn(manager, 'c-mine', '').expect(400);
+      await folderIn(manager, 'c-mine', 'a/b').expect(409);
+      await folderIn(manager, 'c-mine', '2025').expect(409);
+      await folderIn(manager, 'c-mine', 'Orphan', 'no-such-folder').expect(409);
+      await folderIn(manager, 'nobody', 'X').expect(404);
+      // The same name is fine in another place.
+      await folderIn(manager, 'c-mine', 'Bank statements').expect(201);
+    });
+
+    it('puts an upload in the folder and shows it there, and counts it', async () => {
+      const kept = await into(manager, 'c-mine', statements, 'january.pdf', 'pdf bytes').expect(
+        201,
+      );
+      expect(kept.body.files.find((f: { name: string }) => f.name === 'january.pdf').folderId).toBe(
+        statements,
+      );
+      const folders = await manager.get('/clients/c-mine/folders').expect(200);
+      expect(folders.body.folders.find((f: { id: string }) => f.id === statements).fileCount).toBe(
+        1,
+      );
+    });
+
+    it('refuses an upload into a folder that belongs to another client', async () => {
+      const other = await folderIn(manager, 'c-theirs', 'Theirs').expect(201);
+      const theirs = idOf(other.body, 'Theirs');
+      await into(manager, 'c-mine', theirs, 'x.pdf', 'x').expect(400);
+    });
+
+    it('moves a file to another folder and back to the top', async () => {
+      const files = await manager.get('/clients/c-mine/files').expect(200);
+      const id = files.body.files.find((f: { name: string }) => f.name === 'january.pdf').id;
+
+      await manager.post(`/client-files/${id}/move`).send({ folderId: year }).expect(201);
+      let now = await manager.get('/clients/c-mine/files').expect(200);
+      expect(now.body.files.find((f: { id: string }) => f.id === id).folderId).toBe(year);
+
+      await manager.post(`/client-files/${id}/move`).send({ folderId: null }).expect(201);
+      now = await manager.get('/clients/c-mine/files').expect(200);
+      expect(now.body.files.find((f: { id: string }) => f.id === id).folderId).toBeNull();
+
+      await manager.post(`/client-files/${id}/move`).send({ folderId: 'nowhere' }).expect(404);
+      await dataEntry.post(`/client-files/${id}/move`).send({ folderId: year }).expect(403);
+    });
+
+    it('renames a folder, but not onto a neighbour’s name', async () => {
+      await manager
+        .patch(`/client-folders/${statements}`)
+        .send({ name: 'Statements 2025' })
+        .expect(200);
+      const listed = await manager.get('/clients/c-mine/folders').expect(200);
+      expect(listed.body.folders.map((f: { name: string }) => f.name)).toContain('Statements 2025');
+
+      await folderIn(manager, 'c-mine', 'Invoices', year).expect(201);
+      await manager.patch(`/client-folders/${statements}`).send({ name: 'invoices' }).expect(409);
+      await manager.patch('/client-folders/missing').send({ name: 'x' }).expect(404);
+    });
+
+    it('removes only an empty folder', async () => {
+      await into(manager, 'c-mine', statements, 'feb.pdf', 'pdf').expect(201);
+      await manager.delete(`/client-folders/${statements}`).expect(409);
+      await manager.delete(`/client-folders/${year}`).expect(409);
+
+      const files = await manager.get('/clients/c-mine/files').expect(200);
+      const feb = files.body.files.find((f: { name: string }) => f.name === 'feb.pdf').id;
+      await manager.delete(`/client-files/${feb}`).expect(200);
+      await manager.delete(`/client-folders/${statements}`).expect(200);
+
+      const listed = await manager.get('/clients/c-mine/folders').expect(200);
+      expect(listed.body.folders.map((f: { id: string }) => f.id)).not.toContain(statements);
+      // The name can be used again once the folder is gone.
+      await folderIn(manager, 'c-mine', 'Statements 2025', year).expect(201);
+    });
+
+    it('shows an accountant the folders of their own clients only', async () => {
+      const mine = await accountant.get('/clients/c-mine/folders').expect(200);
+      expect(mine.body.folders.length).toBeGreaterThan(0);
+      const theirs = await accountant.get('/clients/c-theirs/folders').expect(200);
+      expect(theirs.body.folders).toEqual([]);
+      await accountant.post('/clients/c-theirs/folders').send({ name: 'Mine now' }).expect(403);
+    });
+
+    it('records who made, renamed, moved and removed a folder', async () => {
+      const rows = await t.sql<{ action: string }[]>`
+        SELECT action FROM audit_log WHERE action LIKE 'clients.folder.%' OR action = 'clients.file.moved'
+      `;
+      expect(new Set(rows.map((r) => r.action))).toEqual(
+        new Set([
+          'clients.folder.created',
+          'clients.folder.renamed',
+          'clients.folder.removed',
+          'clients.file.moved',
+        ]),
+      );
+    });
+  });
 });

@@ -171,7 +171,7 @@ export function ClientPage({
       </Card>
 
       {/* A folder for anything else: not typed, not dated, not chased. */}
-      <ClientFilesPanel clientId={id} />
+      <ClientFilesPanel clientId={id} canEdit={canEdit} />
 
       <LettersPanel clientId={id} />
 

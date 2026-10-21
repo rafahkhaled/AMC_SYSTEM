@@ -9,3 +9,4 @@ export * from './letter.js';
 export * from './tax-period.js';
 export * from './trn.js';
 export * from './client-file.js';
+export * from './client-folder.js';

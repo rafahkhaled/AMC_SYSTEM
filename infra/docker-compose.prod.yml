@@ -40,14 +40,15 @@ x-server: &server
     BUSINESS_TIME_ZONE: ${BUSINESS_TIME_ZONE:-Asia/Dubai}
     DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-AED}
 
-    # Billing. 0 matches the firm's own invoice template, which carries no
-    # VAT line; 500 is the UAE's five percent if that changes.
     # One proxy (Caddy) sits in front of the API, and it writes the caller's
     # address into X-Forwarded-For. Trusting that one hop is what makes the
     # audit log record where an action came from; without it every row says
     # the proxy's own internal address.
     TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+    PUBLIC_SITE_ORIGINS: ${PUBLIC_SITE_ORIGINS:-https://activemc.ae,https://www.activemc.ae,https://preview.activemc.ae}
 
+    # Billing. 0 matches the firm's own invoice template, which carries no
+    # VAT line; 500 is the UAE's five percent if that changes.
     BILLING_VAT_BASIS_POINTS: ${BILLING_VAT_BASIS_POINTS:-0}
     BILLING_PAYMENT_TERMS_DAYS: ${BILLING_PAYMENT_TERMS_DAYS:-30}
     BILLING_DEFAULT_RATE_MINOR: ${BILLING_DEFAULT_RATE_MINOR:-30000}

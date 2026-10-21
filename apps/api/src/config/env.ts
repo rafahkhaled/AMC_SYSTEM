@@ -113,6 +113,14 @@ export const environmentSchema = z.object({
    */
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 
+  /**
+   * The websites that may post an enquiry to /api/public/enquiries, separated
+   * by commas, each written as the browser sends it (scheme and host, no path).
+   */
+  PUBLIC_SITE_ORIGINS: z
+    .string()
+    .default('https://activemc.ae,https://www.activemc.ae,https://preview.activemc.ae'),
+
   BILLING_VAT_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   BILLING_PAYMENT_TERMS_DAYS: z.coerce.number().int().positive().max(365).default(30),
   BILLING_DEFAULT_RATE_MINOR: z.coerce.number().int().nonnegative().default(30_000),

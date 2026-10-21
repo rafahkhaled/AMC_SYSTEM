@@ -40,6 +40,7 @@ export interface Session {
   patch(path: string): request.Test;
   put(path: string): request.Test;
   delete(path: string): request.Test;
+  options(path: string): request.Test;
 }
 
 export interface TestApp {
@@ -47,7 +48,7 @@ export interface TestApp {
   /** A raw connection to this suite's own database. */
   readonly sql: postgres.Sql;
   /** Not signed in. */
-  anonymous(): Pick<Session, 'get' | 'post' | 'patch' | 'put' | 'delete'>;
+  anonymous(): Pick<Session, 'get' | 'post' | 'patch' | 'put' | 'delete' | 'options'>;
   /** Registers (once) and signs in somebody holding the role. */
   as(role: RoleName): Promise<Session>;
   /** A fresh person with the role, for tests that need two of the same. */
@@ -123,6 +124,7 @@ export async function bootTestApp(
       patch: (path) => request(server).patch(`/api${path}`).set('Cookie', cookie),
       put: (path) => request(server).put(`/api${path}`).set('Cookie', cookie),
       delete: (path) => request(server).delete(`/api${path}`).set('Cookie', cookie),
+      options: (path) => request(server).options(`/api${path}`).set('Cookie', cookie),
     };
   }
 
@@ -135,6 +137,7 @@ export async function bootTestApp(
       patch: (path) => request(server).patch(`/api${path}`),
       put: (path) => request(server).put(`/api${path}`),
       delete: (path) => request(server).delete(`/api${path}`),
+      options: (path) => request(server).options(`/api${path}`),
     }),
     async as(role) {
       const known = people.get(role);

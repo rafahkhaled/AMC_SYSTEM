@@ -1,13 +1,22 @@
-import type { ClientFilesUploaded } from '@amc/contracts';
+import {
+  type ClientFilesUploaded,
+  type ClientFolderView,
+  createFolderSchema,
+  moveFileSchema,
+  renameFolderSchema,
+} from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions, decodeUploadName } from '@amc/http-kit';
 import {
   BadRequestException,
+  Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
   UploadedFiles,
   UseInterceptors,
@@ -64,6 +73,7 @@ export class ClientFilesController {
     @CurrentCaller() caller: Caller,
     @Param('clientId') clientId: string,
     @UploadedFiles() uploaded: UploadedFileLike[] | undefined,
+    @Body() fields: { folderId?: string } | undefined,
   ): Promise<ClientFilesUploaded> {
     if (!uploaded || uploaded.length === 0) {
       throw new BadRequestException('No file arrived with that upload');
@@ -80,6 +90,7 @@ export class ClientFilesController {
         contentType: file.mimetype,
         body: file.buffer,
       })),
+      fields?.folderId ? fields.folderId : null,
     );
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
 
@@ -99,6 +110,95 @@ export class ClientFilesController {
   async remove(@CurrentCaller() caller: Caller, @Param('id') id: string): Promise<{ ok: true }> {
     const removed = await this.files.remove(caller, id);
     if (!removed.ok) throw new NotFoundException(removed.error.message);
+    return { ok: true };
+  }
+
+  @Get('clients/:clientId/folders')
+  async folders(
+    @CurrentCaller() caller: Caller,
+    @Param('clientId') clientId: string,
+  ): Promise<{ folders: ClientFolderView[] }> {
+    return { folders: await this.files.folders(caller, clientId) };
+  }
+
+  @Post('clients/:clientId/folders')
+  @RequirePermissions('clients.edit')
+  async createFolder(
+    @CurrentCaller() caller: Caller,
+    @Param('clientId') clientId: string,
+    @Body() body: unknown,
+  ): Promise<{ folders: ClientFolderView[] }> {
+    const parsed = createFolderSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Give the folder a name');
+    }
+    // The client must exist: reachable and existing are different questions,
+    // and a manager can "reach" an id that is nobody's.
+    if (!(await this.clients.detail(caller, clientId))) {
+      throw new NotFoundException('No such client');
+    }
+    const created = await this.files.createFolder(
+      caller,
+      clientId,
+      parsed.data.name,
+      parsed.data.parentId ?? null,
+    );
+    if (!created.ok) {
+      if (created.error.message === 'No such client') throw new NotFoundException('No such client');
+      throw new ConflictException(created.error.message);
+    }
+    return { folders: await this.files.folders(caller, clientId) };
+  }
+
+  @Patch('client-folders/:id')
+  @RequirePermissions('clients.edit')
+  async renameFolder(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true }> {
+    const parsed = renameFolderSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Give the folder a name');
+    }
+    const renamed = await this.files.renameFolder(caller, id, parsed.data.name);
+    if (!renamed.ok) {
+      if (renamed.error.message === 'No such folder') throw new NotFoundException('No such folder');
+      throw new ConflictException(renamed.error.message);
+    }
+    return { ok: true };
+  }
+
+  @Delete('client-folders/:id')
+  @RequirePermissions('clients.edit')
+  async removeFolder(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+  ): Promise<{ ok: true }> {
+    const removed = await this.files.removeFolder(caller, id);
+    if (!removed.ok) {
+      if (removed.error.message === 'No such folder') throw new NotFoundException('No such folder');
+      throw new ConflictException(removed.error.message);
+    }
+    return { ok: true };
+  }
+
+  @Post('client-files/:id/move')
+  @RequirePermissions('clients.edit')
+  async move(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true }> {
+    const parsed = moveFileSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('Say which folder, or null for the top');
+    const moved = await this.files.moveFile(caller, id, parsed.data.folderId);
+    if (!moved.ok) {
+      if (moved.error.message === 'No such file' || moved.error.message === 'No such folder') {
+        throw new NotFoundException(moved.error.message);
+      }
+      throw new ConflictException(moved.error.message);
+    }
     return { ok: true };
   }
 }

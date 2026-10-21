@@ -7,7 +7,14 @@ export type LeadId = string;
  * because the category is what gets counted and the text is what tells you
  * which advertisement actually worked (FR-01).
  */
-export type LeadSource = 'whatsapp' | 'phone' | 'referral' | 'advertisement' | 'walk_in' | 'other';
+export type LeadSource =
+  | 'whatsapp'
+  | 'phone'
+  | 'referral'
+  | 'advertisement'
+  | 'walk_in'
+  | 'website'
+  | 'other';
 
 export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'confirmed' | 'declined';
 
@@ -61,6 +68,7 @@ export class Lead extends AggregateRoot<LeadId> {
     source: LeadSource;
     sourceDetail?: string | null;
     campaignId?: string | null;
+    notes?: string | null;
     requestedService?: string | null;
     now: Date;
   }): Result<Lead, Conflict> {
@@ -87,7 +95,7 @@ export class Lead extends AggregateRoot<LeadId> {
       status: 'new',
       convertedClientId: null,
       receivedAt: params.now,
-      notes: null,
+      notes: params.notes?.trim() || null,
     });
 
     lead.record(

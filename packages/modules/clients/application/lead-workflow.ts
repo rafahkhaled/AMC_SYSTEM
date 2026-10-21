@@ -71,6 +71,64 @@ export class LeadWorkflow {
     });
   }
 
+  /**
+   * A visitor's request from the firm's website.
+   *
+   * Nobody is signed in, so it is recorded as the system acting for the
+   * website, with the visitor's address, which is what lets a flood from one
+   * place be traced. The visitor's company and message go in the notes, where
+   * the person following it up will read them.
+   */
+  captureFromWebsite(params: {
+    name: string;
+    email: string;
+    phone?: string | undefined;
+    company?: string | undefined;
+    service?: string | undefined;
+    message?: string | undefined;
+    page?: string | undefined;
+    ipAddress?: string | undefined;
+  }): Promise<Result<{ leadId: string }, Conflict>> {
+    const notes = [
+      params.company ? `Company: ${params.company}` : null,
+      params.message ? params.message : null,
+    ]
+      .filter((line): line is string => line !== null)
+      .join('\n\n');
+
+    return this.unitOfWork.run(
+      {
+        userId: 'system',
+        roles: ['website'],
+        label: 'Website enquiry',
+        ...(params.ipAddress ? { ipAddress: params.ipAddress } : {}),
+      },
+      async (context) => {
+        const { leads } = this.repositories.forTransaction(
+          (context as unknown as { db: unknown }).db,
+          context,
+        );
+
+        const id = this.ids.next();
+        const lead = Lead.capture({
+          id,
+          name: params.name,
+          email: params.email,
+          ...(params.phone ? { phone: params.phone } : {}),
+          source: 'website' as LeadSource,
+          sourceDetail: `Website${params.page ? ` ${params.page}` : ''}`,
+          ...(params.service ? { requestedService: params.service } : {}),
+          ...(notes ? { notes } : {}),
+          now: new Date(),
+        });
+        if (!lead.ok) return err(lead.error);
+
+        await leads.save(lead.value);
+        return ok({ leadId: id });
+      },
+    );
+  }
+
   move(
     caller: CallerLike,
     id: string,
