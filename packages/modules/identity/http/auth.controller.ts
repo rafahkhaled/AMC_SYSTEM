@@ -1,7 +1,14 @@
 import type { RoleName } from '@amc/contracts';
-import { type SignInRequest, type SignInResponse, signInRequestSchema } from '@amc/contracts';
+import {
+  type SignInRequest,
+  type SignInResponse,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  signInRequestSchema,
+} from '@amc/contracts';
 import { actorFrom } from '@amc/kernel';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -20,6 +27,7 @@ import { IdentityOperations } from '../application/identity-operations.js';
 import { type Role, permissionsFor } from '../domain/index.js';
 import { CurrentCaller } from './caller.js';
 import { AllowPendingTwoFactor, Public } from './permissions.decorator.js';
+import { ResetThrottle } from './reset-throttle.js';
 import {
   COOKIE_SETTINGS,
   type CookieSettings,
@@ -49,8 +57,72 @@ export class AuthController {
   constructor(
     @Inject(IdentityOperations) private readonly identity: IdentityOperations,
     @Inject(SignInThrottle) private readonly throttle: SignInThrottle,
+    @Inject(ResetThrottle) private readonly resets: ResetThrottle,
     @Inject(COOKIE_SETTINGS) private readonly cookieSettings: CookieSettings,
   ) {}
+
+  /**
+   * "I forgot my password": a link to the address on file.
+   *
+   * The answer is the same whether or not the address belongs to anyone, and
+   * the same whether or not it was throttled, so nothing here tells a stranger
+   * who is on the system or how often somebody has asked.
+   */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async forgotPassword(@Body() body: unknown, @Req() request: Request): Promise<{ ok: true }> {
+    const parsed = forgotPasswordSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('Give the email address you sign in with');
+
+    if (this.resets.allow(request.ip ?? 'unknown', parsed.data.email)) {
+      await this.identity.requestPasswordReset(
+        {
+          userId: 'anonymous',
+          roles: [],
+          label: parsed.data.email,
+          ipAddress: request.ip ?? undefined,
+          requestId: request.header('x-request-id') ?? undefined,
+        },
+        parsed.data.email,
+        { ipAddress: request.ip ?? null },
+      );
+    }
+    return { ok: true };
+  }
+
+  /** Choosing the new password from the link in the email. */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() body: unknown, @Req() request: Request): Promise<{ ok: true }> {
+    const parsed = resetPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Choose a new password');
+    }
+
+    // A guessing ceiling on tokens as well: they are 32 random bytes, so this
+    // is belt and braces, and it costs nothing.
+    if (!this.throttle.allow(`reset:${request.ip ?? 'unknown'}`)) {
+      throw new HttpException(
+        'Too many attempts. Try again shortly.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const outcome = await this.identity.completePasswordReset(
+      {
+        userId: 'anonymous',
+        roles: [],
+        label: 'Password reset link',
+        ipAddress: request.ip ?? undefined,
+        requestId: request.header('x-request-id') ?? undefined,
+      },
+      parsed.data,
+    );
+    if (!outcome.ok) throw new BadRequestException(outcome.error.message);
+    return { ok: true };
+  }
 
   @Public()
   @Post('sign-in')

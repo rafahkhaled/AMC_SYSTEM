@@ -9,10 +9,12 @@ import {
   err,
   ok,
 } from '@amc/kernel';
-import type { Role, SessionLimits } from '../domain/index.js';
+import { EmailAddress, type Role, type SessionLimits, checkPassword } from '../domain/index.js';
 import { AuthenticateSession } from './authenticate-session.js';
 import type {
   PasswordHasher,
+  PasswordResetMailer,
+  PasswordResetRepository,
   SessionRepository,
   SessionTokenService,
   TwoFactorService,
@@ -36,7 +38,7 @@ export interface RepositoryFactory {
   forTransaction(
     transaction: unknown,
     collector: EventCollector,
-  ): { users: UserRepository; sessions: SessionRepository };
+  ): { users: UserRepository; sessions: SessionRepository; resets: PasswordResetRepository };
 }
 
 export interface IdentityDependencies {
@@ -48,7 +50,11 @@ export interface IdentityDependencies {
   readonly clock: { now(): Date };
   readonly ids: { next(): string };
   readonly limits: SessionLimits;
+  readonly mailer: PasswordResetMailer;
 }
+
+/** How long a reset link works. */
+const RESET_LINK_MINUTES = 60;
 
 /**
  * Every operation that changes something runs inside one transaction, and the
@@ -239,6 +245,114 @@ export class IdentityOperations {
       }
 
       await users.save(user);
+      return ok(true as const);
+    });
+  }
+
+  /* -------------------------------------------- forgotten passwords -- */
+
+  /**
+   * Somebody asking for a link to choose a new password.
+   *
+   * Says nothing about whether the address belongs to anyone: the caller gets
+   * the same answer either way, because "no such account" would let anybody
+   * check who is on the system. The link goes to the address on file and
+   * nowhere else.
+   */
+  async requestPasswordReset(
+    actor: Actor,
+    rawEmail: string,
+    context: { ipAddress: string | null },
+  ): Promise<void> {
+    const { tokens, clock, ids, mailer } = this.dependencies;
+    const email = EmailAddress.of(rawEmail);
+    if (!email.ok) return;
+
+    const issued = await this.inTransaction(actor, async ({ users, resets }, work) => {
+      const user = await users.findByEmail(email.value);
+      if (!user || user.status !== 'active') return null;
+
+      const now = clock.now();
+      const { token, tokenHash } = tokens.issue();
+      await resets.issue({
+        id: ids.next(),
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(now.getTime() + RESET_LINK_MINUTES * 60_000),
+        requestedIp: context.ipAddress,
+        now,
+      });
+      // That a link was asked for, never the link.
+      work.audit({
+        action: 'identity.password_reset.requested',
+        entityType: 'user',
+        entityId: user.id,
+        after: {},
+      });
+      return { to: user.email.value, displayName: user.displayName, token };
+    });
+
+    if (!issued) return;
+    try {
+      await mailer.send(issued);
+    } catch {
+      // The person can ask again. Failing the request would also tell the
+      // caller that the address exists.
+    }
+  }
+
+  /** Using the link: a new password, and every session they had ends. */
+  completePasswordReset(
+    actor: Actor,
+    params: { token: string; password: string },
+  ): Promise<Result<true, Conflict | ValidationFailed>> {
+    const { tokens, hasher, clock } = this.dependencies;
+    return this.inTransaction(actor, async ({ users, sessions, resets }, work) => {
+      const now = clock.now();
+      const found = await resets.findLive(tokens.hash(params.token), now);
+      if (!found) return err(new Conflict('This link has expired or has already been used'));
+
+      const user = await users.findById(found.userId);
+      if (!user || user.status !== 'active') {
+        return err(new Conflict('This link has expired or has already been used'));
+      }
+
+      const acceptable = checkPassword(params.password, { email: user.email.value });
+      if (!acceptable.ok) return err(acceptable.error);
+
+      user.changePassword(await hasher.hash(params.password), now);
+      await users.save(user);
+      await sessions.revokeAllForUser(user.id, now);
+      await resets.markUsed(found.id, now);
+      work.identify({ ...actor, userId: user.id, roles: user.roles, label: user.displayName });
+      return ok(true as const);
+    });
+  }
+
+  /**
+   * A manager choosing a new password for a colleague who is locked out.
+   *
+   * The colleague is signed out everywhere, so a password that was shared or
+   * guessed stops working at once. The manager's own password is changed the
+   * ordinary way, not through here.
+   */
+  setStaffPassword(
+    actor: Actor,
+    userId: string,
+    password: string,
+  ): Promise<Result<true, Conflict | ValidationFailed>> {
+    const { hasher, clock } = this.dependencies;
+    return this.inTransaction(actor, async ({ users, sessions }) => {
+      const user = await users.findById(userId);
+      if (!user) return err(new Conflict('There is no such person'));
+
+      const acceptable = checkPassword(password, { email: user.email.value });
+      if (!acceptable.ok) return err(acceptable.error);
+
+      const now = clock.now();
+      user.changePassword(await hasher.hash(password), now);
+      await users.save(user);
+      await sessions.revokeAllForUser(userId, now);
       return ok(true as const);
     });
   }

@@ -66,6 +66,8 @@ x-server: &server
     # the log, which is the right default for a practice without a verified
     # address: a working system and a note, not a crash on the first escalation.
     NOTIFICATION_FROM: ${NOTIFICATION_FROM:-}
+    # Where people reach the application, for the links in emails.
+    APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://app.activemc.ae}
     SES_REGION: ${SES_REGION:-me-central-1}
   depends_on:
     postgres:

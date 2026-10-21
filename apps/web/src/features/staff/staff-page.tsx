@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
-import { addStaff, setStaffStatus, staffDirectory, updateStaff } from './api.js';
+import { addStaff, setStaffPassword, setStaffStatus, staffDirectory, updateStaff } from './api.js';
 
 /**
  * Who works here, and what they are carrying (X-01).
@@ -349,6 +349,8 @@ function EditStaff({ person, onDone }: { person: StaffMember | null; onDone: () 
           ))}
         </fieldset>
 
+        <SetPassword personId={person.id} />
+
         {save.isError ? <Alert tone="error">{(save.error as Error).message}</Alert> : null}
         {status.isError ? <Alert tone="error">{(status.error as Error).message}</Alert> : null}
 
@@ -370,5 +372,57 @@ function EditStaff({ person, onDone }: { person: StaffMember | null; onDone: () 
         </div>
       </form>
     </Card>
+  );
+}
+
+/** A manager choosing a password for somebody who is locked out. */
+function SetPassword({ personId }: { personId: string }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const save = useMutation({
+    mutationFn: () => setStaffPassword(personId, password),
+    onSuccess: () => {
+      setPassword('');
+      setOpen(false);
+    },
+  });
+
+  if (!open) {
+    return (
+      <div className="u-stack-tight">
+        <Button type="button" small tone="secondary" onClick={() => setOpen(true)}>
+          {t('reset.setForColleague')}
+        </Button>
+        {save.isSuccess ? <Alert tone="success">{t('reset.setSaved')}</Alert> : null}
+      </div>
+    );
+  }
+  return (
+    <div className="u-stack-tight">
+      <Field
+        label={t('reset.newPassword')}
+        hint={`${t('reset.rules')}. ${t('reset.setForColleagueHint')}`}
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+      {save.isError ? <Alert tone="error">{(save.error as Error).message}</Alert> : null}
+      <div className="u-row">
+        <Button
+          type="button"
+          small
+          busy={save.isPending}
+          disabled={password.length === 0}
+          onClick={() => save.mutate()}
+        >
+          {t('reset.save')}
+        </Button>
+        <Button type="button" small tone="quiet" onClick={() => setOpen(false)}>
+          {t('staff.add.cancel')}
+        </Button>
+      </div>
+    </div>
   );
 }

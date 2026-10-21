@@ -3,10 +3,23 @@ import { useTranslation } from 'react-i18next';
 import { LanguageSwitch } from '../../components/language-switch.js';
 import { Alert, Button, Card, Field } from '../../design/index.js';
 import { ApiError, signIn } from './api.js';
+import { ForgotPasswordForm, ResetPasswordForm } from './password-reset-pages.js';
 import { useSession } from './session.js';
+
+/** The reset token in the address, when somebody arrived from the emailed link. */
+function tokenInAddress(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get('reset');
+  } catch {
+    return null;
+  }
+}
 
 export function SignInPage() {
   const { t } = useTranslation();
+  const [token, setToken] = useState<string | null>(tokenInAddress);
+  const [mode, setMode] = useState<'signin' | 'forgot'>('signin');
+  const [changed, setChanged] = useState(false);
   const { refresh, needsCode } = useSession();
 
   const [email, setEmail] = useState('');
@@ -41,6 +54,38 @@ export function SignInPage() {
     }
   };
 
+  /** Back to the sign-in form, with the link taken out of the address bar. */
+  const backToSignIn = (afterReset: boolean) => {
+    try {
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch {
+      // The address bar is cosmetic; carry on.
+    }
+    setToken(null);
+    setMode('signin');
+    setChanged(afterReset);
+  };
+
+  if (token !== null || mode === 'forgot') {
+    return (
+      <main className="u-centre">
+        <div style={{ inlineSize: 'min(26rem, 100%)' }}>
+          <Card floating>
+            <div className="u-row u-spread" style={{ marginBlockEnd: 'var(--space-4)' }}>
+              <h1>{token !== null ? t('reset.chooseTitle') : t('reset.forgotTitle')}</h1>
+              <LanguageSwitch />
+            </div>
+            {token !== null ? (
+              <ResetPasswordForm token={token} onDone={() => backToSignIn(true)} />
+            ) : (
+              <ForgotPasswordForm onBack={() => backToSignIn(false)} />
+            )}
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="u-centre">
       <form onSubmit={submit} noValidate style={{ inlineSize: 'min(26rem, 100%)' }}>
@@ -54,6 +99,7 @@ export function SignInPage() {
           </div>
 
           <div className="u-stack">
+            {changed ? <Alert tone="success">{t('reset.done')}</Alert> : null}
             {error ? <Alert tone="error">{error}</Alert> : null}
 
             <Field
@@ -95,6 +141,9 @@ export function SignInPage() {
 
             <Button type="submit" block busy={busy}>
               {busy ? t('signIn.submitting') : t('signIn.submit')}
+            </Button>
+            <Button type="button" tone="quiet" block onClick={() => setMode('forgot')}>
+              {t('reset.forgot')}
             </Button>
           </div>
         </Card>

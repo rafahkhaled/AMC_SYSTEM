@@ -1,5 +1,10 @@
 import type { StaffDirectory } from '@amc/contracts';
-import { addStaffSchema, staffStatusSchema, updateStaffSchema } from '@amc/contracts';
+import {
+  addStaffSchema,
+  setStaffPasswordSchema,
+  staffStatusSchema,
+  updateStaffSchema,
+} from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import {
   BadRequestException,
@@ -110,6 +115,29 @@ export class StaffController {
     if (!done.ok) throw new ConflictException(done.error.message);
 
     return { staff: await this.staff.directory(caller) };
+  }
+
+  /**
+   * Choosing a new password for a colleague who is locked out.
+   *
+   * They are signed out everywhere and told the new one by the manager, in
+   * person. Everyone with `users.manage` can do it, which is why it is in the
+   * audit log with who did it to whom.
+   */
+  @Post(':id/password')
+  @RequirePermissions('users.manage')
+  async setPassword(
+    @CurrentCaller() caller: Caller,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<{ ok: true }> {
+    const parsed = setStaffPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'Choose a new password');
+    }
+    const done = await this.identity.setStaffPassword(actorFrom(caller), id, parsed.data.password);
+    if (!done.ok) throw new ConflictException(done.error.message);
+    return { ok: true };
   }
 }
 

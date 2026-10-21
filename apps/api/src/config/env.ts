@@ -121,6 +121,18 @@ export const environmentSchema = z.object({
     .string()
     .default('https://activemc.ae,https://www.activemc.ae,https://preview.activemc.ae'),
 
+  /**
+   * Where the application is reached by people, for links in emails (a password
+   * reset). No trailing slash needed.
+   */
+  APP_PUBLIC_URL: z.string().default('http://localhost:5173'),
+  /**
+   * A verified Amazon SES sender. With it, reset links are emailed; without it
+   * they are written to the server log, so the path still works.
+   */
+  NOTIFICATION_FROM: z.string().optional(),
+  SES_REGION: z.string().default('eu-west-1'),
+
   BILLING_VAT_BASIS_POINTS: z.coerce.number().int().min(0).max(10_000).default(0),
   BILLING_PAYMENT_TERMS_DAYS: z.coerce.number().int().positive().max(365).default(30),
   BILLING_DEFAULT_RATE_MINOR: z.coerce.number().int().nonnegative().default(30_000),

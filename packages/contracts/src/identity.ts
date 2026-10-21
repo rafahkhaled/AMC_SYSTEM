@@ -129,3 +129,19 @@ export type UpdateStaffRequest = z.infer<typeof updateStaffSchema>;
 
 export const staffStatusSchema = z.object({ status: z.enum(['active', 'suspended']) });
 export type StaffStatusRequest = z.infer<typeof staffStatusSchema>;
+
+/** Asking for a link to choose a new password. */
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().min(1, 'An email address is required').max(254),
+});
+
+/** Using that link. The rules for the password are the same as at registration. */
+export const resetPasswordSchema = z.object({
+  token: z.string().min(10).max(200),
+  password: z.string().min(1, 'Choose a new password').max(256),
+});
+
+/** A manager choosing a new password for a colleague. */
+export const setStaffPasswordSchema = z.object({
+  password: z.string().min(1, 'Choose a new password').max(256),
+});

@@ -11,9 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "create-user": "node dist/cli/create-user.js",
+    "reset-password": "node dist/cli/reset-password.js",
     "seed-demo": "node dist/cli/seed-demo.js"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1134.0",
     "@amc/audit": "workspace:*",
     "@amc/billing": "workspace:*",
     "@amc/clients": "workspace:*",

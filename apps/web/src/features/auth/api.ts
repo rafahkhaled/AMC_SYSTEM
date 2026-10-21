@@ -132,3 +132,16 @@ export async function recentAudit(limit = 8): Promise<AuditEntrySummary[]> {
   const body = (await response.json()) as { entries: AuditEntrySummary[] };
   return body.entries;
 }
+
+/**
+ * "I forgot my password." The answer is the same whether or not the address is
+ * on the system, so the screen cannot be used to find out who is.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await send('/auth/forgot-password', { email });
+}
+
+/** Choosing the new password from the link in the email. */
+export async function completePasswordReset(token: string, password: string): Promise<void> {
+  await send('/auth/reset-password', { token, password });
+}

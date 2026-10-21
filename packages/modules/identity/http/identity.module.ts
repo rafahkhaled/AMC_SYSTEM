@@ -10,6 +10,7 @@ import { AuthenticateSession } from '../application/authenticate-session.js';
 import { IdentityOperations, type RepositoryFactory } from '../application/identity-operations.js';
 import type {
   PasswordHasher,
+  PasswordResetMailer,
   SessionRepository,
   SessionTokenService,
   TwoFactorService,
@@ -27,6 +28,7 @@ import {
 import type { SessionLimits } from '../domain/index.js';
 import { AuthController } from './auth.controller.js';
 import { PermissionsGuard } from './permissions.guard.js';
+import { ResetThrottle } from './reset-throttle.js';
 import { COOKIE_SETTINGS, type CookieSettings } from './session-cookie.js';
 import { SessionGuard } from './session.guard.js';
 import { SignInThrottle } from './sign-in-throttle.js';
@@ -47,6 +49,8 @@ export interface IdentityModuleOptions {
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly limits: SessionLimits;
+  /** Sends the link to somebody who forgot their password. */
+  readonly mailer: PasswordResetMailer;
   readonly cookies: CookieSettings;
   /**
    * The staff directory's counts (X-01). Supplied by the composition root
@@ -95,6 +99,7 @@ export class IdentityModule {
       controllers: [AuthController, TwoFactorController, StaffController],
       providers: [
         SignInThrottle,
+        ResetThrottle,
         {
           provide: OPTIONS,
           inject: options.inject ?? [],
@@ -143,6 +148,7 @@ export class IdentityModule {
                 clock: o.clock,
                 ids: o.ids,
                 limits: o.limits,
+                mailer: o.mailer,
               }),
           ),
         },

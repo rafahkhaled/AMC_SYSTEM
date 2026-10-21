@@ -60,3 +60,29 @@ export interface SessionTokenService {
   /** Constant-time comparison, so a timing difference reveals nothing. */
   matches(tokenHash: string, token: string): boolean;
 }
+
+/**
+ * Links for people who have forgotten their password.
+ *
+ * Only a hash of the token is kept, like a session's, so a copy of the
+ * database cannot be used to take over an account.
+ */
+export interface PasswordResetRepository {
+  /** Stores a new link and voids any earlier unused ones for the same person. */
+  issue(params: {
+    id: string;
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+    requestedIp: string | null;
+    now: Date;
+  }): Promise<void>;
+  /** The person a token belongs to, when it is unused and not yet expired. */
+  findLive(tokenHash: string, now: Date): Promise<{ id: string; userId: string } | null>;
+  markUsed(id: string, at: Date): Promise<void>;
+}
+
+/** Sends the link. Outside the transaction: a mail server being down is not a rollback. */
+export interface PasswordResetMailer {
+  send(params: { to: string; displayName: string; token: string }): Promise<void>;
+}

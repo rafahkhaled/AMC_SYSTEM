@@ -40,3 +40,11 @@ export async function setStaffStatus(
     await send(`/staff/${encodeURIComponent(id)}/status`, { status }),
   ).staff;
 }
+
+/**
+ * A manager choosing a new password for a colleague who is locked out. The
+ * colleague is signed out everywhere and told the new one in person.
+ */
+export async function setStaffPassword(id: string, password: string): Promise<void> {
+  await send(`/staff/${encodeURIComponent(id)}/password`, { password });
+}

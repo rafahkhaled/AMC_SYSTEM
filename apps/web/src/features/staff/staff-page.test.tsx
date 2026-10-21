@@ -9,7 +9,14 @@ const staffDirectory = vi.hoisted(() => vi.fn());
 const addStaff = vi.hoisted(() => vi.fn());
 const updateStaff = vi.hoisted(() => vi.fn());
 const setStaffStatus = vi.hoisted(() => vi.fn());
-vi.mock('./api.js', () => ({ staffDirectory, addStaff, updateStaff, setStaffStatus }));
+const setStaffPassword = vi.hoisted(() => vi.fn());
+vi.mock('./api.js', () => ({
+  staffDirectory,
+  addStaff,
+  updateStaff,
+  setStaffStatus,
+  setStaffPassword,
+}));
 
 const person = (over: Partial<StaffMember> = {}): StaffMember => ({
   id: 'u-1',
@@ -103,6 +110,31 @@ describe('managing people', () => {
       password: 'a long enough one',
       roles: ['accountant'],
     });
+  });
+
+  it('lets a manager choose a new password for somebody who is locked out', async () => {
+    setStaffPassword.mockResolvedValue(undefined);
+    renderScreen(<StaffPage canManage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Set a new password' }));
+    await userEvent.type(screen.getByLabelText('New password'), 'A-Brand-New-Passphrase-42');
+    await userEvent.click(screen.getByRole('button', { name: 'Save password' }));
+
+    expect(setStaffPassword).toHaveBeenCalledWith('u-1', 'A-Brand-New-Passphrase-42');
+    expect(await screen.findByText('The password has been changed.')).toBeInTheDocument();
+  });
+
+  it('shows why a new password was refused', async () => {
+    setStaffPassword.mockRejectedValue(new Error('That password is too easy to guess'));
+    renderScreen(<StaffPage canManage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Set a new password' }));
+    await userEvent.type(screen.getByLabelText('New password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: 'Save password' }));
+
+    expect(await screen.findByText('That password is too easy to guess')).toBeInTheDocument();
   });
 
   it('suspends rather than deletes', async () => {

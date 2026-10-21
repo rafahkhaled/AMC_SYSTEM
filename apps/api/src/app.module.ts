@@ -50,6 +50,7 @@ import { IdentityModule } from '@amc/identity/http';
 import {
   Argon2PasswordHasher,
   CryptoSessionTokens,
+  DrizzlePasswordResetRepository,
   DrizzleSessionRepository,
   DrizzleUserRepository,
   TotpTwoFactorService,
@@ -120,6 +121,7 @@ import { HealthModule } from './health/health.module.js';
 import { DomainErrorFilter } from './http/domain-error.filter.js';
 import { staffReader } from './identity/staff.js';
 import { ListsModule } from './lists/lists.module.js';
+import { passwordResetMailer } from './mail/password-reset-mailer.js';
 import { LOGGER } from './observability/logger.js';
 import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
@@ -595,8 +597,8 @@ function peopleDirectory(db: Database) {
       useFactory: (db: Database) => new DrizzleAuditReader(db),
     }),
     IdentityModule.forRootAsync({
-      inject: [DATABASE, ENVIRONMENT],
-      useFactory: (db: Database, environment: Environment) => ({
+      inject: [DATABASE, ENVIRONMENT, LOGGER],
+      useFactory: (db: Database, environment: Environment, logger: Logger) => ({
         // Reads, for authenticating a session on every request.
         users: new DrizzleUserRepository(db),
         staff: staffReader(db),
@@ -628,6 +630,7 @@ function peopleDirectory(db: Database) {
           forTransaction: (transaction: unknown, collector: EventCollector) => ({
             users: new DrizzleUserRepository(transaction as Database, collector),
             sessions: new DrizzleSessionRepository(transaction as Database, collector),
+            resets: new DrizzlePasswordResetRepository(transaction as Database),
           }),
         },
         hasher: new Argon2PasswordHasher(),
@@ -642,6 +645,12 @@ function peopleDirectory(db: Database) {
           idleMinutes: environment.SESSION_IDLE_MINUTES,
           absoluteHours: environment.SESSION_ABSOLUTE_HOURS,
         },
+        mailer: passwordResetMailer({
+          appUrl: environment.APP_PUBLIC_URL,
+          from: environment.NOTIFICATION_FROM,
+          region: environment.SES_REGION,
+          logger,
+        }),
         cookies: { secure: environment.NODE_ENV === 'production' },
       }),
     }),
