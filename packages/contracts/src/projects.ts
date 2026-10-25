@@ -254,3 +254,9 @@ export const updateServiceSchema = createServiceSchema.partial().extend({
   retired: z.boolean().optional(),
 });
 export type UpdateServiceRequest = z.infer<typeof updateServiceSchema>;
+
+/** Putting somebody on a job: the one responsible, or a helper. */
+export const assignProjectSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(['responsible', 'collaborator']),
+});

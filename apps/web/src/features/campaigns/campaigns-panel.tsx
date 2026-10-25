@@ -169,7 +169,12 @@ function CampaignForm({ campaign, onDone }: { campaign: CampaignView | null; onD
           if (ready) save.mutate();
         }}
       >
-        <Field label={t('campaigns.name')} value={name} onChange={(e) => setName(e.target.value)} />
+        <Field
+          label={t('campaigns.name')}
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <Field
           label={t('campaigns.type')}
           control={(props) => (

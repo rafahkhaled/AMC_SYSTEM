@@ -504,3 +504,11 @@ export const publicEnquirySchema = z.object({
   website: z.string().max(200).optional(),
 });
 export type PublicEnquiry = z.infer<typeof publicEnquirySchema>;
+
+/** Adding a client directly, without an enquiry first. */
+export const onboardClientSchema = z.object({
+  legalName: z.string().trim().min(1, 'A client needs a legal name').max(200),
+  legalNameArabic: z.string().trim().max(200).optional(),
+  tradeLicenceNumber: z.string().trim().max(60).optional(),
+});
+export type OnboardClient = z.infer<typeof onboardClientSchema>;

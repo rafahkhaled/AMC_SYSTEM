@@ -19,7 +19,12 @@ export async function updateStaff(
   changes: {
     displayName?: string;
     roles?: string[];
-    workingHours?: { startsAt: string; endsAt: string; days: number[] };
+    workingHours?: {
+      startsAt: string;
+      endsAt: string;
+      days: number[];
+      dayHours?: Record<string, { startsAt: string; endsAt: string }>;
+    };
   },
 ): Promise<StaffMember[]> {
   return staffDirectorySchema.parse(await patch(`/staff/${encodeURIComponent(id)}`, changes)).staff;

@@ -227,20 +227,8 @@ function BranchEditor({ branch, onDone }: { branch: BranchView | null; onDone: (
           />
         </fieldset>
 
-        <Field
-          label={t('branches.admin.logoUrl')}
-          hint={t('branches.admin.urlHint')}
-          ltr
-          value={logoUrl}
-          onChange={(event) => setLogoUrl(event.target.value)}
-        />
-        <Field
-          label={t('branches.admin.stampUrl')}
-          hint={t('branches.admin.urlHint')}
-          ltr
-          value={stampUrl}
-          onChange={(event) => setStampUrl(event.target.value)}
-        />
+        <ImagePicker label={t('branches.admin.logoUrl')} value={logoUrl} onChange={setLogoUrl} />
+        <ImagePicker label={t('branches.admin.stampUrl')} value={stampUrl} onChange={setStampUrl} />
 
         {save.isError ? <Alert tone="error">{(save.error as Error).message}</Alert> : null}
 
@@ -254,5 +242,68 @@ function BranchEditor({ branch, onDone }: { branch: BranchView | null; onDone: (
         </div>
       </form>
     </Card>
+  );
+}
+
+/** The largest image kept. A logo or a stamp is a few dozen kilobytes. */
+const MAX_IMAGE_BYTES = 400 * 1024;
+
+/**
+ * Choosing the logo or the stamp from the computer.
+ *
+ * Read in the browser into a data URL and saved with the branch, so it prints
+ * on every quotation and invoice without a link that could break.
+ */
+function ImagePicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const take = (file: File | undefined) => {
+    setProblem(null);
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) {
+      setProblem(t('branches.admin.imageType'));
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setProblem(t('branches.admin.imageTooLarge'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => onChange(String(reader.result));
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="field">
+      <span className="field__label">{label}</span>
+      <div className="u-row u-row--tight u-wrap">
+        {value ? <img src={value} alt="" className="branch__image" /> : null}
+        <label className="button button--secondary button--small">
+          {value ? t('branches.admin.replaceImage') : t('branches.admin.chooseImage')}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="u-visually-hidden"
+            onChange={(event) => take(event.target.files?.[0])}
+          />
+        </label>
+        {value ? (
+          <Button type="button" small tone="quiet" onClick={() => onChange('')}>
+            {t('branches.admin.removeImage')}
+          </Button>
+        ) : null}
+      </div>
+      <span className="field__hint">{t('branches.admin.imageHint')}</span>
+      {problem ? <span className="u-danger">{problem}</span> : null}
+    </div>
   );
 }

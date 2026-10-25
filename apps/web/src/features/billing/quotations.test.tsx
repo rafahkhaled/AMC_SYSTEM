@@ -289,7 +289,7 @@ describe('while it is a draft', () => {
 
     await userEvent.selectOptions(await screen.findByLabelText('Service'), 'vat_return');
     await userEvent.type(screen.getByLabelText('Amount'), '5000');
-    await userEvent.type(screen.getByLabelText('Discount on this line'), '500');
+    await userEvent.type(screen.getByLabelText('Discount on this line (AED), optional'), '500');
     await userEvent.click(screen.getByRole('button', { name: 'Add a line' }));
 
     await waitFor(() =>
@@ -348,7 +348,7 @@ describe('while it is a draft', () => {
 
     await userEvent.type(await screen.findByLabelText('Description (English)'), 'Work');
     await userEvent.type(screen.getByLabelText('Amount'), '100');
-    await userEvent.type(screen.getByLabelText('Discount on this line'), '100.01');
+    await userEvent.type(screen.getByLabelText('Discount on this line (AED), optional'), '100.01');
 
     expect(screen.getByText('That discount is more than the line it comes off.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add a line' })).toBeDisabled();

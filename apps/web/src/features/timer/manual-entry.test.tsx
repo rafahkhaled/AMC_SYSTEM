@@ -37,7 +37,10 @@ async function fillIn(
   await user.type(screen.getByLabelText('From'), over.from ?? '2026-09-14T14:00');
   await user.type(screen.getByLabelText('To'), over.to ?? '2026-09-14T15:45');
   if (over.reason !== '') {
-    await user.type(screen.getByLabelText('Reason'), over.reason ?? 'Call with the client');
+    await user.type(
+      screen.getByLabelText('Why this was entered by hand'),
+      over.reason ?? 'Call with the client',
+    );
   }
 }
 
@@ -57,16 +60,21 @@ describe('time recorded by hand (FR-22)', () => {
     const user = userEvent.setup();
     show();
     await fillIn(user, { reason: '' });
+    await user.click(screen.getByRole('button', { name: 'Record' }));
 
-    expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled();
+    // Not a greyed-out button with no reason: the field says what is missing.
+    expect(recordManual).not.toHaveBeenCalled();
+    expect(screen.getByText('Write the reason in at least three characters')).toBeInTheDocument();
   });
 
   it('will not record a span that ends before it starts', async () => {
     const user = userEvent.setup();
     show();
     await fillIn(user, { from: '2026-09-14T15:45', to: '2026-09-14T14:00' });
+    await user.click(screen.getByRole('button', { name: 'Record' }));
 
-    expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled();
+    expect(recordManual).not.toHaveBeenCalled();
+    expect(screen.getByText('The end has to be after the start')).toBeInTheDocument();
   });
 
   it('will not record against no project', async () => {
@@ -74,9 +82,11 @@ describe('time recorded by hand (FR-22)', () => {
     show();
     await user.type(screen.getByLabelText('From'), '2026-09-14T14:00');
     await user.type(screen.getByLabelText('To'), '2026-09-14T15:45');
-    await user.type(screen.getByLabelText('Reason'), 'Call with the client');
+    await user.type(screen.getByLabelText('Why this was entered by hand'), 'Call with the client');
+    await user.click(screen.getByRole('button', { name: 'Record' }));
 
-    expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled();
+    expect(recordManual).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Project')).toHaveClass('input--invalid');
   });
 
   it('sends what was typed, billable unless told otherwise', async () => {
@@ -135,6 +145,11 @@ describe('time recorded by hand (FR-22)', () => {
     ).toBeInTheDocument();
   });
 
+  it('explains what billable means', () => {
+    show();
+    expect(screen.getByText(/Shows on the client’s statement and is charged/)).toBeInTheDocument();
+  });
+
   it('can mark time as not billable', async () => {
     const user = userEvent.setup();
     show();
@@ -146,7 +161,7 @@ describe('time recorded by hand (FR-22)', () => {
     });
 
     await fillIn(user);
-    await user.click(screen.getByLabelText('Billable'));
+    await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Record' }));
 
     expect(recordManual).toHaveBeenCalledWith(expect.objectContaining({ billable: false }));

@@ -74,6 +74,10 @@ export const staffMemberSchema = z.object({
       endsAt: z.string(),
       /** ISO weekday numbers: 1 is Monday. */
       days: z.array(z.number().int()),
+      /** Days with their own hours, keyed by weekday ("6" is Saturday). */
+      dayHours: z
+        .record(z.string(), z.object({ startsAt: z.string(), endsAt: z.string() }))
+        .default({}),
     })
     .nullable(),
   clients: z.number().int().nonnegative(),
@@ -122,6 +126,15 @@ export const updateStaffSchema = z.object({
       endsAt: z.string().regex(/^\d{2}:\d{2}$/),
       /** ISO weekday numbers: 1 is Monday. */
       days: z.array(z.number().int().min(1).max(7)).min(1),
+      dayHours: z
+        .record(
+          z.string().regex(/^[1-7]$/),
+          z.object({
+            startsAt: z.string().regex(/^\d{2}:\d{2}$/),
+            endsAt: z.string().regex(/^\d{2}:\d{2}$/),
+          }),
+        )
+        .optional(),
     })
     .optional(),
 });
@@ -144,4 +157,25 @@ export const resetPasswordSchema = z.object({
 /** A manager choosing a new password for a colleague. */
 export const setStaffPasswordSchema = z.object({
   password: z.string().min(1, 'Choose a new password').max(256),
+});
+
+/** What each role may do, and what the firm may change. */
+export const rolePermissionsSchema = z.object({
+  roles: z.array(
+    z.object({
+      role: roleSchema,
+      /** False for the manager: what a manager may do is fixed. */
+      editable: z.boolean(),
+      permissions: z.array(z.string()),
+      /** What the role had before the firm changed anything, for "put it back". */
+      defaults: z.array(z.string()),
+    }),
+  ),
+  /** Every permission that has a tick box. */
+  grantable: z.array(z.string()),
+});
+export type RolePermissions = z.infer<typeof rolePermissionsSchema>;
+
+export const chooseRolePermissionsSchema = z.object({
+  permissions: z.array(z.string().max(60)).max(60),
 });

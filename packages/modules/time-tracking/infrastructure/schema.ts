@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   smallint,
   text,
@@ -50,4 +51,8 @@ export const userWorkingHours = pgTable('user_working_hours', {
   startsAt: time('starts_at').notNull(),
   endsAt: time('ends_at').notNull(),
   workingDays: smallint('working_days').array().notNull(),
+  dayHours: jsonb('day_hours')
+    .$type<Record<string, { startsAt: string; endsAt: string }>>()
+    .notNull()
+    .default({}),
 });

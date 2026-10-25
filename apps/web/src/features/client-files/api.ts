@@ -7,6 +7,7 @@ import {
   clientFoldersSchema,
 } from '@amc/contracts';
 import { z } from 'zod';
+import { inReadersLanguage } from '../../lib/server-messages.js';
 import { ApiError, del, patch, request, send } from '../auth/api.js';
 
 export async function clientFiles(clientId: string): Promise<ClientFileView[]> {
@@ -48,7 +49,7 @@ export async function uploadClientFiles(
       // with a status and no useful body; say what that means.
       response.status === 413
         ? 'That file is too large. The limit is 25 MB.'
-        : (error?.message ?? 'That upload did not go through'),
+        : inReadersLanguage(error?.message ?? 'That upload did not go through'),
       error?.requestId,
     );
   }

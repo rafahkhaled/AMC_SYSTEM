@@ -15,6 +15,10 @@ export interface WorkingHoursState {
   readonly startsAtMinutes: number;
   readonly endsAtMinutes: number;
   readonly workingDays: readonly Weekday[];
+  /** Days with their own hours, such as a shorter Saturday. */
+  readonly dayHours: Readonly<
+    Partial<Record<Weekday, { startsAtMinutes: number; endsAtMinutes: number }>>
+  >;
 }
 
 /**
@@ -39,6 +43,7 @@ export class WorkingHours {
       startsAtMinutes: 9 * 60,
       endsAtMinutes: 18 * 60,
       workingDays: [1, 2, 3, 4, 5],
+      dayHours: {},
     });
   }
 
@@ -47,6 +52,7 @@ export class WorkingHours {
     startsAtMinutes: number;
     endsAtMinutes: number;
     workingDays: readonly number[];
+    dayHours?: Readonly<Record<number, { startsAtMinutes: number; endsAtMinutes: number }>>;
   }): Result<WorkingHours, Conflict> {
     if (params.endsAtMinutes <= params.startsAtMinutes) {
       return err(new Conflict('A working day has to end after it starts'));
@@ -61,12 +67,27 @@ export class WorkingHours {
       return err(new Conflict('Days run from Monday, which is 1, to Sunday, which is 7'));
     }
 
+    const dayHours: Partial<Record<Weekday, { startsAtMinutes: number; endsAtMinutes: number }>> =
+      {};
+    for (const [key, hours] of Object.entries(params.dayHours ?? {})) {
+      const day = Number(key);
+      if (!days.includes(day)) continue; // hours for a day off mean nothing
+      if (hours.endsAtMinutes <= hours.startsAtMinutes) {
+        return err(new Conflict('A working day has to end after it starts'));
+      }
+      if (hours.startsAtMinutes < 0 || hours.endsAtMinutes > 24 * 60) {
+        return err(new Conflict('A working day has to fall inside a day'));
+      }
+      dayHours[day as Weekday] = hours;
+    }
+
     return ok(
       new WorkingHours({
         userId: params.userId,
         startsAtMinutes: params.startsAtMinutes,
         endsAtMinutes: params.endsAtMinutes,
         workingDays: days as Weekday[],
+        dayHours,
       }),
     );
   }
@@ -83,7 +104,8 @@ export class WorkingHours {
     if (!this.state.workingDays.includes(weekday)) return false;
 
     const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
-    return minutes >= this.state.startsAtMinutes && minutes < this.state.endsAtMinutes;
+    const hours = this.state.dayHours[weekday] ?? this.state;
+    return minutes >= hours.startsAtMinutes && minutes < hours.endsAtMinutes;
   }
 
   /**

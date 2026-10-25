@@ -41,6 +41,10 @@ export interface ProjectRepository {
    * client they are not assigned to and be told it "does not exist" afterwards.
    */
   clientIsReachable(clientId: string, scope: ProjectScope): Promise<boolean>;
+  /** What hangs off a project that deleting it would destroy or orphan. */
+  usage(id: ProjectId): Promise<{ recordedEntries: number; billed: boolean }>;
+  /** Deletes it outright. Only ever asked once `usage` says nothing depends on it. */
+  remove(id: ProjectId): Promise<void>;
 }
 
 export interface ClientServiceRepository {

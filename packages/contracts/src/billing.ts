@@ -98,8 +98,32 @@ export const createBranchSchema = z.object({
     })
     .nullable()
     .default(null),
-  logoUrl: z.string().trim().url().max(500).nullable().default(null),
-  stampUrl: z.string().trim().url().max(500).nullable().default(null),
+  /*
+   * An uploaded image, kept as a data URL, or a link. Kept in the row rather
+   * than in storage because it is printed on every document and the page's
+   * policy allows images from this origin and data URLs only; a link to a
+   * file elsewhere would never load. 400 KB is a generous logo.
+   */
+  logoUrl: z
+    .string()
+    .trim()
+    .max(560_000, 'That image is too large; keep it under 400 KB')
+    .regex(
+      /^(https:\/\/|data:image\/(png|jpeg|webp|svg\+xml);base64,)/,
+      'Upload a PNG, JPEG or WebP image',
+    )
+    .nullable()
+    .default(null),
+  stampUrl: z
+    .string()
+    .trim()
+    .max(560_000, 'That image is too large; keep it under 400 KB')
+    .regex(
+      /^(https:\/\/|data:image\/(png|jpeg|webp|svg\+xml);base64,)/,
+      'Upload a PNG, JPEG or WebP image',
+    )
+    .nullable()
+    .default(null),
 });
 export type CreateBranchRequest = z.input<typeof createBranchSchema>;
 

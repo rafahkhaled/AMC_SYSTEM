@@ -6,6 +6,7 @@ import {
   errorEnvelopeSchema,
   signInResponseSchema,
 } from '@amc/contracts';
+import { inReadersLanguage } from '../../lib/server-messages.js';
 
 /**
  * Every call carries the session cookie and nothing else. There is no token in
@@ -75,7 +76,7 @@ async function failure(response: Response): Promise<ApiError> {
       return new ApiError(
         response.status,
         parsed.data.error.code,
-        parsed.data.error.message,
+        inReadersLanguage(parsed.data.error.message),
         parsed.data.error.requestId,
       );
     }
@@ -144,4 +145,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
 /** Choosing the new password from the link in the email. */
 export async function completePasswordReset(token: string, password: string): Promise<void> {
   await send('/auth/reset-password', { token, password });
+}
+
+/** A PUT, for replacing something whole. */
+export async function put(path: string, body: unknown): Promise<unknown> {
+  const response = await call(path, { method: 'PUT', body: JSON.stringify(body) });
+  if (!response.ok) throw await failure(response);
+  return response.status === 204 ? null : response.json();
 }

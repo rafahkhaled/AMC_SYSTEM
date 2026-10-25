@@ -1,23 +1,36 @@
 import type { DocumentSummary } from '@amc/contracts';
-import { useMutation } from '@tanstack/react-query';
-import { type DragEvent, useEffect, useId, useRef, useState } from 'react';
+import { type DragEvent, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Field, Select } from '../../design/index.js';
 import { useOptions } from '../lists/use-options.js';
 import { uploadDocument } from './api.js';
-
-/**
- * Which document types carry an expiry date.
- *
- * The server refuses one of these without a date, because accepting it would
- * quietly remove the client from every renewal reminder. The form asks for it
- * as a required field rather than letting someone find out by being refused.
- */
-const EXPIRES = new Set(['trade_licence', 'emirates_id', 'passport', 'visa', 'tenancy_contract']);
+import { EXPIRES, fieldsFor, guessType } from './document-fields.js';
 
 /** What the server will keep. Anything else is a mistake or an attempt. */
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.tif,.tiff';
 
+/** One file waiting to be filed, with what is known about it so far. */
+interface Pending {
+  readonly key: string;
+  readonly file: File;
+  type: string;
+  authority: string;
+  number: string;
+  /** The description for "other", and the address for a tenancy contract. */
+  label: string;
+  issuedOn: string;
+  expiresOn: string;
+  error: string | null;
+}
+
+/**
+ * Filing a client's documents: one, or several at once.
+ *
+ * Several files can be chosen or dropped together. Each gets its own row, with
+ * the fields its type asks for, and they are uploaded together. One refused
+ * (a licence without its expiry date) stays on the list with the reason, and
+ * the others go through, so nobody has to start again.
+ */
 export function DocumentUpload({
   clientId,
   onUploaded,
@@ -28,60 +41,66 @@ export function DocumentUpload({
   const { t } = useTranslation();
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
-
   const documentTypes = useOptions('document_type');
-  const authorities = useOptions('authority');
-  const [file, setFile] = useState<File | null>(null);
-  /*
-   * Empty until the list arrives, then the first option.
-   *
-   * Defaulting to a hardcoded code would quietly reintroduce the thing this
-   * change removes: an administrator who retires `trade_licence` would find
-   * the form still selecting it.
-   */
-  const [type, setType] = useState<string>('');
-  const [authority, setAuthority] = useState<string>('');
-  const [issuedOn, setIssuedOn] = useState('');
-  const [expiresOn, setExpiresOn] = useState('');
-
-  // The list decides the default, so retiring an option retires it everywhere.
-  const firstType = documentTypes.live[0]?.code;
-  useEffect(() => {
-    if (type === '' && firstType) setType(firstType);
-  }, [type, firstType]);
-  const [label, setLabel] = useState('');
-  const [referenceNumber, setReferenceNumber] = useState('');
+  const [pending, setPending] = useState<Pending[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const upload = useMutation({
-    mutationFn: () => {
-      if (!file) throw new Error(t('documents.chooseFirst'));
-      return uploadDocument(clientId, file, {
-        type,
-        ...(authority ? { authority } : {}),
-        ...(label.trim() ? { label: label.trim() } : {}),
-        ...(referenceNumber.trim() ? { referenceNumber: referenceNumber.trim() } : {}),
-        ...(issuedOn ? { issuedOn } : {}),
-        ...(expiresOn ? { expiresOn } : {}),
-      });
-    },
-    onSuccess: (result) => {
-      onUploaded(result.documents);
-      setFile(null);
-      setAuthority('');
-      setIssuedOn('');
-      setExpiresOn('');
-      setLabel('');
-      if (input.current) input.current.value = '';
-    },
-  });
+  const codes = documentTypes.live.map((option) => option.code);
 
-  const needsExpiry = EXPIRES.has(type);
-  const ready = file !== null && (!needsExpiry || expiresOn !== '');
+  function take(chosen: FileList | null) {
+    const files = Array.from(chosen ?? []);
+    if (files.length === 0) return;
+    const fallback = codes[0] ?? 'other';
+    setPending((now) => [
+      ...now,
+      ...files.map((file, index) => ({
+        key: `${Date.now()}-${index}-${file.name}`,
+        file,
+        type: guessType(file.name, codes) ?? fallback,
+        authority: '',
+        number: '',
+        label: '',
+        issuedOn: '',
+        expiresOn: '',
+        error: null,
+      })),
+    ]);
+    if (input.current) input.current.value = '';
+  }
 
-  function take(dropped: FileList | null) {
-    const first = dropped?.[0];
-    if (first) setFile(first);
+  const change = (key: string, patch: Partial<Pending>) =>
+    setPending((now) =>
+      now.map((row) => (row.key === key ? { ...row, ...patch, error: null } : row)),
+    );
+  const drop = (key: string) => setPending((now) => now.filter((row) => row.key !== key));
+
+  const missingExpiry = (row: Pending) => EXPIRES.has(row.type) && row.expiresOn === '';
+  const ready = pending.length > 0 && !pending.some(missingExpiry);
+
+  async function uploadAll() {
+    setBusy(true);
+    let latest: DocumentSummary[] | null = null;
+    const left: Pending[] = [];
+    for (const row of pending) {
+      const fields = fieldsFor(row.type);
+      try {
+        const result = await uploadDocument(clientId, row.file, {
+          type: row.type,
+          ...(fields.authority && row.authority ? { authority: row.authority } : {}),
+          ...(row.label.trim() ? { label: row.label.trim() } : {}),
+          ...(fields.number && row.number.trim() ? { referenceNumber: row.number.trim() } : {}),
+          ...(row.issuedOn ? { issuedOn: row.issuedOn } : {}),
+          ...(row.expiresOn ? { expiresOn: row.expiresOn } : {}),
+        });
+        latest = result.documents;
+      } catch (failure) {
+        left.push({ ...row, error: failure instanceof Error ? failure.message : String(failure) });
+      }
+    }
+    setPending(left);
+    setBusy(false);
+    if (latest) onUploaded(latest);
   }
 
   function onDrop(event: DragEvent<HTMLLabelElement>) {
@@ -95,14 +114,12 @@ export function DocumentUpload({
       className="u-stack"
       onSubmit={(event) => {
         event.preventDefault();
-        if (ready) upload.mutate();
+        if (ready) void uploadAll();
       }}
     >
       {/*
-        The drop area is a label for the file input rather than a div with a
-        click handler. That way it is reachable by keyboard and announced as a
-        file control, and the drop is an addition to it rather than the only
-        way in.
+        A label for the file input rather than a div with a click handler, so
+        it is reachable by keyboard and announced as a file control.
       */}
       <label
         htmlFor={inputId}
@@ -118,23 +135,76 @@ export function DocumentUpload({
           ref={input}
           id={inputId}
           type="file"
+          multiple
           accept={ACCEPT}
           className="u-visually-hidden"
           onChange={(event) => take(event.target.files)}
         />
-        <strong>{file ? file.name : t('documents.dropHere')}</strong>
-        <span className="u-text-faint">
-          {file ? readableSize(file.size) : t('documents.accepted')}
-        </span>
+        <strong>{t('documents.dropHere')}</strong>
+        <span className="u-text-faint">{t('documents.accepted')}</span>
       </label>
+
+      {pending.map((row) => (
+        <PendingRow
+          key={row.key}
+          row={row}
+          onChange={(patch) => change(row.key, patch)}
+          onRemove={() => drop(row.key)}
+          disabled={busy}
+        />
+      ))}
+
+      {pending.length > 0 ? (
+        <div className="u-row">
+          <Button type="submit" disabled={!ready} busy={busy}>
+            {pending.length > 1
+              ? t('documents.uploadMany', { count: pending.length })
+              : t('documents.upload')}
+          </Button>
+          <Button type="button" tone="quiet" disabled={busy} onClick={() => setPending([])}>
+            {t('documents.clear')}
+          </Button>
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
+function PendingRow({
+  row,
+  onChange,
+  onRemove,
+  disabled,
+}: {
+  row: Pending;
+  onChange: (patch: Partial<Pending>) => void;
+  onRemove: () => void;
+  disabled: boolean;
+}) {
+  const { t } = useTranslation();
+  const documentTypes = useOptions('document_type');
+  const authorities = useOptions('authority');
+  const fields = fieldsFor(row.type);
+  const needsExpiry = EXPIRES.has(row.type);
+
+  return (
+    <fieldset className="u-stack-tight pending-document" disabled={disabled}>
+      <legend className="u-row u-row--tight">
+        <strong className="u-ltr">{row.file.name}</strong>
+        <span className="u-text-faint">{readableSize(row.file.size)}</span>
+        <Button type="button" small tone="quiet" onClick={onRemove}>
+          {t('documents.removeFile')}
+        </Button>
+      </legend>
 
       <Field
         label={t('documents.type')}
         control={(props) => (
-          <Select {...props} value={type} onChange={(event) => setType(event.target.value)}>
-            {/* From the list an administrator maintains, not from a constant
-                in this file: a practice learns a new document type when a
-                client walks in holding one. */}
+          <Select
+            {...props}
+            value={row.type}
+            onChange={(event) => onChange({ type: event.target.value })}
+          >
             {documentTypes.live.map((option) => (
               <option key={option.code} value={option.code}>
                 {documentTypes.label(option.code)}
@@ -144,42 +214,50 @@ export function DocumentUpload({
         )}
       />
 
-      {/* Who issued it. A trade licence from the DED and one from a free zone
-          are the same type and not the same document, and which it is decides
-          who a renewal is chased with. */}
-      <Field
-        label={t('documents.authority')}
-        hint={t('documents.authorityHint')}
-        control={(props) => (
-          <Select
-            {...props}
-            value={authority}
-            onChange={(event) => setAuthority(event.target.value)}
-          >
-            <option value="">{t('documents.authorityUnknown')}</option>
-            {authorities.live.map((option) => (
-              <option key={option.code} value={option.code}>
-                {authorities.label(option.code)}
-              </option>
-            ))}
-          </Select>
-        )}
-      />
+      {fields.number ? (
+        <Field
+          label={t(fields.number)}
+          ltr
+          value={row.number}
+          onChange={(event) => onChange({ number: event.target.value })}
+        />
+      ) : null}
 
-      <Field
-        label={t('documents.referenceNumber')}
-        hint={t('documents.referenceHint')}
-        ltr
-        value={referenceNumber}
-        onChange={(event) => setReferenceNumber(event.target.value)}
-      />
+      {fields.authority ? (
+        <Field
+          label={t('documents.authority')}
+          hint={t('documents.authorityHint')}
+          control={(props) => (
+            <Select
+              {...props}
+              value={row.authority}
+              onChange={(event) => onChange({ authority: event.target.value })}
+            >
+              <option value="">{t('documents.authorityUnknown')}</option>
+              {authorities.live.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {authorities.label(option.code)}
+                </option>
+              ))}
+            </Select>
+          )}
+        />
+      ) : null}
 
-      {type === 'other' ? (
+      {fields.address ? (
+        <Field
+          label={t('documents.address')}
+          value={row.label}
+          onChange={(event) => onChange({ label: event.target.value })}
+        />
+      ) : null}
+
+      {row.type === 'other' ? (
         <Field
           label={t('documents.label')}
           hint={t('documents.labelHint')}
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
+          value={row.label}
+          onChange={(event) => onChange({ label: event.target.value })}
         />
       ) : null}
 
@@ -187,39 +265,22 @@ export function DocumentUpload({
         <Field
           label={t('documents.issuedOn')}
           type="date"
-          value={issuedOn}
-          onChange={(event) => setIssuedOn(event.target.value)}
+          value={row.issuedOn}
+          onChange={(event) => onChange({ issuedOn: event.target.value })}
         />
         <Field
           label={needsExpiry ? t('documents.expiresOnRequired') : t('documents.expiresOn')}
           {...(needsExpiry ? { hint: t('documents.expiryChases') } : {})}
+          {...(needsExpiry && row.expiresOn === '' ? { error: t('documents.expiryNeeded') } : {})}
           type="date"
           required={needsExpiry}
-          value={expiresOn}
-          onChange={(event) => setExpiresOn(event.target.value)}
+          value={row.expiresOn}
+          onChange={(event) => onChange({ expiresOn: event.target.value })}
         />
       </div>
 
-      {upload.error ? <Alert tone="error">{upload.error.message}</Alert> : null}
-
-      <div className="u-row">
-        <Button type="submit" disabled={!ready} busy={upload.isPending}>
-          {t('documents.upload')}
-        </Button>
-        {file ? (
-          <Button
-            type="button"
-            tone="quiet"
-            onClick={() => {
-              setFile(null);
-              if (input.current) input.current.value = '';
-            }}
-          >
-            {t('documents.clear')}
-          </Button>
-        ) : null}
-      </div>
-    </form>
+      {row.error ? <Alert tone="error">{row.error}</Alert> : null}
+    </fieldset>
   );
 }
 

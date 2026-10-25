@@ -42,6 +42,7 @@ import {
   DrizzleLeadRepository,
   DrizzleLetterRepository,
   DrizzleLetterTemplateRepository,
+  DrizzleStaffAccessRepository,
 } from '@amc/clients/infrastructure';
 import { type Database, referenceLookup } from '@amc/database';
 import { ReadCalendar } from '@amc/deadlines';
@@ -51,8 +52,10 @@ import {
   Argon2PasswordHasher,
   CryptoSessionTokens,
   DrizzlePasswordResetRepository,
+  DrizzleRolePermissionStore,
   DrizzleSessionRepository,
   DrizzleUserRepository,
+  RolePermissionCache,
   TotpTwoFactorService,
 } from '@amc/identity/infrastructure';
 import { type EventCollector, SystemClock } from '@amc/kernel';
@@ -127,6 +130,7 @@ import { LoggerModule } from './observability/logger.module.js';
 import { RequestContextMiddleware } from './observability/request-context.middleware.js';
 import { DATABASE, DatabaseModule } from './persistence/database.module.js';
 import { projectContext } from './projects/adapters.js';
+import { ProjectAssignmentsModule } from './projects/assignments.module.js';
 import { clientCycles } from './projects/cycles.js';
 import { workloadReader } from './projects/workload.js';
 import { FILE_STORAGE, StorageModule } from './storage/storage.module.js';
@@ -164,6 +168,13 @@ function peopleDirectory(db: Database) {
   };
 }
 
+/**
+ * What each role may do, cached between requests. One for the process, shared
+ * by the reads on every request and the writes from Settings, so saving clears
+ * what the next request reads.
+ */
+const rolePermissionCache = new RolePermissionCache();
+
 @Module({
   imports: [
     ConfigModule,
@@ -173,6 +184,7 @@ function peopleDirectory(db: Database) {
     ListsModule,
     BranchesModule,
     CampaignsModule,
+    ProjectAssignmentsModule,
     StorageModule,
     ClientsModule.forRootAsync({
       imports: [StorageModule],
@@ -230,6 +242,11 @@ function peopleDirectory(db: Database) {
             forTransaction: (transaction: unknown, collector: EventCollector) =>
               new DrizzleClientRepository(transaction as Database, collector),
           },
+          {
+            forTransaction: (transaction: unknown) =>
+              new DrizzleStaffAccessRepository(transaction as Database),
+          },
+          { next: () => ulid() },
         ),
         clientFiles: new ClientFiles(
           new DrizzleUnitOfWork(db, { next: () => ulid() }, new SystemClock()),
@@ -608,7 +625,7 @@ function peopleDirectory(db: Database) {
          * adapter is handed in here.
          */
         workingHours: {
-          async set({ userId, startsAt, endsAt, days }) {
+          async set({ userId, startsAt, endsAt, days, dayHours }) {
             const minutes = (clock: string) => {
               const [h, m] = clock.split(':');
               return Number(h) * 60 + Number(m);
@@ -618,6 +635,15 @@ function peopleDirectory(db: Database) {
               startsAtMinutes: minutes(startsAt),
               endsAtMinutes: minutes(endsAt),
               workingDays: days,
+              dayHours: Object.fromEntries(
+                Object.entries(dayHours ?? {}).map(([day, hours]) => [
+                  Number(day),
+                  {
+                    startsAtMinutes: minutes(hours.startsAt),
+                    endsAtMinutes: minutes(hours.endsAt),
+                  },
+                ]),
+              ),
             });
             if (!hours.ok) throw new BadRequestException(hours.error.message);
             await new DrizzleWorkingHoursRepository(db).save(hours.value);
@@ -631,6 +657,7 @@ function peopleDirectory(db: Database) {
             users: new DrizzleUserRepository(transaction as Database, collector),
             sessions: new DrizzleSessionRepository(transaction as Database, collector),
             resets: new DrizzlePasswordResetRepository(transaction as Database),
+            roles: new DrizzleRolePermissionStore(transaction as Database, rolePermissionCache),
           }),
         },
         hasher: new Argon2PasswordHasher(),
@@ -645,6 +672,7 @@ function peopleDirectory(db: Database) {
           idleMinutes: environment.SESSION_IDLE_MINUTES,
           absoluteHours: environment.SESSION_ABSOLUTE_HOURS,
         },
+        roles: new DrizzleRolePermissionStore(db, rolePermissionCache),
         mailer: passwordResetMailer({
           appUrl: environment.APP_PUBLIC_URL,
           from: environment.NOTIFICATION_FROM,

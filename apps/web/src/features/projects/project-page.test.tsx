@@ -1,6 +1,6 @@
 import type { ProjectDetail } from '@amc/contracts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +14,11 @@ const attachDocument = vi.hoisted(() => vi.fn());
 const openNextProject = vi.hoisted(() => vi.fn());
 const stopRepeating = vi.hoisted(() => vi.fn());
 const resumeRepeating = vi.hoisted(() => vi.fn());
+const assignProject = vi.hoisted(() => vi.fn());
+const unassignProject = vi.hoisted(() => vi.fn());
+const deleteProject = vi.hoisted(() => vi.fn());
+const staffDirectory = vi.hoisted(() => vi.fn());
+vi.mock('../staff/api.js', () => ({ staffDirectory }));
 vi.mock('./api.js', () => ({
   projectDetail,
   moveProject,
@@ -22,6 +27,9 @@ vi.mock('./api.js', () => ({
   openNextProject,
   stopRepeating,
   resumeRepeating,
+  assignProject,
+  unassignProject,
+  deleteProject,
   projectBoard: vi.fn(),
 }));
 vi.mock('../timer/timer-page.js', () => ({
@@ -71,13 +79,25 @@ function detail(over: Partial<ProjectDetail> = {}): ProjectDetail {
   };
 }
 
-function show(data: ProjectDetail, onOpen: (id: string) => void = vi.fn()) {
+function show(
+  data: ProjectDetail,
+  onOpen: (id: string) => void = vi.fn(),
+  options: { canAssign?: boolean; onBack?: () => void } = {},
+) {
   projectDetail.mockResolvedValue(data);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  render(<ProjectPage id="project-1" onBack={vi.fn()} onOpen={onOpen} />, { wrapper: Wrapper });
+  render(
+    <ProjectPage
+      id="project-1"
+      onBack={options.onBack ?? vi.fn()}
+      onOpen={onOpen}
+      canAssign={options.canAssign ?? false}
+    />,
+    { wrapper: Wrapper },
+  );
 }
 
 describe('one piece of work', () => {
@@ -278,5 +298,88 @@ describe('after a recurring job is finished', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open the next one' }));
 
     expect(await screen.findByText('2026-Q4 is already open for this client')).toBeInTheDocument();
+  });
+});
+
+describe('who is on the job, and deleting it', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    localStorage.setItem('amc.language', 'en');
+    await setUpI18n();
+    staffDirectory.mockResolvedValue([
+      { id: 'u-1', displayName: 'Hana Saeed', status: 'active', roles: ['accountant'] },
+      { id: 'u-9', displayName: 'Client Portal', status: 'active', roles: ['client'] },
+    ]);
+  });
+
+  it('lets a manager name who is responsible', async () => {
+    const user = userEvent.setup();
+    assignProject.mockResolvedValue(undefined);
+    show(detail(), vi.fn(), { canAssign: true });
+
+    const who = await screen.findByLabelText('Assign to');
+    // A client account is never offered as the person doing the work.
+    expect([...who.querySelectorAll('option')].map((o) => o.textContent)).not.toContain(
+      'Client Portal',
+    );
+    await waitFor(() => expect(who.querySelectorAll('option').length).toBeGreaterThan(1));
+    await user.selectOptions(who, 'u-1');
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
+
+    await waitFor(() =>
+      expect(assignProject).toHaveBeenCalledWith('project-1', 'u-1', 'responsible'),
+    );
+  });
+
+  it('takes somebody off the job', async () => {
+    const user = userEvent.setup();
+    unassignProject.mockResolvedValue(undefined);
+    show(
+      detail({ assignees: [{ userId: 'u-1', displayName: 'Hana Saeed', role: 'responsible' }] }),
+      vi.fn(),
+      { canAssign: true },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Remove' }));
+    expect(unassignProject).toHaveBeenCalledWith('project-1', 'u-1');
+  });
+
+  it('asks before deleting, then goes back', async () => {
+    const user = userEvent.setup();
+    const onBack = vi.fn();
+    deleteProject.mockResolvedValue(undefined);
+    show(detail(), vi.fn(), { canAssign: true, onBack });
+
+    await user.click(await screen.findByRole('button', { name: 'Delete this job' }));
+    expect(deleteProject).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Yes, delete it for good' }));
+
+    await waitFor(() => expect(deleteProject).toHaveBeenCalledWith('project-1'));
+    await waitFor(() => expect(onBack).toHaveBeenCalled());
+  });
+
+  it('says why a job with recorded time cannot be deleted', async () => {
+    const user = userEvent.setup();
+    deleteProject.mockRejectedValue(
+      new Error('Time has been recorded on this job, so it is kept; cancel it instead'),
+    );
+    show(detail(), vi.fn(), { canAssign: true });
+
+    await user.click(await screen.findByRole('button', { name: 'Delete this job' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, delete it for good' }));
+
+    expect(await screen.findByText(/Time has been recorded on this job/)).toBeInTheDocument();
+  });
+
+  it('shows neither to somebody who may not assign', async () => {
+    show(detail());
+    await screen.findByText('Gulf Trading LLC');
+    expect(screen.queryByLabelText('Assign to')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete this job' })).toBeNull();
+  });
+
+  it('says plainly what the next-step buttons are for', async () => {
+    show(detail());
+    expect(await screen.findByText('Choose the stage this job moves to now.')).toBeInTheDocument();
   });
 });

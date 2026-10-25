@@ -32,6 +32,8 @@ export function ManualEntry({
   const [reason, setReason] = useState('');
   const [billable, setBillable] = useState(true);
   const [done, setDone] = useState<string | null>(null);
+  /** Set when Record was pressed, so what is missing is marked rather than the button greyed out. */
+  const [tried, setTried] = useState(false);
 
   const record = useMutation({
     mutationFn: () =>
@@ -61,9 +63,11 @@ export function ManualEntry({
     <Card title={t('timer.addByHand')} description={t('timer.addByHandHint')}>
       <form
         className="u-stack"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           setDone(null);
+          setTried(true);
           if (ready) record.mutate();
         }}
       >
@@ -74,6 +78,7 @@ export function ManualEntry({
               {...props}
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
+              className={tried && projectId === '' ? 'input--invalid' : undefined}
             >
               <option value="">{t('timer.chooseProject')}</option>
               {projects.map((project) => (
@@ -89,22 +94,32 @@ export function ManualEntry({
           <Field
             label={t('timer.from')}
             type="datetime-local"
+            required
             value={startedAt}
             onChange={(event) => setStartedAt(event.target.value)}
+            {...(tried && startedAt === '' ? { error: t('form.required') } : {})}
           />
           <Field
             label={t('timer.to')}
             type="datetime-local"
+            required
             value={endedAt}
             onChange={(event) => setEndedAt(event.target.value)}
+            {...(tried && endedAt === ''
+              ? { error: t('form.required') }
+              : tried && startedAt !== '' && endedAt <= startedAt
+                ? { error: t('timer.endBeforeStart') }
+                : {})}
           />
         </div>
 
         <Field
           label={t('timer.reason')}
           hint={t('timer.reasonHint')}
+          required
           value={reason}
           onChange={(event) => setReason(event.target.value)}
+          {...(tried && reason.trim().length < 3 ? { error: t('timer.reasonTooShort') } : {})}
         />
 
         <label className="u-row checkbox">
@@ -113,14 +128,17 @@ export function ManualEntry({
             checked={billable}
             onChange={(event) => setBillable(event.target.checked)}
           />
-          <span>{t('timer.billable')}</span>
+          <span>
+            {t('timer.billable')}
+            <span className="u-block u-text-faint">{t('timer.billableHint')}</span>
+          </span>
         </label>
 
         {record.error ? <Alert tone="error">{record.error.message}</Alert> : null}
         {done ? <Alert tone="success">{done}</Alert> : null}
 
         <div className="u-row">
-          <Button type="submit" disabled={!ready} busy={record.isPending}>
+          <Button type="submit" busy={record.isPending}>
             {t('timer.record')}
           </Button>
         </div>

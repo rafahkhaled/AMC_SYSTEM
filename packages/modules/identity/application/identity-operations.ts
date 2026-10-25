@@ -9,12 +9,25 @@ import {
   err,
   ok,
 } from '@amc/kernel';
-import { EmailAddress, type Role, type SessionLimits, checkPassword } from '../domain/index.js';
+import {
+  DEFAULT_MATRIX,
+  EDITABLE_ROLES,
+  EmailAddress,
+  GRANTABLE_PERMISSIONS,
+  ROLES,
+  type Role,
+  type SessionLimits,
+  checkPassword,
+  effectiveMatrix,
+  isGrantable,
+  isRole,
+} from '../domain/index.js';
 import { AuthenticateSession } from './authenticate-session.js';
 import type {
   PasswordHasher,
   PasswordResetMailer,
   PasswordResetRepository,
+  RolePermissionStore,
   SessionRepository,
   SessionTokenService,
   TwoFactorService,
@@ -38,7 +51,12 @@ export interface RepositoryFactory {
   forTransaction(
     transaction: unknown,
     collector: EventCollector,
-  ): { users: UserRepository; sessions: SessionRepository; resets: PasswordResetRepository };
+  ): {
+    users: UserRepository;
+    sessions: SessionRepository;
+    resets: PasswordResetRepository;
+    roles: RolePermissionStore;
+  };
 }
 
 export interface IdentityDependencies {
@@ -51,6 +69,8 @@ export interface IdentityDependencies {
   readonly ids: { next(): string };
   readonly limits: SessionLimits;
   readonly mailer: PasswordResetMailer;
+  /** For reading what each role may do; writes go through the transaction's own. */
+  readonly roles: RolePermissionStore;
 }
 
 /** How long a reset link works. */
@@ -357,12 +377,72 @@ export class IdentityOperations {
     });
   }
 
+  /* -------------------------------------------- what roles may do -- */
+
+  /** The firm's choices as stored, for working out a caller's permissions. */
+  rolePermissionChoices(): Promise<Partial<Record<string, readonly string[]>>> {
+    return this.dependencies.roles.chosen();
+  }
+
+  /** Every role, what it may do now, and whether the firm may change it. */
+  async rolePermissions(): Promise<{
+    roles: { role: Role; editable: boolean; permissions: string[]; defaults: string[] }[];
+    grantable: string[];
+  }> {
+    const matrix = effectiveMatrix(await this.dependencies.roles.chosen());
+    return {
+      roles: ROLES.filter((role) => role !== 'client').map((role) => ({
+        role,
+        editable: EDITABLE_ROLES.includes(role),
+        permissions: matrix[role].filter(isGrantable),
+        defaults: DEFAULT_MATRIX[role].filter(isGrantable),
+      })),
+      grantable: [...GRANTABLE_PERMISSIONS],
+    };
+  }
+
+  /**
+   * Choosing what a role may do. Takes effect on everyone in that role at their
+   * next click, because what a caller may do is worked out on every request.
+   */
+  setRolePermissions(
+    actor: Actor,
+    role: string,
+    permissions: readonly string[],
+  ): Promise<Result<true, Conflict | ValidationFailed>> {
+    return this.inTransaction(actor, async ({ roles }, work) => {
+      if (!isRole(role) || !EDITABLE_ROLES.includes(role)) {
+        return err(
+          new ValidationFailed('What a manager may do is fixed, so nobody can lock the firm out'),
+        );
+      }
+      const unknown = permissions.filter((permission) => !isGrantable(permission));
+      if (unknown.length > 0) {
+        return err(
+          new ValidationFailed(`Not something that can be granted: ${unknown.join(', ')}`),
+        );
+      }
+
+      const before = effectiveMatrix(await roles.chosen())[role].filter(isGrantable);
+      const after = [...new Set(permissions)].sort();
+      await roles.replace(role, after);
+      work.audit({
+        action: 'identity.role.permissions_changed',
+        entityType: 'role',
+        entityId: role,
+        before: { permissions: before },
+        after: { permissions: after },
+      });
+      return ok(true as const);
+    });
+  }
+
   /** Reads only, and outside any transaction of ours. */
   authenticate(repositories: {
     users: UserRepository;
     sessions: SessionRepository;
   }): AuthenticateSession {
-    const { tokens, clock } = this.dependencies;
-    return new AuthenticateSession(repositories.sessions, repositories.users, tokens, clock);
+    const { tokens, clock, roles } = this.dependencies;
+    return new AuthenticateSession(repositories.sessions, repositories.users, tokens, clock, roles);
   }
 }

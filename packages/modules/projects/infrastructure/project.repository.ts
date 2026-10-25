@@ -206,4 +206,25 @@ export class DrizzleProjectRepository implements ProjectRepository {
     if (scope.kind === 'all') return undefined;
     return scopePredicate(scope, sql`${projects.clientId}`);
   }
+
+  async usage(id: ProjectId): Promise<{ recordedEntries: number; billed: boolean }> {
+    const rows = await this.db.execute<{ entries: string; billed: boolean }>(sql`
+      SELECT
+        (SELECT count(*) FROM time_entries e
+           JOIN project_assignments a ON a.id = e.assignment_id
+          WHERE a.project_id = ${id})::text AS entries,
+        (EXISTS (SELECT 1 FROM invoice_lines WHERE project_id = ${id})
+          OR EXISTS (SELECT 1 FROM statement_lines WHERE project_id = ${id})) AS billed
+    `);
+    return {
+      recordedEntries: Number(rows[0]?.entries ?? 0),
+      billed: Boolean(rows[0]?.billed),
+    };
+  }
+
+  async remove(id: ProjectId): Promise<void> {
+    // Steps, required documents and assignments go with it (ON DELETE
+    // CASCADE); contact log and letters keep their row and lose the link.
+    await this.db.execute(sql`DELETE FROM projects WHERE id = ${id}`);
+  }
 }

@@ -5,7 +5,10 @@ import {
   type SelectHTMLAttributes,
   forwardRef,
   useId,
+  useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
+import { DateInput } from './date-input.js';
 
 /**
  * Joins class names, keeping only real strings. Taking unknown rather than a
@@ -115,34 +118,67 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
   { label, hint, error, ltr, affix, className, id, control, ...rest },
   ref,
 ) {
+  const { t } = useTranslation();
   const generated = useId();
   const inputId = id ?? generated;
   const hintId = `${inputId}-hint`;
   const errorId = `${inputId}-error`;
 
-  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ');
+  /*
+   * A required field left empty turns red once somebody has been through it,
+   * rather than only after a refusal from the server. The firm asked for this:
+   * a greyed-out button with no reason was the most common complaint.
+   */
+  const [touched, setTouched] = useState(false);
+  const empty = rest.value === undefined || rest.value === null || String(rest.value).trim() === '';
+  const shown = error ?? (rest.required && touched && empty ? t('form.required') : undefined);
+
+  const describedBy = [hint ? hintId : null, shown ? errorId : null].filter(Boolean).join(' ');
+  const inputClass = classes(
+    'input',
+    ltr && 'input--ltr',
+    affix && 'input--with-affix',
+    shown && 'input--invalid',
+    className,
+  );
 
   return (
     <div className="field">
-      <label className="field__label" htmlFor={inputId}>
+      {/* The asterisk is drawn by the stylesheet, so the label's own text (what
+          a screen reader says, and what is searched for) stays the label. */}
+      <label
+        className={classes('field__label', rest.required && 'field__label--required')}
+        htmlFor={inputId}
+      >
         {label}
       </label>
       <div className="field__control">
         {control ? (
           control({ id: inputId, 'aria-describedby': describedBy || undefined })
+        ) : rest.type === 'date' ? (
+          <DateInput
+            {...rest}
+            id={inputId}
+            className={inputClass}
+            aria-invalid={shown ? true : undefined}
+            aria-describedby={describedBy || undefined}
+            onBlur={(event) => {
+              setTouched(true);
+              rest.onBlur?.(event);
+            }}
+          />
         ) : (
           <input
             ref={ref}
             id={inputId}
-            className={classes(
-              'input',
-              ltr && 'input--ltr',
-              affix && 'input--with-affix',
-              className,
-            )}
-            aria-invalid={error ? true : undefined}
+            className={inputClass}
+            aria-invalid={shown ? true : undefined}
             aria-describedby={describedBy || undefined}
             {...rest}
+            onBlur={(event) => {
+              setTouched(true);
+              rest.onBlur?.(event);
+            }}
           />
         )}
         {affix ? <span className="field__affix">{affix}</span> : null}
@@ -152,9 +188,9 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
           {hint}
         </span>
       ) : null}
-      {error ? (
+      {shown ? (
         <span className="field__error" id={errorId}>
-          {error}
+          {shown}
         </span>
       ) : null}
     </div>

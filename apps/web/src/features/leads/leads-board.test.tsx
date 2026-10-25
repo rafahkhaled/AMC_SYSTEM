@@ -15,6 +15,9 @@ vi.mock('./api.js', () => ({ leadBoard, captureLead, moveLead, convertLead, quot
 const listCampaigns = vi.hoisted(() => vi.fn());
 vi.mock('../campaigns/api.js', () => ({ listCampaigns }));
 
+const listServices = vi.hoisted(() => vi.fn());
+vi.mock('../services/api.js', () => ({ listServices }));
+
 const draftQuotation = vi.hoisted(() => vi.fn());
 vi.mock('../billing/api.js', () => ({ draftQuotation }));
 
@@ -54,6 +57,15 @@ describe('the enquiry pipeline (FR-01)', () => {
     vi.clearAllMocks();
     await useLanguage('en');
     listCampaigns.mockResolvedValue([]);
+    listServices.mockResolvedValue([
+      {
+        code: 'vat_registration',
+        nameEn: 'VAT registration',
+        nameAr: 'تسجيل ضريبة القيمة المضافة',
+        retired: false,
+      },
+      { code: 'audit', nameEn: 'Auditing', nameAr: 'التدقيق', retired: true },
+    ]);
   });
 
   it('shows what is being lost as well as what is in play', async () => {
@@ -269,6 +281,57 @@ describe('quoting an enquiry', () => {
       show(board());
       await user.click(await screen.findByRole('button', { name: 'New enquiry' }));
       expect(screen.queryByLabelText('Campaign')).toBeNull();
+    });
+  });
+
+  describe('the service asked for', () => {
+    beforeEach(async () => {
+      vi.clearAllMocks();
+      await useLanguage('en');
+      listCampaigns.mockResolvedValue([]);
+      listServices.mockResolvedValue([
+        { code: 'vat_registration', nameEn: 'VAT registration', nameAr: 'تسجيل', retired: false },
+        { code: 'audit', nameEn: 'Auditing', nameAr: 'التدقيق', retired: true },
+      ]);
+    });
+
+    it('is chosen from the firm’s services, not typed', async () => {
+      const user = userEvent.setup();
+      captureLead.mockResolvedValue(board());
+      show(board());
+
+      await user.click(await screen.findByRole('button', { name: 'New enquiry' }));
+      const picker = await screen.findByLabelText('What they want');
+      const offered = [...picker.querySelectorAll('option')].map((option) => option.value);
+      // Retired services are not offered.
+      expect(offered).toContain('vat_registration');
+      expect(offered).not.toContain('audit');
+
+      await user.type(screen.getByLabelText('Name'), 'Noor Clinic');
+      await user.type(screen.getByLabelText('Phone'), '0501234567');
+      await user.selectOptions(picker, 'vat_registration');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await vi.waitFor(() => expect(captureLead).toHaveBeenCalled());
+      expect(captureLead.mock.calls[0]?.[0]).toMatchObject({
+        requestedService: 'VAT registration',
+      });
+    });
+
+    it('can still say something not on the list', async () => {
+      const user = userEvent.setup();
+      captureLead.mockResolvedValue(board());
+      show(board());
+
+      await user.click(await screen.findByRole('button', { name: 'New enquiry' }));
+      await user.selectOptions(await screen.findByLabelText('What they want'), '__other__');
+      await user.type(screen.getByLabelText('Which service?'), 'Liquidation');
+      await user.type(screen.getByLabelText('Name'), 'Noor Clinic');
+      await user.type(screen.getByLabelText('Phone'), '0501234567');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await vi.waitFor(() => expect(captureLead).toHaveBeenCalled());
+      expect(captureLead.mock.calls[0]?.[0]).toMatchObject({ requestedService: 'Liquidation' });
     });
   });
 });

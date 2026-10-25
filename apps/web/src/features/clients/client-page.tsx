@@ -6,6 +6,7 @@ import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
 import { ClientFilesPanel } from '../client-files/client-files-panel.js';
 import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
 import { documentLink } from '../documents/api.js';
+import { fieldsFor } from '../documents/document-fields.js';
 import { DocumentUpload } from '../documents/document-upload.js';
 import { LettersPanel } from '../letters/letters-panel.js';
 import { useOptions } from '../lists/use-options.js';
@@ -250,7 +251,8 @@ function DocumentRow({ document }: { document: DocumentSummary }) {
         ) : null}
         {document.referenceNumber ? (
           <span className="u-block u-text-faint">
-            {t('documents.ref')} <span className="u-ltr u-mono">{document.referenceNumber}</span>
+            {t(fieldsFor(document.type).number ?? 'documents.ref')}:{' '}
+            <span className="u-ltr u-mono">{document.referenceNumber}</span>
           </span>
         ) : null}
         {document.status === 'required' ? (

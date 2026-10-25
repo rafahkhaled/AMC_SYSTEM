@@ -42,4 +42,16 @@ export function configureApp(app: INestApplication, options: { trustProxyHops: n
    * header is trusted, and the left-most is whatever the caller typed.
    */
   express.set('trust proxy', options.trustProxyHops);
+
+  /*
+   * How large a JSON body may be.
+   *
+   * The default is 100 KB, and a branch's logo or stamp is sent as an image in
+   * the body: an ordinary 200 KB logo was refused, as a server error. One
+   * megabyte covers the 400 KB image limit, base64 and all. Files go by
+   * multipart, which has its own limits, so this does not touch uploads.
+   */
+  (
+    app as unknown as { useBodyParser(type: string, options: { limit: string }): void }
+  ).useBodyParser('json', { limit: '1mb' });
 }

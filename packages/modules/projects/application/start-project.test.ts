@@ -26,6 +26,11 @@ class Ids {
 }
 
 class Projects implements ProjectRepository {
+  async usage() {
+    return { recordedEntries: 0, billed: false };
+  }
+  async remove() {}
+
   readonly saved: Project[] = [];
   constructor(
     private readonly existing: Project[] = [],

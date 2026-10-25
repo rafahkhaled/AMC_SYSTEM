@@ -11,6 +11,7 @@ import { IdentityOperations, type RepositoryFactory } from '../application/ident
 import type {
   PasswordHasher,
   PasswordResetMailer,
+  RolePermissionStore,
   SessionRepository,
   SessionTokenService,
   TwoFactorService,
@@ -29,6 +30,7 @@ import type { SessionLimits } from '../domain/index.js';
 import { AuthController } from './auth.controller.js';
 import { PermissionsGuard } from './permissions.guard.js';
 import { ResetThrottle } from './reset-throttle.js';
+import { RolesController } from './roles.controller.js';
 import { COOKIE_SETTINGS, type CookieSettings } from './session-cookie.js';
 import { SessionGuard } from './session.guard.js';
 import { SignInThrottle } from './sign-in-throttle.js';
@@ -51,6 +53,8 @@ export interface IdentityModuleOptions {
   readonly limits: SessionLimits;
   /** Sends the link to somebody who forgot their password. */
   readonly mailer: PasswordResetMailer;
+  /** What each role may do, as the firm has chosen. Read on every request. */
+  readonly roles: RolePermissionStore;
   readonly cookies: CookieSettings;
   /**
    * The staff directory's counts (X-01). Supplied by the composition root
@@ -96,7 +100,7 @@ export class IdentityModule {
 
     return {
       module: IdentityModule,
-      controllers: [AuthController, TwoFactorController, StaffController],
+      controllers: [AuthController, TwoFactorController, StaffController, RolesController],
       providers: [
         SignInThrottle,
         ResetThrottle,
@@ -116,7 +120,7 @@ export class IdentityModule {
         },
         {
           provide: AuthenticateSession,
-          ...from((o) => new AuthenticateSession(o.sessions, o.users, o.tokens, o.clock)),
+          ...from((o) => new AuthenticateSession(o.sessions, o.users, o.tokens, o.clock, o.roles)),
         },
         { provide: SignOut, ...from((o) => new SignOut(o.sessions, o.clock)) },
         {
@@ -149,6 +153,7 @@ export class IdentityModule {
                 ids: o.ids,
                 limits: o.limits,
                 mailer: o.mailer,
+                roles: o.roles,
               }),
           ),
         },

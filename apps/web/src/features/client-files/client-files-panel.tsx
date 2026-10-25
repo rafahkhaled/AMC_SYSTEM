@@ -117,8 +117,29 @@ export function ClientFilesPanel({
     onError: failed,
   });
 
+  /*
+   * Files are sent ten at a time, which is what the server takes in one go,
+   * and a folder chosen from the computer keeps its shape: each sub-folder is
+   * made here (or found, if it is already there) and its files go into it.
+   */
   const upload = useMutation({
-    mutationFn: (files: File[]) => uploadClientFiles(clientId, files, here),
+    mutationFn: async (files: File[]) => {
+      const folderFor = await folderMaker(clientId, here, allFolders);
+      const groups = new Map<string | null, File[]>();
+      for (const file of files) {
+        const target = await folderFor(directoriesOf(file));
+        groups.set(target, [...(groups.get(target) ?? []), file]);
+      }
+      let last: Awaited<ReturnType<typeof uploadClientFiles>> = { files: [], refused: [] };
+      const refusedAll: { name: string; reason: string }[] = [];
+      for (const [target, group] of groups) {
+        for (let at = 0; at < group.length; at += 10) {
+          last = await uploadClientFiles(clientId, group.slice(at, at + 10), target);
+          refusedAll.push(...last.refused);
+        }
+      }
+      return { files: last.files, refused: refusedAll };
+    },
     onSuccess: (result) => {
       queries.setQueryData(key, result.files);
       void queries.invalidateQueries({ queryKey: folderKey });
@@ -232,6 +253,24 @@ export function ClientFilesPanel({
             </strong>
             <span className="u-text-faint">{t('clientFiles.limits')}</span>
           </label>
+        ) : null}
+        {canEdit ? (
+          <div className="u-row">
+            <label className="button button--secondary button--small">
+              {t('clientFiles.uploadFolder')}
+              <input
+                type="file"
+                multiple
+                className="u-visually-hidden"
+                // A whole folder from the computer, with what is inside it.
+                {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+                onChange={(event) => {
+                  take(event.target.files);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          </div>
         ) : null}
 
         {upload.isError ? <Alert tone="error">{(upload.error as Error).message}</Alert> : null}
@@ -509,4 +548,54 @@ function FolderRow({
       ) : null}
     </li>
   );
+}
+
+/** The folders a file sat in on the computer, from a folder upload. Empty for a loose file. */
+function directoriesOf(file: File): string[] {
+  const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? '';
+  const parts = path.split('/').filter((part) => part !== '');
+  return parts.slice(0, -1);
+}
+
+/**
+ * Finds or makes the folder for a path of names under where the person is.
+ * Remembers what it has made, so a folder of two hundred files makes each
+ * sub-folder once.
+ */
+async function folderMaker(
+  clientId: string,
+  under: string | null,
+  known: readonly ClientFolderView[],
+): Promise<(path: string[]) => Promise<string | null>> {
+  let folders = [...known];
+  const made = new Map<string, string>();
+
+  return async (path) => {
+    let parent = under;
+    for (let depth = 0; depth < path.length; depth += 1) {
+      const name = path[depth] as string;
+      const key = `${parent ?? ''}/${name.toLowerCase()}`;
+      const found =
+        made.get(key) ??
+        folders.find(
+          (folder) =>
+            (folder.parentId ?? null) === parent &&
+            folder.name.toLowerCase() === name.toLowerCase(),
+        )?.id;
+      if (found) {
+        made.set(key, found);
+        parent = found;
+        continue;
+      }
+      folders = await createClientFolder(clientId, name, parent);
+      const created = folders.find(
+        (folder) =>
+          (folder.parentId ?? null) === parent && folder.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!created) throw new Error(name);
+      made.set(key, created.id);
+      parent = created.id;
+    }
+    return parent;
+  };
 }

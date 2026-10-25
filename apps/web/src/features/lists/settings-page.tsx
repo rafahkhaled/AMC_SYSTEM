@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, Field, Loading, Select } from '../../design
 import { BranchesPanel } from '../branches/branches-panel.js';
 import { CampaignsPanel } from '../campaigns/campaigns-panel.js';
 import { LetterTemplatesPanel } from '../letters/templates-panel.js';
+import { RolesPanel } from '../roles/roles-panel.js';
 import { ServicesPanel } from '../services/services-panel.js';
 import { addOption, referenceOptions, updateOption } from './api.js';
 
@@ -28,7 +29,7 @@ import { addOption, referenceOptions, updateOption } from './api.js';
 export function SettingsPage() {
   const { t } = useTranslation();
   const [list, setList] = useState<
-    ReferenceList | 'services' | 'branches' | 'letters' | 'campaigns'
+    ReferenceList | 'services' | 'branches' | 'letters' | 'campaigns' | 'roles'
   >('document_type');
 
   return (
@@ -52,7 +53,8 @@ export function SettingsPage() {
                     | 'services'
                     | 'branches'
                     | 'letters'
-                    | 'campaigns',
+                    | 'campaigns'
+                    | 'roles',
                 )
               }
             >
@@ -67,6 +69,7 @@ export function SettingsPage() {
               <option value="branches">{t('settings.lists.branches')}</option>
               <option value="letters">{t('settings.lists.letters')}</option>
               <option value="campaigns">{t('settings.lists.campaigns')}</option>
+              <option value="roles">{t('settings.lists.roles')}</option>
             </Select>
           )}
         />
@@ -80,6 +83,8 @@ export function SettingsPage() {
         <LetterTemplatesPanel />
       ) : list === 'campaigns' ? (
         <CampaignsPanel />
+      ) : list === 'roles' ? (
+        <RolesPanel />
       ) : (
         <OptionList list={list} />
       )}

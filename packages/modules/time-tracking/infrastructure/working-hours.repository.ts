@@ -41,6 +41,12 @@ export class DrizzleWorkingHoursRepository implements WorkingHoursRepository {
       startsAtMinutes: minutesOf(row.startsAt),
       endsAtMinutes: minutesOf(row.endsAt),
       workingDays: row.workingDays,
+      dayHours: Object.fromEntries(
+        Object.entries(row.dayHours ?? {}).map(([day, hours]) => [
+          Number(day),
+          { startsAtMinutes: minutesOf(hours.startsAt), endsAtMinutes: minutesOf(hours.endsAt) },
+        ]),
+      ),
     });
     // A stored row that the domain rejects means the constraints and the rules
     // have drifted. The default is the safe answer; it flags more, not less.
@@ -54,6 +60,12 @@ export class DrizzleWorkingHoursRepository implements WorkingHoursRepository {
       startsAt: clockOf(state.startsAtMinutes),
       endsAt: clockOf(state.endsAtMinutes),
       workingDays: [...state.workingDays],
+      dayHours: Object.fromEntries(
+        Object.entries(state.dayHours).map(([day, hours]) => [
+          day,
+          { startsAt: clockOf(hours.startsAtMinutes), endsAt: clockOf(hours.endsAtMinutes) },
+        ]),
+      ),
     };
     await this.db
       .insert(userWorkingHours)

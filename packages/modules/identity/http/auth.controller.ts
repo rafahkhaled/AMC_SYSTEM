@@ -24,7 +24,7 @@ import {
 import type { Request, Response } from 'express';
 import type { AuthenticatedCaller } from '../application/authenticate-session.js';
 import { IdentityOperations } from '../application/identity-operations.js';
-import { type Role, permissionsFor } from '../domain/index.js';
+import { type Role, effectiveMatrix, permissionsFor } from '../domain/index.js';
 import { CurrentCaller } from './caller.js';
 import { AllowPendingTwoFactor, Public } from './permissions.decorator.js';
 import { ResetThrottle } from './reset-throttle.js';
@@ -177,7 +177,12 @@ export class AuthController {
         userId: outcome.value.actor.userId,
         displayName: outcome.value.displayName,
         roles: [...outcome.value.roles],
-        permissions: [...permissionsFor(outcome.value.roles)],
+        permissions: [
+          ...permissionsFor(
+            outcome.value.roles,
+            effectiveMatrix(await this.identity.rolePermissionChoices()),
+          ),
+        ],
       },
       expiresAt: outcome.value.expiresAt.toISOString(),
       twoFactorRequired: outcome.value.twoFactorRequired,

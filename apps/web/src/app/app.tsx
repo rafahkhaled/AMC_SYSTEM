@@ -127,6 +127,7 @@ function Screen({
     case 'clients':
       return (
         <ClientsPage
+          canEdit={caller.permissions.includes('clients.edit')}
           onOpen={(id) => go({ name: 'client', id })}
           onQuoted={(quotationId) => go({ name: 'billing', quotationId })}
         />
@@ -146,6 +147,7 @@ function Screen({
       return (
         <ProjectPage
           id={view.id}
+          canAssign={caller.permissions.includes('projects.assign')}
           onBack={() => go({ name: 'projects' })}
           onOpen={(next) => go({ name: 'project', id: next })}
         />

@@ -26,6 +26,7 @@ export interface WorkingHoursWriter {
     startsAt: string;
     endsAt: string;
     days: readonly number[];
+    dayHours?: Readonly<Record<string, { startsAt: string; endsAt: string }>> | undefined;
   }): Promise<void>;
 }
 

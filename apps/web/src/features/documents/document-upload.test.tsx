@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -69,102 +69,145 @@ function fileInput(): HTMLInputElement {
   return input;
 }
 
-describe('adding a document', () => {
+const named = (name: string) =>
+  new File([new Uint8Array([37, 80, 68, 70])], name, { type: 'application/pdf' });
+
+describe('adding documents', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.setItem('amc.language', 'en');
     await setUpI18n();
   });
 
-  it('cannot be submitted with no file', async () => {
+  it('shows nothing to upload until a file is chosen', async () => {
     show();
-    expect(await screen.findByRole('button', { name: 'Upload' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull();
   });
 
   it('will not take a trade licence without the date the reminders are built on', async () => {
-    // The server refuses this too. Asking here means the person is told before
-    // they upload rather than after, and the date is what puts the client into
-    // the 90, 60 and 30 day chase.
     const user = userEvent.setup();
     show();
 
     await user.upload(fileInput(), pdf());
-
-    expect(screen.getByText('licence.pdf')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload' })).toBeDisabled();
-    expect(screen.getByText('Expires on (required)')).toBeInTheDocument();
-  });
-
-  it('takes a document type that does not expire with no date at all', async () => {
-    const user = userEvent.setup();
-    show();
-
-    await user.upload(fileInput(), pdf());
-    await user.selectOptions(screen.getByLabelText('Document type'), 'bank_letter');
-
+    expect(await screen.findByRole('button', { name: 'Upload' })).toBeDisabled();
+    expect(screen.getByText('Enter the expiry date')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Expires on (required)'), '31/01/2027');
     expect(screen.getByRole('button', { name: 'Upload' })).toBeEnabled();
-    expect(screen.queryByText('Expires on (required)')).not.toBeInTheDocument();
   });
 
-  it('sends the file and the dates, and hands back the new list', async () => {
+  it('asks for the licence number on a licence, and sends it with the dates', async () => {
     const user = userEvent.setup();
     const onUploaded = show();
     uploadDocument.mockResolvedValue({ documentId: 'doc-1', documents: [] });
 
     await user.upload(fileInput(), pdf());
-    await user.type(screen.getByLabelText('Issued on'), '2026-02-01');
-    await user.type(screen.getByLabelText('Expires on (required)'), '2027-01-31');
+    await user.type(await screen.findByLabelText('Licence number'), 'CN-1234567');
+    await user.type(screen.getByLabelText('Issued on'), '01/02/2026');
+    await user.type(screen.getByLabelText('Expires on (required)'), '31/01/2027');
     await user.click(screen.getByRole('button', { name: 'Upload' }));
 
-    expect(uploadDocument).toHaveBeenCalledWith('c-1', expect.any(File), {
-      type: 'trade_licence',
-      issuedOn: '2026-02-01',
-      expiresOn: '2027-01-31',
-    });
+    await waitFor(() =>
+      expect(uploadDocument).toHaveBeenCalledWith('c-1', expect.any(File), {
+        type: 'trade_licence',
+        referenceNumber: 'CN-1234567',
+        issuedOn: '2026-02-01',
+        expiresOn: '2027-01-31',
+      }),
+    );
     expect(onUploaded).toHaveBeenCalledWith([]);
   });
 
-  it('sends the reference number printed on the document', async () => {
+  it('asks for the ID number on an Emirates ID, and no issuing authority', async () => {
     const user = userEvent.setup();
+    referenceOptions.mockImplementation(async (list: string) =>
+      list === 'authority'
+        ? [option('authority', 'ded', 'DED', 10)]
+        : [
+            option('document_type', 'trade_licence', 'Trade licence', 10),
+            option('document_type', 'emirates_id', 'Emirates ID', 20),
+            option('document_type', 'tenancy_contract', 'Tenancy contract', 60),
+          ],
+    );
     show();
-    uploadDocument.mockResolvedValue({ documentId: 'doc-1', documents: [] });
 
-    await user.upload(fileInput(), pdf());
-    await user.type(screen.getByLabelText('Reference number'), 'CN-1234567');
-    await user.type(screen.getByLabelText('Expires on (required)'), '2027-01-31');
+    await user.upload(fileInput(), named('EID_784199.pdf'));
+    // Guessed from the name.
+    expect(await screen.findByLabelText('ID number')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Issued by')).toBeNull();
+  });
+
+  it('asks for the address on a tenancy contract instead of who issued it', async () => {
+    const user = userEvent.setup();
+    referenceOptions.mockImplementation(async (list: string) =>
+      list === 'authority'
+        ? [option('authority', 'ded', 'DED', 10)]
+        : [
+            option('document_type', 'trade_licence', 'Trade licence', 10),
+            option('document_type', 'tenancy_contract', 'Tenancy contract', 60),
+          ],
+    );
+    uploadDocument.mockResolvedValue({ documentId: 'doc-1', documents: [] });
+    show();
+
+    await user.upload(fileInput(), named('Ejari 2026.pdf'));
+    await user.type(await screen.findByLabelText('Address'), 'Office 523, DAFZA');
+    expect(screen.queryByLabelText('Issued by')).toBeNull();
+    await user.type(screen.getByLabelText('Expires on (required)'), '31/12/2026');
     await user.click(screen.getByRole('button', { name: 'Upload' }));
 
-    expect(uploadDocument).toHaveBeenCalledWith(
-      'c-1',
-      expect.any(File),
-      expect.objectContaining({ referenceNumber: 'CN-1234567' }),
+    await waitFor(() =>
+      expect(uploadDocument).toHaveBeenCalledWith(
+        'c-1',
+        expect.any(File),
+        expect.objectContaining({ type: 'tenancy_contract', label: 'Office 523, DAFZA' }),
+      ),
     );
   });
 
-  it('shows what the server said when it refuses', async () => {
+  it('takes several documents at once, each with its own details', async () => {
     const user = userEvent.setup();
+    uploadDocument.mockResolvedValue({ documentId: 'doc-1', documents: [] });
     show();
-    uploadDocument.mockRejectedValue(
-      new Error('This system keeps PDFs and scans; that is neither'),
-    );
 
-    await user.upload(fileInput(), pdf());
-    await user.type(screen.getByLabelText('Expires on (required)'), '2027-01-31');
-    await user.click(screen.getByRole('button', { name: 'Upload' }));
+    await user.upload(fileInput(), [named('licence.pdf'), named('bank letter.pdf')]);
+    expect(await screen.findByText('licence.pdf')).toBeInTheDocument();
+    expect(screen.getByText('bank letter.pdf')).toBeInTheDocument();
+    // The licence needs its expiry; the bank letter does not.
+    await user.type(screen.getByLabelText('Expires on (required)'), '31/01/2027');
+    await user.click(screen.getByRole('button', { name: 'Upload 2 documents' }));
+
+    await waitFor(() => expect(uploadDocument).toHaveBeenCalledTimes(2));
+    expect(uploadDocument.mock.calls.map((call) => call[2].type)).toEqual([
+      'trade_licence',
+      'bank_letter',
+    ]);
+  });
+
+  it('keeps a refused document on the list with the reason, and sends the rest', async () => {
+    const user = userEvent.setup();
+    uploadDocument
+      .mockRejectedValueOnce(new Error('This system keeps PDFs and scans; that is neither'))
+      .mockResolvedValueOnce({ documentId: 'doc-2', documents: [] });
+    show();
+
+    await user.upload(fileInput(), [named('licence.pdf'), named('bank letter.pdf')]);
+    await user.type(await screen.findByLabelText('Expires on (required)'), '31/01/2027');
+    await user.click(screen.getByRole('button', { name: 'Upload 2 documents' }));
 
     expect(
       await screen.findByText('This system keeps PDFs and scans; that is neither'),
     ).toBeInTheDocument();
+    expect(screen.getByText('licence.pdf')).toBeInTheDocument();
+    expect(screen.queryByText('bank letter.pdf')).toBeNull();
   });
 
   it('asks for a description only when the type would not tell them apart', async () => {
     const user = userEvent.setup();
     show();
 
-    // The types arrive from the server now, so wait for them before choosing.
-    await screen.findByRole('option', { name: 'Other' });
-
-    expect(screen.queryByLabelText('Description')).not.toBeInTheDocument();
+    await user.upload(fileInput(), pdf());
+    await screen.findByLabelText('Licence number');
+    expect(screen.queryByLabelText('Description')).toBeNull();
     await user.selectOptions(screen.getByLabelText('Document type'), 'other');
     expect(screen.getByLabelText('Description')).toBeInTheDocument();
   });

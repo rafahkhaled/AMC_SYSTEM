@@ -7,7 +7,7 @@ import {
   projectDetailSchema,
   workloadSchema,
 } from '@amc/contracts';
-import { patch, request, send } from '../auth/api.js';
+import { del, patch, request, send } from '../auth/api.js';
 
 export async function projectBoard(): Promise<ProjectBoard> {
   return projectBoardSchema.parse(await request('/projects'));
@@ -98,4 +98,22 @@ export async function resumeRepeating(id: string): Promise<ProjectDetail> {
   return projectDetailSchema.parse(
     await send(`/projects/${encodeURIComponent(id)}/resume-repeating`),
   );
+}
+
+/** Putting somebody on a job: the one responsible, or a helper. */
+export async function assignProject(
+  id: string,
+  userId: string,
+  role: 'responsible' | 'collaborator',
+): Promise<void> {
+  await send(`/projects/${encodeURIComponent(id)}/assignees`, { userId, role });
+}
+
+export async function unassignProject(id: string, userId: string): Promise<void> {
+  await del(`/projects/${encodeURIComponent(id)}/assignees/${encodeURIComponent(userId)}`);
+}
+
+/** Deleting a job nobody worked on. */
+export async function deleteProject(id: string): Promise<void> {
+  await del(`/projects/${encodeURIComponent(id)}`);
 }

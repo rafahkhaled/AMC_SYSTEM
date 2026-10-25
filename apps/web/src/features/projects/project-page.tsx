@@ -2,18 +2,31 @@ import type { ProjectDetail, ProjectStateName } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Field, Loading } from '../../design/index.js';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  DateInput,
+  Field,
+  Loading,
+  Select,
+} from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
+import { staffDirectory } from '../staff/api.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import {
+  assignProject,
   attachDocument,
   completeTask,
+  deleteProject,
   moveProject,
   openNextProject,
   projectDetail,
   resumeRepeating,
   setTaskDue,
   stopRepeating,
+  unassignProject,
 } from './api.js';
 
 /** One piece of work: where it has got to, what it is waiting on, what is next. */
@@ -21,8 +34,11 @@ export function ProjectPage({
   id,
   onBack,
   onOpen,
+  canAssign = false,
 }: {
   id: string;
+  /** Whether this person may put people on the job, or delete it. */
+  canAssign?: boolean;
   onBack: () => void;
   /** Go to another piece of work, such as the one just opened. */
   onOpen?: (id: string) => void;
@@ -292,8 +308,7 @@ export function ProjectPage({
              * client moves it, and a save button would make that a chore.
              */}
             {item.doneAt ? null : (
-              <input
-                type="date"
+              <DateInput
                 className="input input--inline"
                 aria-label={t('projects.stepDue', { step: item.order })}
                 value={item.dueOn ?? ''}
@@ -324,20 +339,137 @@ export function ProjectPage({
         <div className="line">
           <span>{t('projects.assigned')}</span>
           <span className="u-grow" />
-          <span className="u-text-soft">
-            {detail.assignees.length === 0
-              ? t('projects.unassigned')
-              : detail.assignees
-                  .map((person) => `${person.displayName} (${t(`assignmentRoles.${person.role}`)})`)
-                  .join(t('listSeparator'))}
-          </span>
+          {detail.assignees.length === 0 ? (
+            <span className="u-text-soft">{t('projects.unassigned')}</span>
+          ) : null}
         </div>
+        {detail.assignees.map((person) => (
+          <div className="line" key={person.userId}>
+            <span className="u-typed">{person.displayName}</span>
+            <span className="u-text-faint">{t(`assignmentRoles.${person.role}`)}</span>
+            <span className="u-grow" />
+            {canAssign ? (
+              <Button
+                small
+                tone="quiet"
+                onClick={() =>
+                  void unassignProject(id, person.userId).then(() => project.refetch())
+                }
+              >
+                {t('projects.unassign')}
+              </Button>
+            ) : null}
+          </div>
+        ))}
+        {canAssign ? <AssignPerson projectId={id} onDone={() => void project.refetch()} /> : null}
         <div className="line">
           <span>{t('projects.timeRecorded')}</span>
           <span className="u-grow" />
           <strong className="u-ltr u-numeric">{duration(detail.recordedSeconds, t)}</strong>
         </div>
+        <p className="u-text-faint">{t('projects.timeHow')}</p>
       </Card>
+
+      {canAssign ? <DeleteProject projectId={id} onDeleted={onBack} /> : null}
     </div>
+  );
+}
+
+/** Choosing who is responsible for the job, or who helps on it. */
+function AssignPerson({ projectId, onDone }: { projectId: string; onDone: () => void }) {
+  const { t } = useTranslation();
+  const staff = useQuery({ queryKey: ['staff'], queryFn: staffDirectory });
+  const [userId, setUserId] = useState('');
+  const [role, setRole] = useState<'responsible' | 'collaborator'>('responsible');
+  const assign = useMutation({
+    mutationFn: () => assignProject(projectId, userId, role),
+    onSuccess: () => {
+      setUserId('');
+      onDone();
+    },
+  });
+  const people = (staff.data ?? []).filter(
+    (person) => person.status === 'active' && !person.roles.includes('client'),
+  );
+
+  return (
+    <div className="u-stack-tight">
+      <div className="u-row u-row-top">
+        <Field
+          label={t('projects.assignWho')}
+          control={(props) => (
+            <Select {...props} value={userId} onChange={(event) => setUserId(event.target.value)}>
+              <option value="">{t('projects.assignChoose')}</option>
+              {people.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.displayName}
+                </option>
+              ))}
+            </Select>
+          )}
+        />
+        <Field
+          label={t('projects.assignAs')}
+          control={(props) => (
+            <Select
+              {...props}
+              value={role}
+              onChange={(event) => setRole(event.target.value as 'responsible' | 'collaborator')}
+            >
+              <option value="responsible">{t('assignmentRoles.responsible')}</option>
+              <option value="collaborator">{t('assignmentRoles.collaborator')}</option>
+            </Select>
+          )}
+        />
+      </div>
+      {assign.isError ? <Alert tone="error">{(assign.error as Error).message}</Alert> : null}
+      <div className="u-row">
+        <Button
+          small
+          disabled={userId === ''}
+          busy={assign.isPending}
+          onClick={() => assign.mutate()}
+        >
+          {t('projects.assign')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Deleting a job nobody worked on; the server refuses one with time or billing. */
+function DeleteProject({ projectId, onDeleted }: { projectId: string; onDeleted: () => void }) {
+  const { t } = useTranslation();
+  const queries = useQueryClient();
+  const [asking, setAsking] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => deleteProject(projectId),
+    onSuccess: () => {
+      void queries.invalidateQueries({ queryKey: ['projects'] });
+      void queries.invalidateQueries({ queryKey: ['clients'] });
+      onDeleted();
+    },
+  });
+
+  return (
+    <Card title={t('projects.deleteTitle')} description={t('projects.deleteHint')}>
+      {remove.isError ? <Alert tone="error">{(remove.error as Error).message}</Alert> : null}
+      <div className="u-row">
+        {asking ? (
+          <>
+            <Button tone="danger" busy={remove.isPending} onClick={() => remove.mutate()}>
+              {t('projects.deleteConfirm')}
+            </Button>
+            <Button tone="quiet" onClick={() => setAsking(false)}>
+              {t('clients.cancel')}
+            </Button>
+          </>
+        ) : (
+          <Button tone="secondary" onClick={() => setAsking(true)}>
+            {t('projects.delete')}
+          </Button>
+        )}
+      </div>
+    </Card>
   );
 }

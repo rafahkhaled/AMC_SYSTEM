@@ -5,7 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { draftQuotation } from '../billing/api.js';
 import { useCampaigns } from '../campaigns/use-campaigns.js';
+import { useServices } from '../services/use-services.js';
 import { captureLead, convertLead, leadBoard, moveLead, quoteLead } from './api.js';
+
+/** The choice that opens a box to type a service not on the list. */
+const OTHER = '__other__';
 
 const SOURCES = ['whatsapp', 'phone', 'referral', 'advertisement', 'walk_in', 'other'] as const;
 
@@ -233,6 +237,8 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
   const [campaignId, setCampaignId] = useState('');
   const campaigns = useCampaigns();
   const [requestedService, setRequestedService] = useState('');
+  const [serviceChoice, setServiceChoice] = useState('');
+  const services = useServices();
 
   const capture = useMutation({
     mutationFn: () =>
@@ -254,6 +260,7 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
       setSourceDetail('');
       setCampaignId('');
       setRequestedService('');
+      setServiceChoice('');
     },
   });
 
@@ -280,7 +287,12 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
           if (ready) capture.mutate();
         }}
       >
-        <Field label={t('leads.name')} value={name} onChange={(e) => setName(e.target.value)} />
+        <Field
+          label={t('leads.name')}
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         <div className="u-row u-row-top">
           <Field
             label={t('leads.phone')}
@@ -330,11 +342,43 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
             )}
           />
         ) : null}
+        {/*
+          Chosen from the firm's own services rather than typed, so "VAT reg",
+          "vat registration" and "تسجيل ضريبة" are one service on the board.
+          "Something else" still allows a few words for what is not on the list.
+        */}
         <Field
           label={t('leads.wants')}
-          value={requestedService}
-          onChange={(e) => setRequestedService(e.target.value)}
+          control={(props) => (
+            <Select
+              {...props}
+              value={serviceChoice}
+              onChange={(e) => {
+                setServiceChoice(e.target.value);
+                setRequestedService(
+                  e.target.value === '' || e.target.value === OTHER
+                    ? ''
+                    : t(`services.${e.target.value}`),
+                );
+              }}
+            >
+              <option value="">{t('leads.noService')}</option>
+              {services.live.map((service) => (
+                <option key={service.code} value={service.code}>
+                  {t(`services.${service.code}`)}
+                </option>
+              ))}
+              <option value={OTHER}>{t('leads.otherService')}</option>
+            </Select>
+          )}
         />
+        {serviceChoice === OTHER ? (
+          <Field
+            label={t('leads.otherServiceWhat')}
+            value={requestedService}
+            onChange={(e) => setRequestedService(e.target.value)}
+          />
+        ) : null}
 
         {capture.error ? <Alert tone="error">{capture.error.message}</Alert> : null}
 

@@ -24,7 +24,7 @@ const person = (over: Partial<StaffMember> = {}): StaffMember => ({
   email: 'hana@activemanagement.ae',
   roles: ['accountant'],
   status: 'active',
-  workingHours: { startsAt: '09:00', endsAt: '18:00', days: [1, 2, 3, 4, 5] },
+  workingHours: { startsAt: '09:00', endsAt: '18:00', days: [1, 2, 3, 4, 5], dayHours: {} },
   clients: 4,
   openProjects: 6,
   overdueProjects: 0,
@@ -137,6 +137,38 @@ describe('managing people', () => {
     expect(await screen.findByText('That password is too easy to guess')).toBeInTheDocument();
   });
 
+  it('gives Saturday its own hours, and keeps the other days on the usual ones', async () => {
+    updateStaff.mockResolvedValue([person()]);
+    renderScreen(<StaffPage canManage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Sat' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Saturday' }));
+    const ends = screen.getByLabelText('Saturday Ends at');
+    await userEvent.clear(ends);
+    await userEvent.type(ends, '14:00');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(updateStaff).toHaveBeenCalledWith(
+      'u-1',
+      expect.objectContaining({
+        workingHours: expect.objectContaining({
+          days: [1, 2, 3, 4, 5, 6],
+          dayHours: { 6: { startsAt: '09:00', endsAt: '14:00' } },
+        }),
+      }),
+    );
+  });
+
+  it('never offers Client as an employee’s role', async () => {
+    renderScreen(<StaffPage canManage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    const roles = screen.getByLabelText('Role');
+    expect([...roles.querySelectorAll('option')].map((option) => option.value)).not.toContain(
+      'client',
+    );
+  });
+
   it('suspends rather than deletes', async () => {
     setStaffStatus.mockResolvedValue([person({ status: 'suspended' })]);
     renderScreen(<StaffPage canManage />);
@@ -164,7 +196,7 @@ describe('managing people', () => {
     expect(updateStaff).toHaveBeenCalledWith('u-1', {
       displayName: 'Hana Saeed',
       roles: ['accountant'],
-      workingHours: { startsAt: '09:00', endsAt: '18:00', days: [1, 2, 3, 4, 5, 6] },
+      workingHours: { startsAt: '09:00', endsAt: '18:00', days: [1, 2, 3, 4, 5, 6], dayHours: {} },
     });
   });
 

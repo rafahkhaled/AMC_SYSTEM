@@ -38,6 +38,12 @@ export function TimerPage({ canApprove }: { canApprove: boolean }) {
   const resume = useMutation({ mutationFn: resumeTimer, onSuccess: settle });
 
   const waiting = useSync(queries);
+  /*
+   * Recording your own time and approving everybody's are two jobs. On one
+   * page the list of other people's hours sat under the form, and people asked
+   * what it had to do with the task they were recording. Now they are tabs.
+   */
+  const [tab, setTab] = useState<'mine' | 'approvals'>('mine');
   const confirm = useMutation({ mutationFn: confirmEntry, onSuccess: settle });
 
   if (state.isLoading) return <Loading label={t('loading')} />;
@@ -48,8 +54,18 @@ export function TimerPage({ canApprove }: { canApprove: boolean }) {
     (failure) => failure instanceof PendingSync,
   );
 
+  if (tab === 'approvals' && canApprove) {
+    return (
+      <div className="u-stack">
+        <TimerTabs tab={tab} onTab={setTab} />
+        <ApprovalsPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="u-stack">
+      {canApprove ? <TimerTabs tab={tab} onTab={setTab} /> : null}
       {/*
         An action kept on the device is not a failure, and must not read like
         one. The hour is written down; only the server has not heard yet.
@@ -111,10 +127,31 @@ export function TimerPage({ canApprove }: { canApprove: boolean }) {
       />
 
       <TimesheetPanel />
+    </div>
+  );
+}
 
-      {/* Only a manager sees this, and only a manager can act on it: the
-          route behind it requires the same permission. */}
-      {canApprove ? <ApprovalsPanel /> : null}
+function TimerTabs({
+  tab,
+  onTab,
+}: {
+  tab: 'mine' | 'approvals';
+  onTab: (next: 'mine' | 'approvals') => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="u-row tabs">
+      {(['mine', 'approvals'] as const).map((which) => (
+        <button
+          key={which}
+          type="button"
+          className={`tab${tab === which ? ' tab--active' : ''}`}
+          aria-current={tab === which ? 'page' : undefined}
+          onClick={() => onTab(which)}
+        >
+          {t(`timer.tabs.${which}`)}
+        </button>
+      ))}
     </div>
   );
 }

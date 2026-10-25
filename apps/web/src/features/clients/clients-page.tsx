@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { LeadsBoard } from '../leads/leads-board.js';
 import { listClients } from './api.js';
+import { NewClient } from './new-client.js';
 
 /**
  * What the client list can be narrowed to.
@@ -26,8 +27,11 @@ type Filter = 'all' | 'documents' | 'work';
 export function ClientsPage({
   onOpen,
   onQuoted,
+  canEdit = false,
 }: {
   onOpen: (id: string) => void;
+  /** Whether this person may add clients. */
+  canEdit?: boolean;
   /** Opens the quotation an enquiry just produced. */
   onQuoted: (quotationId: string) => void;
 }) {
@@ -51,7 +55,10 @@ export function ClientsPage({
       </div>
 
       {tab === 'clients' ? (
-        <ClientList onOpen={onOpen} />
+        <div className="u-stack">
+          {canEdit ? <NewClient onCreated={onOpen} /> : null}
+          <ClientList onOpen={onOpen} />
+        </div>
       ) : (
         <LeadsBoard onOpenClient={onOpen} onQuoted={onQuoted} />
       )}

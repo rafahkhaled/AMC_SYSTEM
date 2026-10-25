@@ -1,5 +1,6 @@
 import { type DocumentSummary, documentSummarySchema } from '@amc/contracts';
 import { z } from 'zod';
+import { inReadersLanguage } from '../../lib/server-messages.js';
 import { ApiError, request } from '../auth/api.js';
 
 const uploadResultSchema = z.object({
@@ -49,7 +50,7 @@ export async function uploadDocument(
     throw new ApiError(
       response.status,
       error?.code ?? 'UPLOAD_FAILED',
-      error?.message ?? 'That upload did not go through',
+      inReadersLanguage(error?.message ?? 'That upload did not go through'),
       error?.requestId,
     );
   }

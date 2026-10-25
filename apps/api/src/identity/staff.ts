@@ -26,6 +26,7 @@ export function staffReader(db: Database): StaffReader {
         starts_at: string | null;
         ends_at: string | null;
         working_days: number[] | null;
+        day_hours: Record<string, { startsAt: string; endsAt: string }> | null;
         clients: string;
         open_projects: string;
         overdue_projects: string;
@@ -35,7 +36,7 @@ export function staffReader(db: Database): StaffReader {
         SELECT u.id, u.display_name, u.email, u.status,
                (SELECT array_agg(r.role ORDER BY r.role)
                   FROM user_roles r WHERE r.user_id = u.id) AS roles,
-               h.starts_at::text, h.ends_at::text, h.working_days,
+               h.starts_at::text, h.ends_at::text, h.working_days, h.day_hours,
 
                -- Distinct clients, not assignments: somebody with four
                -- projects for one client is carrying one relationship.
@@ -101,6 +102,7 @@ export function staffReader(db: Database): StaffReader {
                 startsAt: row.starts_at.slice(0, 5),
                 endsAt: row.ends_at.slice(0, 5),
                 days: row.working_days ?? [],
+                dayHours: row.day_hours ?? {},
               }
             : null,
         clients: Number(row.clients),

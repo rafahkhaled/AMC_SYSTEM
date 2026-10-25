@@ -92,6 +92,13 @@ export function LettersPanel({ clientId }: { clientId: string }) {
         />
       </div>
 
+      {/* Why the button is greyed out, and where new letters come from: both
+          were asked about. */}
+      <p className="u-text-faint">
+        {code === '' ? `${t('letters.chooseFirst')} ` : null}
+        {t('letters.whereNew')}
+      </p>
+
       <div className="u-row">
         <Button disabled={code === ''} busy={generate.isPending} onClick={() => generate.mutate()}>
           {t('letters.generate')}

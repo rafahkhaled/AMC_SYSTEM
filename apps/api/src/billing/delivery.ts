@@ -73,7 +73,21 @@ export function quotationDelivery(
         LIMIT 1
       `);
 
-      if (!contact) return null;
+      /*
+       * No contact row with an address: use the email on the client's own
+       * details card, which is where the firm types it. Without this a client
+       * with an email on file was still told it had none.
+       */
+      const recipient =
+        contact ??
+        (
+          await db.execute<{ id: null; name: string; email: string; client_name: string }>(sql`
+            SELECT NULL AS id, coalesce(contact_person, legal_name) AS name,
+                   contact_email AS email, legal_name AS client_name
+            FROM clients WHERE id = ${params.clientId} AND contact_email IS NOT NULL
+          `)
+        )[0];
+      if (!recipient) return null;
 
       await db.transaction(async (transaction) => {
         await queue.enqueue(
@@ -83,9 +97,9 @@ export function quotationDelivery(
               quotationId: params.quotationId,
               clientId: params.clientId,
               reference: params.reference,
-              to: contact.email,
-              contactName: contact.name,
-              clientName: contact.client_name,
+              to: recipient.email,
+              contactName: recipient.name,
+              clientName: recipient.client_name,
               totalMinor: params.total.minorUnits,
               currency: params.total.currency,
               validUntil: params.validUntil?.toISOString() ?? null,
@@ -102,8 +116,8 @@ export function quotationDelivery(
           INSERT INTO client_contact_log
             (id, client_id, contact_id, channel, direction, happened_at, summary)
           VALUES (
-            ${ids.next()}, ${params.clientId}, ${contact.id}, 'email', 'outbound', now(),
-            ${`Quotation ${params.reference} emailed to ${contact.email}`}
+            ${ids.next()}, ${params.clientId}, ${recipient.id}, 'email', 'outbound', now(),
+            ${`Quotation ${params.reference} emailed to ${recipient.email}`}
           )
         `);
       });

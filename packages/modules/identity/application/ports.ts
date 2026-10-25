@@ -86,3 +86,16 @@ export interface PasswordResetRepository {
 export interface PasswordResetMailer {
   send(params: { to: string; displayName: string; token: string }): Promise<void>;
 }
+
+/**
+ * What the firm has chosen each editable role may do.
+ *
+ * Read on every request, so the implementation caches; a change made from
+ * Settings clears the cache, so it takes effect on the next request rather than
+ * the next sign-in.
+ */
+export interface RolePermissionStore {
+  /** The chosen grantable permissions, by role. A role with no entry keeps its defaults. */
+  chosen(): Promise<Partial<Record<string, readonly string[]>>>;
+  replace(role: string, permissions: readonly string[]): Promise<void>;
+}

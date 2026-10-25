@@ -1,6 +1,17 @@
 import { type Clock, Conflict, type Result, err, ok } from '@amc/kernel';
-import type { Permission, Role, User } from '../domain/index.js';
-import type { SessionRepository, SessionTokenService, UserRepository } from './ports.js';
+import {
+  type Permission,
+  type Role,
+  type User,
+  effectiveMatrix,
+  permissionsFor,
+} from '../domain/index.js';
+import type {
+  RolePermissionStore,
+  SessionRepository,
+  SessionTokenService,
+  UserRepository,
+} from './ports.js';
 
 export interface AuthenticatedCaller {
   readonly userId: string;
@@ -30,6 +41,8 @@ export class AuthenticateSession {
     private readonly users: UserRepository,
     private readonly tokens: SessionTokenService,
     private readonly clock: Clock,
+    /** The firm's choices for what each role may do. Absent means the defaults. */
+    private readonly roles?: Pick<RolePermissionStore, 'chosen'>,
   ) {}
 
   async execute(cookieValue: string): Promise<Result<AuthenticatedCaller, Conflict>> {
@@ -59,7 +72,9 @@ export class AuthenticateSession {
       userId: user.id,
       sessionId: found.session.id,
       roles: [...user.roles],
-      permissions: user.permissions,
+      permissions: this.roles
+        ? permissionsFor(user.roles, effectiveMatrix(await this.roles.chosen()))
+        : user.permissions,
       displayName: user.displayName,
       twoFactorPassed: found.session.twoFactorPassed,
       twoFactorRequired: user.twoFactorActive,

@@ -1519,6 +1519,66 @@ a {
   text-align: end;
 }
 
+/* A date typed straight through, with the calendar one click away. */
+.date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+}
+.date-input > .input {
+  padding-inline-end: 2.5rem;
+}
+.date-input__calendar {
+  position: absolute;
+  inset-inline-end: var(--space-2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: var(--space-1);
+}
+/* The browser's own picker, kept only for its calendar; never seen. */
+.date-input__native {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-end: 0;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A required field left empty, or one the server refused. */
+.input--invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+.field__label--required::after {
+  content: " *";
+  color: var(--danger);
+}
+
+/* One document waiting to be filed, among several chosen together. */
+.pending-document {
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 10px);
+  padding: var(--space-3);
+}
+
+/* A branch's logo or stamp, shown small beside the button that changes it. */
+.branch__image {
+  block-size: 56px;
+  inline-size: auto;
+  max-inline-size: 160px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 6px);
+  background: #fff;
+  padding: 4px;
+}
+
 @media print {
   .shell__menu,
   .shell__bar,

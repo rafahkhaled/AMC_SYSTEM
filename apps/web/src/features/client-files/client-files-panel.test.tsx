@@ -339,3 +339,81 @@ describe('folders inside the client’s folder', () => {
     expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
   });
 });
+
+/** A file as it arrives from a folder chosen on the computer. */
+const inFolder = (path: string) => {
+  const name = path.split('/').at(-1) ?? path;
+  const value = new File([new Uint8Array(10)], name);
+  Object.defineProperty(value, 'webkitRelativePath', { value: path });
+  return value;
+};
+
+describe('uploading a whole folder', () => {
+  it('makes the folder and its sub-folders, and puts each file in its own', async () => {
+    const user = userEvent.setup();
+    let created: ClientFolderView[] = [];
+    createClientFolder.mockImplementation(
+      async (_client: string, name: string, parent: string | null) => {
+        created = [...created, folder({ id: `d-${name}`, name, parentId: parent, fileCount: 0 })];
+        return created;
+      },
+    );
+    uploadClientFiles.mockResolvedValue({ files: [], refused: [] });
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    const input = (await screen.findByText('Upload a whole folder')).querySelector(
+      'input',
+    ) as HTMLInputElement;
+    await user.upload(input, [
+      inFolder('2025/January/bank.pdf'),
+      inFolder('2025/January/receipt.pdf'),
+      inFolder('2025/summary.xlsx'),
+    ]);
+
+    await waitFor(() => expect(uploadClientFiles).toHaveBeenCalledTimes(2));
+    // "2025" once, at the top, and "January" once, inside it.
+    expect(createClientFolder.mock.calls).toEqual([
+      ['c-1', '2025', null],
+      ['c-1', 'January', 'd-2025'],
+    ]);
+    const byFolder = Object.fromEntries(
+      uploadClientFiles.mock.calls.map((call) => [call[2], call[1].map((f: File) => f.name)]),
+    );
+    expect(byFolder).toEqual({
+      'd-January': ['bank.pdf', 'receipt.pdf'],
+      'd-2025': ['summary.xlsx'],
+    });
+  });
+
+  it('uses a folder that is already there instead of making a second one', async () => {
+    const user = userEvent.setup();
+    clientFolders.mockResolvedValue([folder({ id: 'd-existing', name: '2025' })]);
+    uploadClientFiles.mockResolvedValue({ files: [], refused: [] });
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    await screen.findByRole('button', { name: '2025' });
+    const input = screen
+      .getByText('Upload a whole folder')
+      .querySelector('input') as HTMLInputElement;
+    await user.upload(input, [inFolder('2025/bank.pdf')]);
+
+    await waitFor(() => expect(uploadClientFiles).toHaveBeenCalled());
+    expect(createClientFolder).not.toHaveBeenCalled();
+    expect(uploadClientFiles.mock.calls[0]?.[2]).toBe('d-existing');
+  });
+
+  it('sends more than ten files in several goes, which is what the server takes', async () => {
+    const user = userEvent.setup();
+    uploadClientFiles.mockResolvedValue({ files: [], refused: [] });
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+
+    const many = Array.from({ length: 23 }, (_, index) => file(`statement-${index}.pdf`));
+    await user.upload(
+      document.querySelector('.dropzone input[type=file]') as HTMLInputElement,
+      many,
+    );
+
+    await waitFor(() => expect(uploadClientFiles).toHaveBeenCalledTimes(3));
+    expect(uploadClientFiles.mock.calls.map((call) => call[1].length)).toEqual([10, 10, 3]);
+  });
+});

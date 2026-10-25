@@ -158,6 +158,19 @@ export class ProjectsController {
     return project;
   }
 
+  /** Deleting a job nobody worked on. One with time or billing is cancelled instead. */
+  @Delete(':id')
+  @RequirePermissions('projects.assign')
+  async remove(@CurrentCaller() caller: Caller, @Param('id') id: string): Promise<{ ok: true }> {
+    const removed = await this.workflow.remove(caller, id);
+    if (!removed.ok) {
+      if (removed.error.message === 'No such project')
+        throw new NotFoundException(removed.error.message);
+      throw new ConflictException(removed.error.message);
+    }
+    return { ok: true };
+  }
+
   @Post(':id/move')
   @RequirePermissions('projects.edit')
   async move(

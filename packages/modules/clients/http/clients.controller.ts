@@ -1,4 +1,9 @@
-import { type ClientDetail, type ClientSummary, changeClientDetailsSchema } from '@amc/contracts';
+import {
+  type ClientDetail,
+  type ClientSummary,
+  changeClientDetailsSchema,
+  onboardClientSchema,
+} from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
 import { NotFound } from '@amc/kernel';
 import {
@@ -11,6 +16,7 @@ import {
   NotFoundException,
   Param,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { ManageClientDetails } from '../application/manage-client-details.js';
@@ -43,6 +49,21 @@ export class ClientsController {
     @Query('limit') limit?: string,
   ): Promise<{ clients: ClientSummary[] }> {
     return { clients: await this.clients.list(caller, limit ? Number(limit) : undefined) };
+  }
+
+  /** A client added directly, not converted from an enquiry. */
+  @RequirePermissions('clients.edit')
+  @Post()
+  async onboard(@CurrentCaller() caller: Caller, @Body() body: unknown): Promise<ClientDetail> {
+    const parsed = onboardClientSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'A client needs a legal name',
+      );
+    }
+    const created = await this.details.onboard(caller, parsed.data);
+    if (!created.ok) throw new ConflictException(created.error.message);
+    return this.detail(caller, created.value.clientId);
   }
 
   @Get(':id')

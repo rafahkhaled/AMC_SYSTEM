@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { usePrint } from '../../lib/use-print.js';
 import { BranchPicker } from '../branches/branch-picker.js';
 import { useBranches } from '../branches/use-branches.js';
 import { useOptions } from '../lists/use-options.js';
@@ -504,8 +505,8 @@ function statusTone(status: InvoiceView['status']) {
 function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const queries = useQueryClient();
-  const [printing, setPrinting] = useState(false);
   const profile = useQuery({ queryKey: ['billing', 'firm-profile'], queryFn: firmProfile });
+  const sheet = usePrint(Boolean(profile.data));
   const [amount, setAmount] = useState('');
   const methods = useOptions('payment_method');
   const [method, setMethod] = useState('bank_transfer');
@@ -559,7 +560,10 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <Button small tone="quiet" onClick={onClose}>
           {t('billing.close')}
         </Button>
-        <Button small tone="secondary" onClick={() => setPrinting(!printing)}>
+        <Button small tone="quiet" onClick={sheet.toggle}>
+          {sheet.shown ? t('billing.hidePreview') : t('billing.preview')}
+        </Button>
+        <Button small tone="secondary" onClick={sheet.print}>
           {t('billing.print')}
         </Button>
       </div>
@@ -567,7 +571,7 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
       {/* The document itself, on the page rather than behind a route: what
           gets printed is what was on screen, so nobody sends a client a
           document they were not looking at. */}
-      {printing && profile.data ? (
+      {sheet.shown && profile.data ? (
         <InvoiceDocument invoice={invoice} profile={profile.data} />
       ) : null}
 

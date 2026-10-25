@@ -179,6 +179,8 @@ function StoreCredential({
   const [secret, setSecret] = useState('');
   const [note, setNote] = useState('');
   const [link, setLink] = useState('');
+  /** While typing it, so a mistyped password is seen before it is saved. */
+  const [showSecret, setShowSecret] = useState(false);
   const [slot, setSlot] = useState<'1' | '2'>('1');
 
   const store = useMutation({
@@ -222,6 +224,7 @@ function StoreCredential({
     >
       <Field
         label={t('vault.portal')}
+        hint={t('vault.portalHint')}
         control={(props) => (
           <Select {...props} value={chosen} onChange={(event) => setKind(event.target.value)}>
             {portals.live.map((option) => (
@@ -262,8 +265,20 @@ function StoreCredential({
       <Field
         label={t('vault.password')}
         hint={t('vault.passwordHint')}
-        type="password"
+        type={showSecret ? 'text' : 'password'}
         ltr
+        affix={
+          <Button
+            type="button"
+            tone="quiet"
+            small
+            onClick={() => setShowSecret((shown) => !shown)}
+            aria-label={showSecret ? t('signIn.hidePassword') : t('signIn.showPassword')}
+            aria-pressed={showSecret}
+          >
+            {showSecret ? '◡' : '◠'}
+          </Button>
+        }
         autoComplete="new-password"
         value={secret}
         onChange={(event) => setSecret(event.target.value)}

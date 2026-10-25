@@ -1,7 +1,16 @@
 import type { ChangeClientDetails } from '@amc/contracts';
-import { Conflict, NotFound, type Result, type UnitOfWork, actorFrom, err, ok } from '@amc/kernel';
-import { FinancialYear, Trn, VatPeriods, scopeFor } from '../domain/index.js';
-import type { CallerLike, ClientRepositoryFactory } from './ports.js';
+import {
+  Conflict,
+  type IdGenerator,
+  NotFound,
+  type Result,
+  type UnitOfWork,
+  actorFrom,
+  err,
+  ok,
+} from '@amc/kernel';
+import { Client, FinancialYear, Trn, VatPeriods, scopeFor } from '../domain/index.js';
+import type { CallerLike, ClientRepositoryFactory, StaffAccessRepository } from './ports.js';
 
 const today = (): Date => {
   const now = new Date();
@@ -23,7 +32,52 @@ export class ManageClientDetails {
   constructor(
     private readonly unitOfWork: UnitOfWork,
     private readonly repositories: ClientRepositoryFactory,
+    /** Who may see which client, so a person who adds one can then open it. */
+    private readonly access?: { forTransaction(db: unknown): StaffAccessRepository },
+    private readonly ids?: IdGenerator,
   ) {}
+
+  /**
+   * Adding a client directly (feedback, "App" document point 1).
+   *
+   * Clients used to arrive only by converting an enquiry, so somebody with a
+   * client already on the books had to invent an enquiry to add them. The
+   * person adding it is given access, so somebody who sees only their own
+   * clients does not add one and then lose sight of it.
+   */
+  async onboard(
+    caller: CallerLike,
+    command: {
+      legalName: string;
+      legalNameArabic?: string | undefined;
+      tradeLicenceNumber?: string | undefined;
+    },
+  ): Promise<Result<{ clientId: string }, Conflict>> {
+    const id = this.ids?.next();
+    if (!id) return err(new Conflict('Adding clients is not available here'));
+    return this.unitOfWork.run(actorFrom(caller), async (context) => {
+      const db = (context as unknown as { db: unknown }).db;
+      const clients = this.repositories.forTransaction(db, context);
+      const client = Client.onboard({
+        id,
+        legalName: command.legalName,
+        ...(command.legalNameArabic ? { legalNameArabic: command.legalNameArabic } : {}),
+        ...(command.tradeLicenceNumber ? { tradeLicenceNumber: command.tradeLicenceNumber } : {}),
+        now: new Date(),
+      });
+      if (!client.ok) return err(client.error);
+      await clients.save(client.value);
+
+      if (scopeFor(caller).kind !== 'all' && this.access) {
+        await this.access.forTransaction(db).assign({
+          clientId: id,
+          userId: caller.userId,
+          assignedBy: caller.userId,
+        });
+      }
+      return ok({ clientId: id });
+    });
+  }
 
   async change(
     caller: CallerLike,

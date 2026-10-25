@@ -290,3 +290,27 @@ describe('the timer screen', () => {
     expect(await screen.findByRole('button', { name: 'Hold' })).toBeInTheDocument();
   });
 });
+
+describe('my time and approving the team’s, apart', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    localStorage.setItem('amc.language', 'en');
+    await setUpI18n();
+  });
+
+  it('keeps the team’s hours out of the page somebody records their own on', async () => {
+    const user = userEvent.setup();
+    show(empty, true);
+
+    expect(await screen.findByRole('button', { name: 'My time' })).toBeInTheDocument();
+    expect(screen.queryByText('Hours waiting to be approved')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Approve the team’s hours' }));
+    expect(await screen.findByText('Hours waiting to be approved')).toBeInTheDocument();
+  });
+
+  it('shows no tabs to somebody who does not approve', async () => {
+    show(empty, false);
+    await screen.findByText('Record time by hand');
+    expect(screen.queryByRole('button', { name: 'My time' })).toBeNull();
+  });
+});
