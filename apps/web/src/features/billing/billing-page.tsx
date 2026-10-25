@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../..
 import { usePrint } from '../../lib/use-print.js';
 import { BranchPicker } from '../branches/branch-picker.js';
 import { useBranches } from '../branches/use-branches.js';
+import { ClassificationPanel } from '../classification/classification-panel.js';
 import { useOptions } from '../lists/use-options.js';
 import {
   approve,
@@ -571,6 +572,8 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
       {/* The document itself, on the page rather than behind a route: what
           gets printed is what was on screen, so nobody sends a client a
           document they were not looking at. */}
+      <ClassificationPanel entity="invoice" id={invoice.id} canEdit />
+
       {sheet.shown && profile.data ? (
         <InvoiceDocument invoice={invoice} profile={profile.data} />
       ) : null}

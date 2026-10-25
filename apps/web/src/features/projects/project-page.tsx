@@ -13,6 +13,7 @@ import {
   Select,
 } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
+import { ClassificationPanel } from '../classification/classification-panel.js';
 import { staffDirectory } from '../staff/api.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import {
@@ -334,6 +335,8 @@ export function ProjectPage({
           </div>
         ))}
       </Card>
+
+      <ClassificationPanel entity="project" id={id} canEdit />
 
       <Card title={t('projects.people')}>
         <div className="line">

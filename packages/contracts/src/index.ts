@@ -8,3 +8,4 @@ export * from './projects.js';
 export * from './time.js';
 export * from './whatsapp.js';
 export * from './campaigns.js';
+export * from './classification.js';

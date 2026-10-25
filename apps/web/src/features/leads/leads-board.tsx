@@ -5,6 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { draftQuotation } from '../billing/api.js';
 import { useCampaigns } from '../campaigns/use-campaigns.js';
+import { changeClassification } from '../classification/api.js';
+import {
+  ClassificationFields,
+  ClassificationPanel,
+} from '../classification/classification-panel.js';
 import { useServices } from '../services/use-services.js';
 import { captureLead, convertLead, leadBoard, moveLead, quoteLead } from './api.js';
 
@@ -91,6 +96,7 @@ function LeadCard({
 }) {
   const { t } = useTranslation();
   const campaignName = useCampaigns().nameOf(lead.campaignId);
+  const [sorting, setSorting] = useState(false);
   const [converting, setConverting] = useState(false);
   /*
    * One form, two outcomes.
@@ -154,6 +160,10 @@ function LeadCard({
       {campaignName ? <Badge tone="accent">{campaignName}</Badge> : null}
       {lead.sourceDetail ? <span className="u-text-faint">{lead.sourceDetail}</span> : null}
       {lead.notes ? <span className="u-text-faint">{lead.notes}</span> : null}
+      <Button small tone="quiet" onClick={() => setSorting(!sorting)}>
+        {t('classification.title')}
+      </Button>
+      {sorting ? <ClassificationPanel entity="lead" id={lead.id} canEdit /> : null}
 
       <div className="u-row u-wrap">
         {lead.allowedNext.map((status) => (
@@ -238,11 +248,19 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
   const campaigns = useCampaigns();
   const [requestedService, setRequestedService] = useState('');
   const [serviceChoice, setServiceChoice] = useState('');
+  /** Branch and salesperson, saved onto the enquiry once it exists. */
+  const [sorting, setSorting] = useState<{
+    branchCode: string | null;
+    salespersonId: string | null;
+  }>({
+    branchCode: null,
+    salespersonId: null,
+  });
   const services = useServices();
 
   const capture = useMutation({
-    mutationFn: () =>
-      captureLead({
+    mutationFn: async () => {
+      const board = await captureLead({
         name: name.trim(),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
         ...(email.trim() ? { email: email.trim() } : {}),
@@ -250,7 +268,15 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
         ...(sourceDetail.trim() ? { sourceDetail: sourceDetail.trim() } : {}),
         ...(campaignId ? { campaignId } : {}),
         ...(requestedService.trim() ? { requestedService: requestedService.trim() } : {}),
-      }),
+      });
+      if (board.capturedId && (sorting.branchCode || sorting.salespersonId)) {
+        await changeClassification('lead', board.capturedId, {
+          ...(sorting.branchCode ? { branchCode: sorting.branchCode } : {}),
+          ...(sorting.salespersonId ? { salespersonId: sorting.salespersonId } : {}),
+        });
+      }
+      return board;
+    },
     onSuccess: (board) => {
       onCaptured(board);
       setOpen(false);
@@ -261,6 +287,7 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
       setCampaignId('');
       setRequestedService('');
       setServiceChoice('');
+      setSorting({ branchCode: null, salespersonId: null });
     },
   });
 
@@ -379,6 +406,12 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
             onChange={(e) => setRequestedService(e.target.value)}
           />
         ) : null}
+
+        <ClassificationFields
+          branchCode={sorting.branchCode}
+          salespersonId={sorting.salespersonId}
+          onChange={(changes) => setSorting({ ...sorting, ...changes } as typeof sorting)}
+        />
 
         {capture.error ? <Alert tone="error">{capture.error.message}</Alert> : null}
 

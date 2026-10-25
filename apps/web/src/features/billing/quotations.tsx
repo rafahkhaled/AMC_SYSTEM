@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../..
 import { usePrint } from '../../lib/use-print.js';
 import { BranchPicker } from '../branches/branch-picker.js';
 import { useBranches } from '../branches/use-branches.js';
+import { ClassificationPanel } from '../classification/classification-panel.js';
 import { listClients } from '../clients/api.js';
 import { useServices } from '../services/use-services.js';
 import {
@@ -288,6 +289,8 @@ function QuotationDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
       {/* What gets printed is what is on the screen, so nobody sends a client
           a document they were not looking at. */}
+      <ClassificationPanel entity="quotation" id={quotation.id} canEdit />
+
       {sheet.shown && profile.data ? (
         <QuotationDocument quotation={quotation} profile={profile.data} />
       ) : null}

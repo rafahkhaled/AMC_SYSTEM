@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Empty, Field, Loading } from '../../design/index.js';
+import { classificationReport } from '../classification/api.js';
 import { type Period, hoursReport, profitabilityReport } from './api.js';
 import { formatHours, formatMoney } from './money.js';
 
@@ -61,6 +62,7 @@ export function Reports() {
         </form>
       </Card>
 
+      <ClassificationReportPanel period={period} />
       <HoursPanel period={period} />
       <ProfitabilityPanel period={period} />
     </div>
@@ -270,5 +272,81 @@ function ProfitLine({ row, language }: { row: ProfitabilityRow; language: string
         )}
       </td>
     </tr>
+  );
+}
+
+/** Invoiced work and activity, by branch, by salesperson and by who did it. */
+function ClassificationReportPanel({ period }: { period: Period }) {
+  const { t, i18n } = useTranslation();
+  const [by, setBy] = useState<'byBranch' | 'bySalesperson' | 'byPerformer'>('byBranch');
+  const report = useQuery({
+    queryKey: ['classification', 'report', period.from, period.to],
+    queryFn: () => classificationReport(period.from, period.to),
+  });
+  const rows = report.data?.[by] ?? [];
+
+  return (
+    <Card title={t('classification.report.title')} description={t('classification.report.hint')}>
+      <div className="u-row tabs tabs--quiet">
+        {(['byBranch', 'bySalesperson', 'byPerformer'] as const).map((which) => (
+          <button
+            key={which}
+            type="button"
+            className={`tab${by === which ? ' tab--active' : ''}`}
+            aria-current={by === which ? 'page' : undefined}
+            onClick={() => setBy(which)}
+          >
+            {t(`classification.report.${which}`)}
+          </button>
+        ))}
+      </div>
+      {report.isLoading ? <Loading label={t('loading')} /> : null}
+      {report.isError ? <Alert tone="error">{(report.error as Error).message}</Alert> : null}
+      {report.data && rows.length === 0 ? (
+        <p className="u-text-faint">{t('classification.report.empty')}</p>
+      ) : null}
+      {rows.length > 0 ? (
+        <div className="table-scroll">
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">{t(`classification.report.${by}`)}</th>
+                <th scope="col" className="table__figure">
+                  {t('classification.report.clients')}
+                </th>
+                <th scope="col" className="table__figure">
+                  {t('classification.report.quotations')}
+                </th>
+                <th scope="col" className="table__figure">
+                  {t('classification.report.projects')}
+                </th>
+                <th scope="col" className="table__figure">
+                  {t('classification.report.invoices')}
+                </th>
+                <th scope="col" className="table__figure">
+                  {t('classification.report.invoiced')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key ?? 'none'}>
+                  <th scope="row" className="u-typed">
+                    {row.name ?? row.key ?? t('classification.notSet')}
+                  </th>
+                  <td className="table__figure u-numeric">{row.clients}</td>
+                  <td className="table__figure u-numeric">{row.quotations}</td>
+                  <td className="table__figure u-numeric">{row.projects}</td>
+                  <td className="table__figure u-numeric">{row.invoices}</td>
+                  <td className="table__figure u-numeric">
+                    {formatMoney({ minorUnits: row.invoicedMinor, currency: 'AED' }, i18n.language)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </Card>
   );
 }

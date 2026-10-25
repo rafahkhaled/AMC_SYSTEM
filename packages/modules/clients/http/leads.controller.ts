@@ -37,7 +37,7 @@ export class LeadsController {
 
     const outcome = await this.workflow.capture(caller, parsed.data);
     if (!outcome.ok) throw new BadRequestException(outcome.error.message);
-    return this.leads.board();
+    return { ...(await this.leads.board()), capturedId: outcome.value.leadId };
   }
 
   @Post(':id/move')

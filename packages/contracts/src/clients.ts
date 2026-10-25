@@ -225,6 +225,8 @@ export type LeadView = z.infer<typeof leadSchema>;
 /** The pipeline, as columns. Order and membership decided by the server. */
 export const leadBoardSchema = z.object({
   columns: z.array(z.object({ status: z.enum(leadStatuses), leads: z.array(leadSchema) })),
+  /** On the answer to recording one: the enquiry just recorded. */
+  capturedId: z.string().optional(),
 });
 export type LeadBoard = z.infer<typeof leadBoardSchema>;
 

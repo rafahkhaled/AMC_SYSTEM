@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { ClassificationPanel } from '../classification/classification-panel.js';
 import { ClientFilesPanel } from '../client-files/client-files-panel.js';
 import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
 import { documentLink } from '../documents/api.js';
@@ -122,6 +123,7 @@ export function ClientPage({
       </Card>
 
       <ClientDetailsCard detail={detail} canEdit={canEdit} months={months} />
+      <ClassificationPanel entity="client" id={id} canEdit={canEdit} />
 
       <Card title={t('clients.documents')} description={t('clients.documentsHint')}>
         {detail.documents.length === 0 ? (

@@ -1,7 +1,10 @@
+import type { UpdateClassification } from '@amc/contracts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field } from '../../design/index.js';
+import { changeClassification } from '../classification/api.js';
+import { ClassificationFields } from '../classification/classification-panel.js';
 import { onboardClient } from './api.js';
 
 /**
@@ -19,6 +22,7 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
   const [legalNameArabic, setLegalNameArabic] = useState('');
   const [licence, setLicence] = useState('');
   const [tried, setTried] = useState(false);
+  const [sorting, setSorting] = useState<UpdateClassification>({});
 
   const create = useMutation({
     mutationFn: () =>
@@ -27,7 +31,11 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
         ...(legalNameArabic.trim() ? { legalNameArabic: legalNameArabic.trim() } : {}),
         ...(licence.trim() ? { tradeLicenceNumber: licence.trim() } : {}),
       }),
-    onSuccess: (client) => {
+    onSuccess: async (client) => {
+      // Branch, salesperson and who does the work, onto the client just made.
+      if (sorting.branchCode || sorting.salespersonId || sorting.performedBy) {
+        await changeClassification('client', client.id, sorting);
+      }
       void queries.invalidateQueries({ queryKey: ['clients'] });
       onCreated(client.id);
     },
@@ -70,6 +78,12 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
           ltr
           value={licence}
           onChange={(event) => setLicence(event.target.value)}
+        />
+        <ClassificationFields
+          branchCode={sorting.branchCode ?? null}
+          salespersonId={sorting.salespersonId ?? null}
+          performedBy={sorting.performedBy ?? null}
+          onChange={(changes) => setSorting({ ...sorting, ...changes })}
         />
         {create.isError ? <Alert tone="error">{(create.error as Error).message}</Alert> : null}
         <div className="u-row">
