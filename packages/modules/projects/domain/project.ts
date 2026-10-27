@@ -83,10 +83,16 @@ const ALLOWED: Readonly<Record<ProjectState, readonly ProjectState[]>> = {
   ],
   waiting_for_client: ['in_progress', 'cancelled', 'awaiting_documents', 'ready'],
   waiting_for_authority: ['in_progress', 'completed', 'cancelled', 'ready'],
-  // Both are ends. Work that resumes after completion is new work, and a
-  // reopened project would quietly detach the hours already invoiced against it.
-  completed: [],
-  cancelled: [],
+  /*
+   * Re-opening (feedback: "re-open request").
+   *
+   * A finished job goes back into progress and a cancelled one back to ready,
+   * each with a reason, because both are a step back. Time already recorded
+   * and invoiced stays attached to the job and on its invoice; the hours worked
+   * after re-opening are new hours, billed on the next statement as usual.
+   */
+  completed: ['in_progress'],
+  cancelled: ['ready'],
 };
 
 /** One of the template's document requirements, and whether it has been met. */
@@ -306,7 +312,7 @@ export class Project extends AggregateRoot<ProjectId> {
    * disabled button. Work that starts without the paperwork produces a return
    * that cannot be filed and hours that cannot be billed.
    */
-  start(now: Date): Result<true, Conflict> {
+  start(now: Date, reason?: string): Result<true, Conflict> {
     if (this.isBlocked) {
       return err(
         new Conflict('The documents this work needs are not all here yet', {
@@ -314,7 +320,7 @@ export class Project extends AggregateRoot<ProjectId> {
         }),
       );
     }
-    return this.moveTo('in_progress', now);
+    return this.moveTo('in_progress', now, reason);
   }
 
   /**
@@ -458,7 +464,9 @@ export class Project extends AggregateRoot<ProjectId> {
       ...this.state,
       state: next,
       startedAt: next === 'in_progress' && !this.state.startedAt ? now : this.state.startedAt,
-      completedAt: next === 'completed' ? now : this.state.completedAt,
+      // Re-opened, it is no longer finished, so it no longer says when it was.
+      completedAt:
+        next === 'completed' ? now : from === 'completed' ? null : this.state.completedAt,
     };
     this.record(
       domainEvent('services.project.state_changed', this.id, now, {

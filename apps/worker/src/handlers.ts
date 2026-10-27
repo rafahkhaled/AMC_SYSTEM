@@ -1,5 +1,5 @@
 import type { Database } from '@amc/database';
-import type { Clock } from '@amc/kernel';
+import type { Clock, DomainEvent } from '@amc/kernel';
 import type { JobRunner, PostgresJobQueue } from '@amc/queue';
 import { AlertLog } from './handlers/alerts.js';
 import { DAILY_SWEEP, runDailySweep, scheduleNextDailySweep } from './handlers/daily.js';
@@ -77,7 +77,11 @@ export function registerJobHandlers(
     });
 }
 
-export function registerEventSubscribers(publisher: OutboxPublisher): OutboxPublisher {
+export function registerEventSubscribers(
+  publisher: OutboxPublisher,
+  subscribers: { onLeadCaptured?: (event: DomainEvent) => Promise<void> } = {},
+): OutboxPublisher {
+  if (subscribers.onLeadCaptured) publisher.on('clients.lead.captured', subscribers.onLeadCaptured);
   return publisher;
 }
 

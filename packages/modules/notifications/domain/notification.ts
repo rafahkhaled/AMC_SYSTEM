@@ -12,7 +12,8 @@ export type NotificationKind =
   | 'deadline_near'
   | 'project_assigned'
   | 'escalation'
-  | 'time_needs_review';
+  | 'time_needs_review'
+  | 'new_enquiry';
 
 const KINDS: readonly NotificationKind[] = [
   'document_expiring',
@@ -20,6 +21,7 @@ const KINDS: readonly NotificationKind[] = [
   'project_assigned',
   'escalation',
   'time_needs_review',
+  'new_enquiry',
 ];
 
 export function isNotificationKind(value: string): value is NotificationKind {
@@ -47,6 +49,8 @@ const DEFAULTS: Readonly<Record<NotificationKind, Delivery>> = {
   project_assigned: { inApp: true, email: false },
   escalation: { inApp: true, email: true },
   time_needs_review: { inApp: true, email: false },
+  // A visitor waiting for a call back: by email too, so it is seen the same morning.
+  new_enquiry: { inApp: true, email: true },
 };
 
 export function defaultDelivery(kind: NotificationKind): Delivery {

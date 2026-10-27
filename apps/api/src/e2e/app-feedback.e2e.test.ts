@@ -274,6 +274,61 @@ describe('the App feedback', () => {
     });
   });
 
+  describe('re-opening a job', () => {
+    it('re-opens a finished job with a reason, keeping its recorded time', async () => {
+      const job = (
+        await manager
+          .post('/projects')
+          .send({ clientId: 'c-mine', service: 'emaratax_request' })
+          .expect(201)
+      ).body.id;
+      const start = await manager.get(`/projects/${job}`).expect(200);
+      expect(start.body.state).toBe('ready');
+      for (const to of ['in_progress', 'completed']) {
+        const moved = await manager.post(`/projects/${job}/move`).send({ to });
+        expect([moved.status, moved.body.error?.message]).toEqual([201, undefined]);
+      }
+      await manager
+        .post('/timer/entries')
+        .send({
+          projectId: job,
+          startedAt: '2026-09-04T09:00',
+          endedAt: '2026-09-04T10:00',
+          reason: 'Filed the request',
+        })
+        .expect(201);
+
+      await manager.post(`/projects/${job}/move`).send({ to: 'in_progress' }).expect(400);
+      const reopened = await manager
+        .post(`/projects/${job}/move`)
+        .send({ to: 'in_progress', reason: 'The authority asked for a correction' });
+      expect([reopened.status, reopened.body.error?.message]).toEqual([201, undefined]);
+      expect(reopened.body.state).toBe('in_progress');
+      expect(reopened.body.recordedSeconds).toBe(3600);
+
+      const [row] = await t.sql<{ after: { reason: string } }[]>`
+        SELECT after FROM audit_log WHERE action = 'services.project.state_changed'
+        AND entity_id = ${job} ORDER BY occurred_at DESC LIMIT 1
+      `;
+      expect(JSON.stringify(row?.after)).toContain('The authority asked for a correction');
+    });
+
+    it('brings a cancelled job back to ready', async () => {
+      const job = (
+        await manager
+          .post('/projects')
+          .send({ clientId: 'c-mine', service: 'deregistration' })
+          .expect(201)
+      ).body.id;
+      await manager.post(`/projects/${job}/move`).send({ to: 'cancelled' }).expect(201);
+      const back = await manager
+        .post(`/projects/${job}/move`)
+        .send({ to: 'ready', reason: 'Client went ahead after all' })
+        .expect(201);
+      expect(back.body.state).toBe('ready');
+    });
+  });
+
   describe('a shorter Saturday', () => {
     it('keeps different hours for one day, and only for a day that is worked', async () => {
       const person = await t.another('accountant', 'saturday');

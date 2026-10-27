@@ -142,11 +142,42 @@ describe('how work moves', () => {
     expect(satisfy(project()).moveTo('completed', NOW).ok).toBe(false);
   });
 
-  it('treats completion as final', () => {
+  it('re-opens a finished job, with a reason, and it is no longer finished', () => {
     const subject = started();
     subject.moveTo('completed', NOW);
-    // Reopening would quietly detach the hours already invoiced against it.
-    expect(subject.moveTo('in_progress', NOW).ok).toBe(false);
+
+    const silent = subject.moveTo('in_progress', NOW);
+    expect(silent.ok).toBe(false);
+    if (!silent.ok) expect(silent.error.message).toContain('Say why');
+
+    expect(subject.moveTo('in_progress', NOW, 'Client asked for an amendment').ok).toBe(true);
+    expect(subject.status).toBe('in_progress');
+    expect(subject.snapshot().completedAt).toBeNull();
+    const [event] = subject
+      .pullEvents()
+      .filter((e) => e.name === 'services.project.state_changed')
+      .slice(-1);
+    expect(event?.payload).toMatchObject({
+      from: 'completed',
+      to: 'in_progress',
+      reason: 'Client asked for an amendment',
+    });
+  });
+
+  it('brings a cancelled job back to ready, with a reason', () => {
+    const subject = started();
+    subject.moveTo('cancelled', NOW);
+    expect(subject.moveTo('in_progress', NOW, 'Back on').ok).toBe(false);
+    expect(subject.moveTo('ready', NOW, 'Client changed their mind').ok).toBe(true);
+    expect(subject.status).toBe('ready');
+  });
+
+  it('finishes again after re-opening, with the new date', () => {
+    const subject = started();
+    subject.moveTo('completed', at('2026-04-20T10:00:00Z'));
+    subject.moveTo('in_progress', NOW, 'Amendment');
+    subject.moveTo('completed', at('2026-05-02T10:00:00Z'));
+    expect(subject.snapshot().completedAt?.toISOString()).toBe('2026-05-02T10:00:00.000Z');
   });
 
   it('records when it finished', () => {

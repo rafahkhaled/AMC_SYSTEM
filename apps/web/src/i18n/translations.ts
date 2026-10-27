@@ -494,6 +494,7 @@ export const translations = {
         project_assigned: 'عمل أُسنِد إليك',
         escalation: 'تصعيد متابعة',
         time_needs_review: 'وقت بحاجة تأكيد',
+        new_enquiry: 'استفسار جديد من الموقع',
       },
     },
     workload: {
@@ -967,6 +968,8 @@ export const translations = {
       },
       whatNext: 'الخطوة التالية',
       whatNextHint: 'اختر المرحلة التي ينتقل إليها هذا العمل الآن.',
+      reopenHint:
+        'لإعادة فتح هذا العمل اختر المرحلة واكتب السبب. الوقت المسجّل والمفوتر سابقًا يبقى كما هو.',
       unassign: 'إزالة',
       assignWho: 'إسناد إلى',
       assignChoose: 'اختر موظفًا',
@@ -1716,6 +1719,7 @@ export const translations = {
         project_assigned: 'Work assigned to you',
         escalation: 'A chase has escalated',
         time_needs_review: 'Time needs confirming',
+        new_enquiry: 'A new enquiry from the website',
       },
     },
     workload: {
@@ -2171,6 +2175,8 @@ export const translations = {
       },
       whatNext: 'What next',
       whatNextHint: 'Choose the stage this job moves to now.',
+      reopenHint:
+        'To re-open this job, choose the stage and give the reason. Time already recorded and invoiced stays as it is.',
       unassign: 'Remove',
       assignWho: 'Assign to',
       assignChoose: 'Choose a person',

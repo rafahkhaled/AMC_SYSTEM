@@ -15,6 +15,7 @@ import {
   registerJobHandlers,
   scheduleNextDailySweep,
 } from './handlers.js';
+import { enquiryNotifier } from './handlers/notify-enquiry.js';
 import { escalationNotifier } from './handlers/notify-escalation.js';
 import { loggingEmailSender, recipientReader, sesEmailSender } from './notifications/adapters.js';
 import { OutboxPublisher } from './outbox-publisher.js';
@@ -43,6 +44,30 @@ async function bootstrap(): Promise<void> {
 
   const clock = new SystemClock();
   const queue = new PostgresJobQueue(db, { next: () => ulid() }, clock);
+
+  /*
+   * Telling people, shared by the escalation ladder and the website
+   * enquiry alert so both deliver the same way.
+   */
+  const notify = new Notify(
+    new DrizzleNotificationRepository(db),
+    new DrizzlePreferenceRepository(db),
+    recipientReader(db),
+    /*
+     * SES when a verified sender is configured, the log otherwise. The
+     * default is the log rather than a crash: a practice without a
+     * sender should get a working system and a note, not a worker that
+     * dies on the first escalation.
+     */
+    environment.NOTIFICATION_FROM
+      ? sesEmailSender({
+          region: environment.SES_REGION,
+          from: environment.NOTIFICATION_FROM,
+        })
+      : loggingEmailSender(logger),
+    clock,
+    { next: () => ulid() },
+  );
 
   const runner = registerJobHandlers(
     new JobRunner(queue, clock, {
@@ -97,28 +122,7 @@ async function bootstrap(): Promise<void> {
        * Email goes to the log until a mail transport is configured, so the
        * whole path runs for real and only the last task differs.
        */
-      notifier: escalationNotifier(
-        db,
-        new Notify(
-          new DrizzleNotificationRepository(db),
-          new DrizzlePreferenceRepository(db),
-          recipientReader(db),
-          /*
-           * SES when a verified sender is configured, the log otherwise. The
-           * default is the log rather than a crash: a practice without a
-           * sender should get a working system and a note, not a worker that
-           * dies on the first escalation.
-           */
-          environment.NOTIFICATION_FROM
-            ? sesEmailSender({
-                region: environment.SES_REGION,
-                from: environment.NOTIFICATION_FROM,
-              })
-            : loggingEmailSender(logger),
-          clock,
-          { next: () => ulid() },
-        ),
-      ),
+      notifier: escalationNotifier(db, notify),
       // The same sender the escalations use: SES when a verified address is
       // configured, the log otherwise, so the path runs either way.
       email: environment.NOTIFICATION_FROM
@@ -138,6 +142,7 @@ async function bootstrap(): Promise<void> {
       environment.OUTBOX_BATCH_SIZE,
       (message, detail) => logger.warn(detail, message),
     ),
+    { onLeadCaptured: enquiryNotifier(db, notify) },
   );
 
   let draining = true;

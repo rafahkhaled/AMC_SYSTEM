@@ -167,7 +167,14 @@ export function ProjectPage({
         </Card>
       ) : null}
 
-      <Card title={t('projects.whatNext')} description={t('projects.whatNextHint')}>
+      <Card
+        title={t('projects.whatNext')}
+        description={
+          detail.state === 'completed' || detail.state === 'cancelled'
+            ? t('projects.reopenHint')
+            : t('projects.whatNextHint')
+        }
+      >
         <div className="u-row u-wrap">
           {detail.allowedTransitions.length === 0 ? (
             <p className="u-text-faint">{t('projects.closed')}</p>

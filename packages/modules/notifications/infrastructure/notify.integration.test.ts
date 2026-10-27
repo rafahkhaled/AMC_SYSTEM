@@ -189,7 +189,12 @@ describe('telling people things, against a real database', () => {
       await preferences.set('ntf-u1', 'escalation', { inApp: false, email: false });
 
       const shown = await inbox.preferencesFor({ userId: 'ntf-u1' });
-      expect(shown).toHaveLength(5);
+      expect(shown).toHaveLength(6);
+      expect(shown.find((p) => p.kind === 'new_enquiry')).toEqual({
+        kind: 'new_enquiry',
+        inApp: true,
+        email: true,
+      });
       expect(shown.find((p) => p.kind === 'escalation')).toEqual({
         kind: 'escalation',
         inApp: false,

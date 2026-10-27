@@ -51,7 +51,7 @@ export class ProjectWorkflow {
       // `start` rather than `moveTo` for the one transition with a gate in
       // front of it, so the missing documents come back in the refusal
       // instead of the screen having to work out why it was refused.
-      to === 'in_progress' ? project.start(now) : project.moveTo(to, now, reason),
+      to === 'in_progress' ? project.start(now, reason) : project.moveTo(to, now, reason),
     );
   }
 

@@ -6,6 +6,7 @@ export const notificationKinds = [
   'project_assigned',
   'escalation',
   'time_needs_review',
+  'new_enquiry',
 ] as const;
 
 /**
