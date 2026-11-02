@@ -31,6 +31,9 @@ export const clients = pgTable(
     address: text('address'),
     opensAt: text('opens_at'),
     closesAt: text('closes_at'),
+    vatRemark: text('vat_remark'),
+    ctRemark: text('ct_remark'),
+    taxLoginMethod: text('tax_login_method'),
     status: text('status').notNull().default('active'),
 
     vatState: text('vat_state').notNull().default('not_registered'),
@@ -230,6 +233,8 @@ export const generatedDocuments = pgTable('generated_documents', {
   generatedBy: text('generated_by'),
   authority: text('authority'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  removedAt: timestamp('removed_at', { withTimezone: true }),
+  removedBy: text('removed_by'),
 });
 
 export const clientReferences = pgTable(

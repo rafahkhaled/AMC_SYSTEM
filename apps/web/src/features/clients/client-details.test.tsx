@@ -42,6 +42,9 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   address: 'Office 523, Block C, DAFZA, Dubai',
   opensAt: '08:30',
   closesAt: '17:30',
+  vatRemark: null,
+  ctRemark: null,
+  taxLoginMethod: null,
   references: [{ label: 'MOL number', value: '99887766' }],
   ctTrn: null,
   vatPeriodEndMonths: [],
@@ -100,7 +103,7 @@ describe('a client’s contact details', () => {
 
     await user.click(screen.getByRole('button', { name: 'Edit details' }));
     expect(screen.queryByLabelText('Filed')).toBeNull();
-    await user.type(screen.getByLabelText('VAT registration number'), '100111222333003');
+    await user.type(screen.getByLabelText('Tax registration number (VAT)'), '100111222333003');
     expect(screen.getByLabelText('Filed')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save' }));
 

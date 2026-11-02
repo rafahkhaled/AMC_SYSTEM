@@ -48,7 +48,7 @@ export async function uploadClientFiles(
       // A file over the limit is refused by the server before the app sees it,
       // with a status and no useful body; say what that means.
       response.status === 413
-        ? 'That file is too large. The limit is 25 MB.'
+        ? 'That file is too large. The limit is 100 MB.'
         : inReadersLanguage(error?.message ?? 'That upload did not go through'),
       error?.requestId,
     );

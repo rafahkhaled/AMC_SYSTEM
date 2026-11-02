@@ -73,10 +73,9 @@ export class ContactLogEntry {
       return err(new Conflict('Say whether the client was contacted or made contact'));
     }
 
+    // Optional: logging that a call happened is worth more than not logging it
+    // because there was nothing to add.
     const summary = params.summary.trim();
-    if (summary.length < 3) {
-      return err(new Conflict('Say what the conversation was about'));
-    }
 
     /*
      * A conversation cannot have happened tomorrow. Without this a mistyped

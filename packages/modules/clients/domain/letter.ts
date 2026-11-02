@@ -37,9 +37,10 @@ const PLACEHOLDER_PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/g;
 /**
  * Fills a template with what is known about a client.
  *
- * The values are escaped for HTML, because a client's legal name is a value
- * somebody typed and a letter is rendered in a browser. A company called
- * `<script>` is unlikely and a company with an ampersand in its name is not.
+ * Not escaped for HTML: the letter is shown and printed as plain text, so
+ * escaping printed "Riad &amp; Amine" instead of "Riad & Amine". Numbers and
+ * Latin names are wrapped in Unicode isolates, so inside Arabic text a licence
+ * number or "ALASALA X TRADING" keeps its own order instead of being jumbled.
  */
 export function renderLetter(body: string, facts: LetterFacts): string {
   return body.replace(PLACEHOLDER_PATTERN, (whole, name: string) => {
@@ -50,7 +51,8 @@ export function renderLetter(body: string, facts: LetterFacts): string {
       return whole;
     }
     const value = facts[name as Placeholder];
-    return escapeHtml(value && value.trim().length > 0 ? value : MISSING);
+    const text = value && value.trim().length > 0 ? value : MISSING;
+    return /[A-Za-z0-9]/.test(text) ? `\u2068${text}\u2069` : text;
   });
 }
 

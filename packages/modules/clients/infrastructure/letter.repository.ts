@@ -49,7 +49,7 @@ export class DrizzleLetterRepository implements LetterRepository {
     const rows = await this.db
       .select()
       .from(generatedDocuments)
-      .where(eq(generatedDocuments.clientId, clientId))
+      .where(and(eq(generatedDocuments.clientId, clientId), isNull(generatedDocuments.removedAt)))
       .orderBy(desc(generatedDocuments.createdAt))
       .limit(50);
 
@@ -65,6 +65,21 @@ export class DrizzleLetterRepository implements LetterRepository {
       generatedBy: row.generatedBy,
       createdAt: row.createdAt,
     }));
+  }
+
+  async remove(clientId: string, letterId: string, by: string): Promise<boolean> {
+    const rows = await this.db
+      .update(generatedDocuments)
+      .set({ removedAt: new Date(), removedBy: by })
+      .where(
+        and(
+          eq(generatedDocuments.id, letterId),
+          eq(generatedDocuments.clientId, clientId),
+          isNull(generatedDocuments.removedAt),
+        ),
+      )
+      .returning({ id: generatedDocuments.id });
+    return rows.length > 0;
   }
 }
 

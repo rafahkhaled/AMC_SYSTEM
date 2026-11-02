@@ -106,12 +106,12 @@ describe('the client’s folder', () => {
     renderScreen(<ClientFilesPanel clientId="c-1" />);
     await screen.findByText('Bank statements 2026.xlsx');
 
-    const huge = file('video.mov', 26 * 1024 * 1024);
+    const huge = file('video.mov', 101 * 1024 * 1024);
     await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, huge);
 
     // Finding out after uploading twenty-six megabytes is a worse way to learn
     // the limit than being told before.
-    expect(await screen.findByText(/video\.mov: Larger than 25 MB/)).toBeInTheDocument();
+    expect(await screen.findByText(/video\.mov: Larger than 100 MB/)).toBeInTheDocument();
     expect(uploadClientFiles).not.toHaveBeenCalled();
   });
 

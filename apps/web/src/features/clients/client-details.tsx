@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
+import { storeCredential } from '../vault/api.js';
 import { changeClientDetails } from './api.js';
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -64,7 +65,10 @@ function Row({ label, value, ltr }: { label: string; value: string | null; ltr?:
   return (
     <div className="fact">
       <dt className="u-text-faint">{label}</dt>
-      <dd className={ltr ? 'u-ltr' : 'u-typed'}>{value ?? '—'}</dd>
+      {/* Isolated rather than turned left-to-right, so an email or a number
+          sits under its label like every other value instead of at the far
+          side of the row. */}
+      <dd className="u-typed">{value ? ltr ? <bdi dir="ltr">{value}</bdi> : value : '—'}</dd>
     </div>
   );
 }
@@ -93,17 +97,20 @@ function DetailsForm({
   const [opensAt, setOpensAt] = useState(detail.opensAt ?? '');
   const [closesAt, setClosesAt] = useState(detail.closesAt ?? '');
   const [references, setReferences] = useState(detail.references.map((r) => ({ ...r })));
-  const [vatTrn, setVatTrn] = useState(detail.vatTrn ?? '');
+  const [vatTrn, setVatTrn] = useState(detail.vatTrn ?? remarkText(detail.vatRemark));
+  const [loginMethod, setLoginMethod] = useState(detail.taxLoginMethod ?? '');
+  const [taxPassword, setTaxPassword] = useState('');
+  const [booksPassword, setBooksPassword] = useState('');
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly'>('quarterly');
   const [periodEnd, setPeriodEnd] = useState('3');
-  const [ctTrn, setCtTrn] = useState(detail.ctTrn ?? '');
+  const [ctTrn, setCtTrn] = useState(detail.ctTrn ?? remarkText(detail.ctRemark));
   const [yearEnd, setYearEnd] = useState('12');
 
   const vatRegistered = detail.vatState === 'registered';
   const ctRegistered = detail.ctState === 'registered';
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const text = (value: string) => (value.trim() === '' ? null : value.trim());
       const body: ChangeClientDetails = {
         tradeLicenceNumber: text(licence),
@@ -119,19 +126,43 @@ function DetailsForm({
       };
       // A number is sent only when it was typed or changed. For a client not yet
       // registered it also carries the cycle that gives the deadline a date.
-      if (vatTrn.trim() !== '' && vatTrn.trim() !== (detail.vatTrn ?? '')) {
+      body.taxLoginMethod = loginMethod === '' ? null : (loginMethod as 'email' | 'uae_pass');
+      // NA or Rejection in the number box is a remark, not a number.
+      const vatRemark = remarkOf(vatTrn);
+      const ctRemark = remarkOf(ctTrn);
+      body.vatRemark = vatRemark;
+      body.ctRemark = ctRemark;
+      if (!vatRemark && vatTrn.trim() !== '' && vatTrn.trim() !== (detail.vatTrn ?? '')) {
         body.vat = {
           trn: vatTrn.trim(),
           ...(vatRegistered ? {} : { frequency, anchorEndMonth: Number(periodEnd) }),
         };
       }
-      if (ctTrn.trim() !== '' && ctTrn.trim() !== (detail.ctTrn ?? '')) {
+      if (!ctRemark && ctTrn.trim() !== '' && ctTrn.trim() !== (detail.ctTrn ?? '')) {
         body.corporateTax = {
           trn: ctTrn.trim(),
           ...(ctRegistered ? {} : { financialYearEndMonth: Number(yearEnd) }),
         };
       }
-      return changeClientDetails(detail.id, body);
+      const updated = await changeClientDetails(detail.id, body);
+      // The passwords go to the vault, encrypted, never onto the client record.
+      const login = text(email) ?? (loginMethod === 'uae_pass' ? 'UAE PASS' : '—');
+      if (taxPassword) {
+        await storeCredential(detail.id, {
+          kind: 'emaratax',
+          username: login,
+          secret: taxPassword,
+          ...(loginMethod === 'uae_pass' ? { note: 'UAE PASS' } : {}),
+        });
+      }
+      if (booksPassword) {
+        await storeCredential(detail.id, {
+          kind: 'accounting_software',
+          username: login,
+          secret: booksPassword,
+        });
+      }
+      return updated;
     },
     onSuccess: (updated) => {
       queries.setQueryData(['clients', detail.id], updated);
@@ -150,6 +181,7 @@ function DetailsForm({
     <Card title={t('clients.editDetails')} description={t('clients.passwordsHint')}>
       <form
         className="u-stack-tight"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           save.mutate();
@@ -162,10 +194,38 @@ function DetailsForm({
         />
         <Field
           label={t('clients.email')}
+          hint={t('clients.emailOptional')}
           ltr
-          type="email"
+          inputMode="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+        />
+        <Field
+          label={t('clients.taxLogin')}
+          control={(props) => (
+            <Select {...props} value={loginMethod} onChange={(e) => setLoginMethod(e.target.value)}>
+              <option value="">{t('clients.noDayOff')}</option>
+              <option value="email">{t('clients.taxLoginEmail')}</option>
+              <option value="uae_pass">UAE PASS</option>
+            </Select>
+          )}
+        />
+        <Field
+          label={t('clients.taxPassword')}
+          hint={t('clients.passwordKept')}
+          type="password"
+          autoComplete="new-password"
+          ltr
+          value={taxPassword}
+          onChange={(e) => setTaxPassword(e.target.value)}
+        />
+        <Field
+          label={t('clients.booksPassword')}
+          type="password"
+          autoComplete="new-password"
+          ltr
+          value={booksPassword}
+          onChange={(e) => setBooksPassword(e.target.value)}
         />
         <Field
           label={t('clients.mobile')}
@@ -227,12 +287,12 @@ function DetailsForm({
         />
         <Field
           label={t('clients.vatNumber')}
+          hint={t('clients.trnHint')}
           ltr
-          inputMode="numeric"
           value={vatTrn}
           onChange={(e) => setVatTrn(e.target.value)}
         />
-        {!vatRegistered && vatTrn.trim() !== '' ? (
+        {!vatRegistered && vatTrn.trim() !== '' && !remarkOf(vatTrn) ? (
           <div className="u-row">
             <Field
               label={t('clients.vatHowOften')}
@@ -263,12 +323,12 @@ function DetailsForm({
         ) : null}
         <Field
           label={t('clients.ctNumber')}
+          hint={t('clients.trnHint')}
           ltr
-          inputMode="numeric"
           value={ctTrn}
           onChange={(e) => setCtTrn(e.target.value)}
         />
-        {!ctRegistered && ctTrn.trim() !== '' ? (
+        {!ctRegistered && ctTrn.trim() !== '' && !remarkOf(ctTrn) ? (
           <Field
             label={t('clients.financialYear')}
             control={(
@@ -338,4 +398,17 @@ function DetailsForm({
       </form>
     </Card>
   );
+}
+
+/** What NA or Rejection typed in a tax number box means. */
+function remarkOf(typed: string): 'na' | 'rejected' | null {
+  const value = typed.trim().toLowerCase();
+  if (value === 'na' || value === 'n/a') return 'na';
+  if (value.startsWith('reject') || value.startsWith('regect') || value === 'مرفوض')
+    return 'rejected';
+  return null;
+}
+
+function remarkText(remark: string | null): string {
+  return remark === 'na' ? 'NA' : remark === 'rejected' ? 'Rejection' : '';
 }

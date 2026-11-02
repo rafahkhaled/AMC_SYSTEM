@@ -10,6 +10,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Inject,
   NotFoundException,
@@ -95,6 +96,19 @@ export class LettersController {
     @CurrentCaller() caller: Caller,
     @Param('clientId') clientId: string,
   ): Promise<{ letters: Letter[] }> {
+    return { letters: await this.letters.history(caller, clientId) };
+  }
+
+  @Delete('clients/:clientId/letters/:letterId')
+  @RequirePermissions('clients.edit')
+  async remove(
+    @CurrentCaller() caller: Caller,
+    @Param('clientId') clientId: string,
+    @Param('letterId') letterId: string,
+  ): Promise<{ letters: Letter[] }> {
+    if (!(await this.letters.remove(caller, clientId, letterId))) {
+      throw new NotFoundException('No such letter');
+    }
     return { letters: await this.letters.history(caller, clientId) };
   }
 

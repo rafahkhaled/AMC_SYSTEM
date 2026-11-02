@@ -92,14 +92,7 @@ describe('clients, their conversations and their logins', () => {
       ]);
     });
 
-    it('refuses an entry that says nothing, and one with a malformed time', async () => {
-      await manager
-        .post('/clients/c-mine/contact-log')
-        .field('channel', 'call')
-        .field('direction', 'outbound')
-        .field('happenedAt', '2026-10-09T10:30')
-        .field('summary', 'x')
-        .expect(400);
+    it('refuses an entry with a malformed time', async () => {
       await manager
         .post('/clients/c-mine/contact-log')
         .field('channel', 'call')
@@ -107,6 +100,15 @@ describe('clients, their conversations and their logins', () => {
         .field('happenedAt', 'yesterday')
         .field('summary', 'Spoke to them')
         .expect(400);
+    });
+
+    it('records one without a summary, since a quick call often has none', async () => {
+      await manager
+        .post('/clients/c-mine/contact-log')
+        .field('channel', 'whatsapp')
+        .field('direction', 'inbound')
+        .field('happenedAt', '2026-10-11T14:10')
+        .expect(201);
     });
 
     it('is not readable for a client that is not yours', async () => {
@@ -304,6 +306,21 @@ describe('clients, their conversations and their logins', () => {
         { label: 'Establishment card', value: '1/2/3456' },
         { label: 'MOL number', value: '99887766' },
       ]);
+    });
+
+    it('keeps NA or Rejection in place of a tax number, and how the tax file is signed into', async () => {
+      await manager
+        .patch(path)
+        .send({ vatRemark: 'na', ctRemark: 'rejected', taxLoginMethod: 'uae_pass' })
+        .expect(200);
+      const detail = (await manager.get('/clients/c-mine').expect(200)).body;
+      expect(detail).toMatchObject({
+        vatRemark: 'na',
+        ctRemark: 'rejected',
+        taxLoginMethod: 'uae_pass',
+      });
+      await manager.patch(path).send({ vatRemark: 'maybe' }).expect(400);
+      await manager.patch(path).send({ taxLoginMethod: 'fax' }).expect(400);
     });
 
     it('changes only what was sent, and clears what was sent as null', async () => {

@@ -1521,6 +1521,10 @@ a {
 
 /* A date typed straight through, with the calendar one click away. */
 .date-input {
+  /* Left to right inside, whatever the page: the digits read that way, and the
+     icon and the room left for it must be on the same side, or in Arabic the
+     icon sat on top of the date. */
+  direction: ltr;
   position: relative;
   display: flex;
   align-items: center;
@@ -1580,6 +1584,20 @@ a {
 }
 
 @media print {
+  /* Printing a letter: only the letter, from its title down. */
+  body.printing-letter * {
+    visibility: hidden;
+  }
+  body.printing-letter .letter,
+  body.printing-letter .letter * {
+    visibility: visible;
+  }
+  body.printing-letter .letter {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+  }
+
   .shell__menu,
   .shell__bar,
   .shell__scrim,

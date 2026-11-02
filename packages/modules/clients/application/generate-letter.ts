@@ -57,6 +57,13 @@ export class GenerateLetter {
     });
   }
 
+  /** A letter made by mistake, taken off the list. Scoped like the list itself. */
+  async remove(caller: CallerLike, clientId: string, letterId: string): Promise<boolean> {
+    const client = await this.clients.findById(clientId, scopeFor(caller));
+    if (!client) return false;
+    return this.letters.remove(clientId, letterId, caller.userId);
+  }
+
   async history(caller: CallerLike, clientId: string): Promise<Letter[]> {
     const client = await this.clients.findById(clientId, scopeFor(caller));
     if (!client) return [];
@@ -149,8 +156,8 @@ export class GenerateLetter {
       legalName: string;
       legalNameArabic?: string | null;
       tradeLicenceNumber?: string | null;
-      vatTrn?: { value: string } | string | null;
-      ctTrn?: { value: string } | string | null;
+      vat?: { trn: { value: string } | null };
+      corporateTax?: { trn: { value: string } | null };
     };
   }): LetterFacts {
     const state = client.snapshot();
@@ -172,8 +179,8 @@ export class GenerateLetter {
     const optional: [string, string | null | undefined][] = [
       ['client_name_arabic', state.legalNameArabic],
       ['trade_licence', state.tradeLicenceNumber],
-      ['vat_trn', trn(state.vatTrn)],
-      ['ct_trn', trn(state.ctTrn)],
+      ['vat_trn', trn(state.vat?.trn)],
+      ['ct_trn', trn(state.corporateTax?.trn)],
     ];
     for (const [name, value] of optional) {
       if (value && value.trim().length > 0) known[name] = value;

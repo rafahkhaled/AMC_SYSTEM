@@ -31,7 +31,7 @@ export class LocalFileStorage implements FileStorage {
   constructor(
     private readonly root: string,
     private readonly signingKey: string,
-    private readonly maxBytes = 25 * 1024 * 1024,
+    private readonly maxBytes = 100 * 1024 * 1024,
   ) {}
 
   /**

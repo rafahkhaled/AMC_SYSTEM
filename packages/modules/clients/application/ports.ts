@@ -92,6 +92,8 @@ export interface LetterRepository {
   templateByCode(code: string): Promise<DocumentTemplate | null>;
   record(letter: GeneratedLetter): Promise<void>;
   forClient(clientId: string): Promise<GeneratedLetter[]>;
+  /** Takes a letter off the client's list. The row stays, with who removed it and when. */
+  remove(clientId: string, letterId: string, by: string): Promise<boolean>;
 }
 
 export interface ContactLogRepository {

@@ -16,7 +16,9 @@ import {
 } from './api.js';
 
 /** What the server will hold in one object. A bigger file is refused there anyway. */
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = 100 * 1024 * 1024;
+/** What goes in one request: ten files, or less when they are big, so the server never holds much at once. */
+const BATCH_BYTES = 30 * 1024 * 1024;
 
 /**
  * The folder every client has (any file, not only the paperwork).
@@ -133,8 +135,8 @@ export function ClientFilesPanel({
       let last: Awaited<ReturnType<typeof uploadClientFiles>> = { files: [], refused: [] };
       const refusedAll: { name: string; reason: string }[] = [];
       for (const [target, group] of groups) {
-        for (let at = 0; at < group.length; at += 10) {
-          last = await uploadClientFiles(clientId, group.slice(at, at + 10), target);
+        for (const batch of batches(group)) {
+          last = await uploadClientFiles(clientId, batch, target);
           refusedAll.push(...last.refused);
         }
       }
@@ -598,4 +600,22 @@ async function folderMaker(
     }
     return parent;
   };
+}
+
+/** Ten files to a request at most, and a big file on its own. */
+function batches(files: readonly File[]): File[][] {
+  const out: File[][] = [];
+  let current: File[] = [];
+  let size = 0;
+  for (const file of files) {
+    if (current.length > 0 && (current.length === 10 || size + file.size > BATCH_BYTES)) {
+      out.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(file);
+    size += file.size;
+  }
+  if (current.length > 0) out.push(current);
+  return out;
 }

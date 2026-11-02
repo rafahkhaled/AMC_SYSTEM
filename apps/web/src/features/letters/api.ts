@@ -10,7 +10,7 @@ import {
   letterTemplateSchema,
 } from '@amc/contracts';
 import { z } from 'zod';
-import { patch, request, send } from '../auth/api.js';
+import { del, patch, request, send } from '../auth/api.js';
 
 export async function letterTemplates(): Promise<LetterTemplate[]> {
   return z
@@ -59,4 +59,13 @@ export async function changeLetterTemplate(
   return letterTemplateDetailSchema.parse(
     await patch(`/letter-templates/${encodeURIComponent(code)}`, changes),
   );
+}
+
+/** Takes a letter made by mistake off the client's list. */
+export async function removeLetter(clientId: string, letterId: string): Promise<Letter[]> {
+  return z
+    .object({ letters: z.array(letterSchema) })
+    .parse(
+      await del(`/clients/${encodeURIComponent(clientId)}/letters/${encodeURIComponent(letterId)}`),
+    ).letters;
 }

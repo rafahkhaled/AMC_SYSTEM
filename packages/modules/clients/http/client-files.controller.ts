@@ -28,12 +28,13 @@ import { ReadClients } from '../application/read-clients.js';
 /**
  * Per file, and per upload.
  *
- * Twenty-five megabytes is the most the document store takes in one object, so
+ * A hundred megabytes is the most the document store takes in one object, so
  * a bigger limit here would only move the refusal to somewhere less helpful.
  * Ten at a time is what somebody drags in from a folder of statements; more
  * than that is better done in two goes than held in memory at once.
  */
-const MAX_BYTES = 25 * 1024 * 1024;
+/** A hundred megabytes: the firm keeps scanned archives and exports that are bigger than 25. */
+const MAX_BYTES = 100 * 1024 * 1024;
 const MAX_FILES = 10;
 
 interface UploadedFileLike {

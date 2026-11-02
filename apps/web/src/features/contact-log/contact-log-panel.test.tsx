@@ -29,10 +29,21 @@ function show(entries: ContactLogEntryView[] = [entry()]) {
   renderScreen(<ContactLogPanel clientId="c-1" />);
 }
 
+/** The log is folded away until asked for. */
+async function unfold() {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: /Show the contact log/ }));
+}
+
 /** Opens the form and fills in everything required. */
 async function fillIn(user: ReturnType<typeof userEvent.setup>, summary = 'Chased the licence') {
   await user.click(await screen.findByRole('button', { name: 'Record a conversation' }));
-  await user.type(screen.getByLabelText('When it happened'), '2026-09-14T14:00');
+  const day = screen.getByLabelText('When it happened');
+  await user.clear(day);
+  await user.type(day, '14/09/2026');
+  const time = screen.getByLabelText('Time');
+  await user.clear(time);
+  await user.type(time, '2:00 pm');
   if (summary) await user.type(screen.getByLabelText('What was said'), summary);
 }
 
@@ -46,6 +57,7 @@ describe('what was said to a client (FR-06)', () => {
     // The person reading this works there. A server in London would otherwise
     // show the conversation as having happened in the morning.
     show();
+    await unfold();
     expect(await screen.findByText('14 Sept 2026, 14:00')).toBeInTheDocument();
   });
 
@@ -53,11 +65,13 @@ describe('what was said to a client (FR-06)', () => {
     // Whether we chased them or they came to us is the difference between a
     // client who is slow and one who is asking questions.
     show([entry({ direction: 'inbound' })]);
+    await unfold();
     expect(await screen.findByText('They contacted us')).toBeInTheDocument();
   });
 
   it('keeps the line breaks somebody typed', async () => {
     show([entry({ summary: 'Line one.\nLine two.' })]);
+    await unfold();
     const body = await screen.findByText(/Line one/);
     expect(body).toHaveClass('contact-entry__summary');
     expect(body.textContent).toBe('Line one.\nLine two.');
@@ -73,6 +87,7 @@ describe('what was said to a client (FR-06)', () => {
         ],
       }),
     ]);
+    await unfold();
 
     expect(await screen.findByRole('button', { name: 'thread-1.png' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'thread-2.png' })).toBeInTheDocument();
@@ -89,6 +104,7 @@ describe('what was said to a client (FR-06)', () => {
         attachments: [{ id: 'a-1', name: 'thread.png', contentType: 'image/png', sizeBytes: 900 }],
       }),
     ]);
+    await unfold();
     attachmentLink.mockResolvedValue('/api/files/whatever');
     vi.stubGlobal('open', vi.fn());
 
@@ -100,23 +116,57 @@ describe('what was said to a client (FR-06)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('will not record a conversation that says nothing', async () => {
+  it('records a conversation even when nothing was written about it', async () => {
     const user = userEvent.setup();
     show([]);
+    recordContact.mockResolvedValue([entry()]);
 
     await fillIn(user, '');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
+    expect(recordContact).toHaveBeenCalledWith(
+      'c-1',
+      expect.objectContaining({ happenedAt: '2026-09-14T14:00', summary: '' }),
+      [],
+    );
+  });
+
+  it('starts at now, so a call just made needs no typing', async () => {
+    const user = userEvent.setup();
+    show([]);
+    await user.click(await screen.findByRole('button', { name: 'Record a conversation' }));
+    expect(screen.getByLabelText('When it happened')).not.toHaveValue('');
+    expect((screen.getByLabelText('Time') as HTMLInputElement).value).toMatch(/^\d{1,2}:\d{2}/);
+  });
+
+  it('reads AM and PM typed as letters', async () => {
+    const { clockOf } = await import('./contact-log-panel.js');
+    expect(clockOf('2:10 pm')).toBe('14:10');
+    expect(clockOf('12:05 am')).toBe('00:05');
+    expect(clockOf('2:10 م')).toBe('14:10');
+    expect(clockOf('9.30 AM')).toBe('09:30');
+    expect(clockOf('14:10')).toBe('14:10');
+    expect(clockOf('25:00')).toBeNull();
+    expect(clockOf('13 pm')).toBeNull();
+  });
+
+  it('will not save a time it cannot read', async () => {
+    const user = userEvent.setup();
+    show([]);
+    await user.click(await screen.findByRole('button', { name: 'Record a conversation' }));
+    const time = screen.getByLabelText('Time');
+    await user.clear(time);
+    await user.type(time, 'lunchtime');
+    expect(screen.getByText('Write the time like 2:10 pm or 14:10')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
-  it('will not record one with no time', async () => {
-    const user = userEvent.setup();
-    show([]);
-
-    await user.click(await screen.findByRole('button', { name: 'Record a conversation' }));
-    await user.type(screen.getByLabelText('What was said'), 'Chased the licence');
-
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  it('keeps the log folded until it is asked for', async () => {
+    show([entry()]);
+    expect(
+      await screen.findByRole('button', { name: 'Show the contact log (1)' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Chased the licence')).toBeNull();
   });
 
   it('asks for the time it happened, not the time it is typed up', async () => {
@@ -165,6 +215,7 @@ describe('what was said to a client (FR-06)', () => {
 
   it('says why an empty log matters, rather than just that it is empty', async () => {
     show([]);
+    await unfold();
     expect(
       await screen.findByText(
         'Record every call and message: the chase counts days from the first request.',

@@ -9,6 +9,9 @@ import { type Session, type TestApp, bootTestApp } from '../testing/test-app.js'
  * generates it six months later, a reworded letter that rewrites history, a
  * name that is markup.
  */
+/** The text without the direction marks kept around each filled-in value. */
+const plain = (text: string) => text.replace(/[\u2068\u2069]/g, '');
+
 describe('letters', () => {
   let t: TestApp;
   let manager: Session;
@@ -120,29 +123,36 @@ describe('letters', () => {
     it('fills in the client’s own details from their record', async () => {
       const letter = await make(manager, 'c-mine', {}).expect(201);
       expect(letter.body.title).toBe('Salary certificate request');
-      expect(letter.body.body).toContain('To: Gulf Trading LLC');
-      expect(letter.body.body).toContain('Licence: CN-1234567');
+      expect(plain(letter.body.body)).toContain('To: Gulf Trading LLC');
+      expect(plain(letter.body.body)).toContain('Licence: CN-1234567');
     });
 
     it('writes in Arabic when asked, with the Arabic wording and title', async () => {
       const letter = await make(manager, 'c-mine', { language: 'ar' }).expect(201);
       expect(letter.body.title).toBe('طلب شهادة راتب');
-      expect(letter.body.body).toContain('إلى: Gulf Trading LLC');
+      expect(plain(letter.body.body)).toContain('إلى: Gulf Trading LLC');
     });
 
     it('marks a fact it does not have with a visible gap, never a quiet blank', async () => {
       // A letter with an empty space where the tax number belongs reads as
       // finished and is not, and somebody signs it.
       const letter = await make(manager, 'c-mine', {}).expect(201);
-      expect(letter.body.body).toContain('TRN: __________');
+      expect(plain(letter.body.body)).toContain('TRN: __________');
     });
 
-    it('escapes what somebody typed, since a letter is rendered in a browser', async () => {
-      await t.sql`UPDATE clients SET legal_name = '<script>alert(1)</script> & Sons' WHERE id = 'c-theirs'`;
+    it('fills in the VAT number from the client’s registration', async () => {
+      await t.sql`UPDATE clients SET vat_state = 'registered', vat_trn = '100123456700003', vat_frequency = 'quarterly', vat_anchor_end_month = 3 WHERE id = 'c-theirs'`;
       const letter = await make(manager, 'c-theirs', {}).expect(201);
-      expect(letter.body.body).not.toContain('<script>');
-      expect(letter.body.body).toContain('&lt;script&gt;');
-      expect(letter.body.body).toContain('&amp; Sons');
+      expect(plain(letter.body.body)).toContain('100123456700003');
+      expect(plain(letter.body.body)).not.toContain('TRN: __________');
+    });
+
+    it('writes an ampersand as one, since the letter is shown as text, not markup', async () => {
+      // The firm saw "&amp;" printed in a client's name.
+      await t.sql`UPDATE clients SET legal_name = 'Ali & Sons' WHERE id = 'c-theirs'`;
+      const letter = await make(manager, 'c-theirs', {}).expect(201);
+      expect(plain(letter.body.body)).toContain('Ali & Sons');
+      expect(plain(letter.body.body)).not.toContain('&amp;');
     });
 
     it('records who it is addressed to, from the list of authorities', async () => {
@@ -164,6 +174,20 @@ describe('letters', () => {
     });
   });
 
+  describe('deleting one', () => {
+    it('takes a letter out of the client’s history, for the manager only', async () => {
+      const made = await manager
+        .post('/clients/c-theirs/letters')
+        .send({ templateCode: 'salary_certificate_request', language: 'en' })
+        .expect(201);
+      await accountant.delete(`/clients/c-theirs/letters/${made.body.id}`).expect(403);
+      await manager.delete(`/clients/c-theirs/letters/${made.body.id}`).expect(200);
+      const history = await manager.get('/clients/c-theirs/letters').expect(200);
+      expect(history.body.letters.map((l: { id: string }) => l.id)).not.toContain(made.body.id);
+      await manager.delete(`/clients/c-theirs/letters/${made.body.id}`).expect(404);
+    });
+  });
+
   describe('changing a letter afterwards', () => {
     it('leaves the letters already produced saying what they said', async () => {
       const before = await make2('c-mine');
@@ -173,14 +197,14 @@ describe('letters', () => {
         .expect(200);
 
       const after = await make2('c-mine');
-      expect(after.body.body).toContain('Completely new wording');
+      expect(plain(after.body.body)).toContain('Completely new wording');
 
       // A letter is a thing that was sent. Regenerating it from today's wording
       // would call a different letter the same one.
       const history = await manager.get('/clients/c-mine/letters').expect(200);
       const original = history.body.letters.find((l: { id: string }) => l.id === before.body.id);
-      expect(original.body).toContain('To: Gulf Trading LLC');
-      expect(original.body).not.toContain('Completely new wording');
+      expect(plain(original.body)).toContain('To: Gulf Trading LLC');
+      expect(plain(original.body)).not.toContain('Completely new wording');
     });
 
     it('stops offering a retired letter, while the history of it stays readable', async () => {

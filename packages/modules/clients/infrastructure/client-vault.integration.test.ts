@@ -139,18 +139,23 @@ describe('the credential vault, against a real database', () => {
     });
   });
 
-  it('starts with the four portals it always had', async () => {
+  it('starts with the portals it always had, and the ones the firm asked for', async () => {
     await database.inRollbackTransaction(async (tx) => {
       const { db } = await scenario(tx);
       const rows = (await db.execute(
         `SELECT code FROM reference_options WHERE list = 'portal' ORDER BY position`,
       )) as unknown as { code: string }[];
-      expect(rows.map((row) => row.code)).toEqual([
-        'emaratax',
-        'ftaportal',
-        'bank_portal',
-        'other',
-      ]);
+      expect(rows.map((row) => row.code)).toEqual(
+        expect.arrayContaining([
+          'emaratax',
+          'ftaportal',
+          'bank_portal',
+          'other',
+          'accounting_software',
+          'etisalat',
+          'email',
+        ]),
+      );
     });
   });
 

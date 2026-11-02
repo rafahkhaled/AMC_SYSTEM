@@ -101,6 +101,10 @@ export const clientDetailSchema = clientSummarySchema.extend({
   /** "HH:MM": the hours the client keeps. Both or neither. */
   opensAt: z.string().nullable(),
   closesAt: z.string().nullable(),
+  /** 'na' (not registered) or 'rejected', shown where there is no number. */
+  vatRemark: z.enum(['na', 'rejected']).nullable(),
+  ctRemark: z.enum(['na', 'rejected']).nullable(),
+  taxLoginMethod: z.enum(['email', 'uae_pass']).nullable(),
   references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
   /** Which months this client's VAT periods end in. Staggered per client. */
@@ -185,7 +189,7 @@ export const recordContactSchema = z.object({
    * counts days from the former.
    */
   happenedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use a date and a time'),
-  summary: z.string().trim().min(3, 'Say what the conversation was about'),
+  summary: z.string().trim().max(5000).default(''),
   projectId: z.string().optional(),
   contactId: z.string().optional(),
 });
@@ -456,6 +460,9 @@ export const changeClientDetailsSchema = z.object({
   address: z.string().trim().max(400).nullable().optional(),
   opensAt: z.string().trim().nullable().optional(),
   closesAt: z.string().trim().nullable().optional(),
+  vatRemark: z.enum(['na', 'rejected']).nullable().optional(),
+  ctRemark: z.enum(['na', 'rejected']).nullable().optional(),
+  taxLoginMethod: z.enum(['email', 'uae_pass']).nullable().optional(),
   vat: z
     .object({
       trn: z.string().trim().min(1),

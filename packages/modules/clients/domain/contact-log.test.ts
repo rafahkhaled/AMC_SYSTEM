@@ -40,9 +40,9 @@ describe('a conversation with a client (FR-06)', () => {
     expect(entry({ happenedAt: at('2027-01-05T10:00:00Z') }).ok).toBe(false);
   });
 
-  it('refuses a summary that says nothing', () => {
-    expect(entry({ summary: 'x' }).ok).toBe(false);
-    expect(entry({ summary: '   ' }).ok).toBe(false);
+  it('keeps an entry with no summary, since a quick call often has none', () => {
+    expect(entry({ summary: '' }).ok).toBe(true);
+    expect(entry({ summary: '   ' }).ok).toBe(true);
   });
 
   it('refuses a way of talking to somebody that it does not record', () => {

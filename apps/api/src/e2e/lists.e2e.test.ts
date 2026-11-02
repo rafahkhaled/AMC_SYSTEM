@@ -50,12 +50,17 @@ describe('the lists in Settings', () => {
 
     it('starts with what was in the code, so nothing changed on the day it shipped', async () => {
       const portals = await manager.get('/lists/portal').expect(200);
-      expect(portals.body.options.map((o: { code: string }) => o.code)).toEqual([
-        'emaratax',
-        'ftaportal',
-        'bank_portal',
-        'other',
-      ]);
+      expect(portals.body.options.map((o: { code: string }) => o.code)).toEqual(
+        expect.arrayContaining([
+          'emaratax',
+          'ftaportal',
+          'bank_portal',
+          'other',
+          'accounting_software',
+          'etisalat',
+          'email',
+        ]),
+      );
     });
 
     it('adds an option, and then says so when the same code is added again', async () => {

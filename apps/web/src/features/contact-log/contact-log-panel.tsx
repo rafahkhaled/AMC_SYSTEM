@@ -23,21 +23,37 @@ export function ContactLogPanel({ clientId }: { clientId: string }) {
   const key = ['contact-log', clientId];
   const log = useQuery({ queryKey: key, queryFn: () => contactLog(clientId) });
 
+  /*
+   * Folded away until asked for: a client called every week has a long log,
+   * and it pushed everything below it off the page.
+   */
+  const [shown, setShown] = useState(false);
+  const count = log.data?.length ?? 0;
+
   return (
     <Card title={t('contactLog.title')} description={t('contactLog.hint')}>
-      {log.isLoading ? <Loading label={t('loading')} /> : null}
-      {log.isError ? <p className="alert alert--error">{t('contactLog.failed')}</p> : null}
+      <div className="u-row">
+        <Button small tone="secondary" onClick={() => setShown(!shown)} aria-expanded={shown}>
+          {shown ? t('contactLog.hide') : t('contactLog.show', { count })}
+        </Button>
+      </div>
+      {shown ? (
+        <>
+          {log.isLoading ? <Loading label={t('loading')} /> : null}
+          {log.isError ? <p className="alert alert--error">{t('contactLog.failed')}</p> : null}
 
-      {log.data && log.data.length === 0 ? (
-        <Empty title={t('contactLog.none')} description={t('contactLog.noneHint')} />
-      ) : null}
+          {log.data && log.data.length === 0 ? (
+            <Empty title={t('contactLog.none')} description={t('contactLog.noneHint')} />
+          ) : null}
 
-      {log.data && log.data.length > 0 ? (
-        <div className="u-stack-tight">
-          {log.data.map((entry) => (
-            <EntryRow key={entry.id} clientId={clientId} entry={entry} />
-          ))}
-        </div>
+          {log.data && log.data.length > 0 ? (
+            <div className="u-stack-tight">
+              {log.data.map((entry) => (
+                <EntryRow key={entry.id} clientId={clientId} entry={entry} />
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       <RecordContact
@@ -125,17 +141,25 @@ function RecordContact({
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState('call');
   const [direction, setDirection] = useState('outbound');
-  const [happenedAt, setHappenedAt] = useState('');
+  // Now, by default: most conversations are logged straight after them.
+  const [day, setDay] = useState(today());
+  const [time, setTime] = useState(nowClock());
+  const happenedAt = toLocalStamp(day, time);
   const [summary, setSummary] = useState('');
   const [files, setFiles] = useState<File[]>([]);
 
   const record = useMutation({
     mutationFn: () =>
-      recordContact(clientId, { channel, direction, happenedAt, summary: summary.trim() }, files),
+      recordContact(
+        clientId,
+        { channel, direction, happenedAt: happenedAt ?? '', summary: summary.trim() },
+        files,
+      ),
     onSuccess: (entries) => {
       onRecorded(entries);
       setOpen(false);
-      setHappenedAt('');
+      setDay(today());
+      setTime(nowClock());
       setSummary('');
       setFiles([]);
     },
@@ -149,7 +173,7 @@ function RecordContact({
     );
   }
 
-  const ready = happenedAt !== '' && summary.trim().length >= 3;
+  const ready = happenedAt !== null;
 
   return (
     <form
@@ -188,9 +212,19 @@ function RecordContact({
         <Field
           label={t('contactLog.when')}
           hint={t('contactLog.whenHint')}
-          type="datetime-local"
-          value={happenedAt}
-          onChange={(event) => setHappenedAt(event.target.value)}
+          type="date"
+          value={day}
+          onChange={(event) => setDay(event.target.value)}
+        />
+        <Field
+          label={t('contactLog.time')}
+          hint={t('contactLog.timeHint')}
+          ltr
+          value={time}
+          onChange={(event) => setTime(event.target.value)}
+          {...(time.trim() !== '' && clockOf(time) === null
+            ? { error: t('contactLog.timeUnreadable') }
+            : {})}
         />
       </div>
 
@@ -213,7 +247,7 @@ function RecordContact({
       {record.error ? <Alert tone="error">{record.error.message}</Alert> : null}
 
       <div className="u-row">
-        <Button type="submit" disabled={!ready} busy={record.isPending}>
+        <Button type="submit" disabled={!ready || record.isPending} busy={record.isPending}>
           {t('contactLog.save')}
         </Button>
         <Button type="button" tone="quiet" onClick={() => setOpen(false)}>
@@ -222,4 +256,42 @@ function RecordContact({
       </div>
     </form>
   );
+}
+
+function today(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function nowClock(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * "14:10", "2:10 pm", "2.10PM", "2:10 م" — the time as people type it, as
+ * "HH:MM". The browser's own time box would not take AM or PM typed as letters.
+ */
+export function clockOf(typed: string): string | null {
+  const match = /^\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.|ص|م)?\s*$/i.exec(typed);
+  if (!match) return null;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] ?? '0');
+  const half = (match[3] ?? '').toLowerCase();
+  if (minutes > 59) return null;
+  if (half) {
+    if (hours < 1 || hours > 12) return null;
+    const afternoon = half.startsWith('p') || half === 'م';
+    hours = (hours % 12) + (afternoon ? 12 : 0);
+  } else if (hours > 23) {
+    return null;
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+/** The day and time as the "2026-10-10T14:10" the server reads, or null. */
+function toLocalStamp(day: string, time: string): string | null {
+  const clock = clockOf(time);
+  if (!day || !clock) return null;
+  return `${day}T${clock}`;
 }

@@ -106,6 +106,9 @@ export class ManageClientDetails {
           ...(command.address !== undefined && { address: command.address }),
           ...(command.opensAt !== undefined && { opensAt: command.opensAt }),
           ...(command.closesAt !== undefined && { closesAt: command.closesAt }),
+          ...(command.vatRemark !== undefined && { vatRemark: command.vatRemark }),
+          ...(command.ctRemark !== undefined && { ctRemark: command.ctRemark }),
+          ...(command.taxLoginMethod !== undefined && { taxLoginMethod: command.taxLoginMethod }),
         },
         now,
       );

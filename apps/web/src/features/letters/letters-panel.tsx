@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
 import { useOptions } from '../lists/use-options.js';
-import { generateLetter, letterTemplates, lettersFor } from './api.js';
+import { generateLetter, letterTemplates, lettersFor, removeLetter } from './api.js';
 
 /**
  * Letters the firm sends, filled in from the client's record (FR-15).
@@ -41,8 +41,17 @@ export function LettersPanel({ clientId }: { clientId: string }) {
     },
   });
 
+  const remove = useMutation({
+    mutationFn: (letterId: string) => removeLetter(clientId, letterId),
+    onSuccess: (_next, letterId) => {
+      if (letter?.id === letterId) setLetter(null);
+      void history.refetch();
+    },
+  });
+
   return (
     <Card title={t('letters.title')} description={t('letters.hint')}>
+      {remove.isError ? <Alert tone="error">{(remove.error as Error).message}</Alert> : null}
       <div className="u-row u-row-top">
         <Field
           label={t('letters.which')}
@@ -104,7 +113,7 @@ export function LettersPanel({ clientId }: { clientId: string }) {
           {t('letters.generate')}
         </Button>
         {letter ? (
-          <Button tone="secondary" onClick={() => window.print()}>
+          <Button tone="secondary" onClick={printLetter}>
             {t('letters.print')}
           </Button>
         ) : null}
@@ -179,9 +188,22 @@ export function LettersPanel({ clientId }: { clientId: string }) {
                       {previous.generatedBy ?? <span className="u-text-faint">—</span>}
                     </td>
                     <td>
-                      <Button small tone="quiet" onClick={() => setLetter(previous)}>
-                        {t('letters.open')}
-                      </Button>
+                      <div className="u-row u-row--tight">
+                        <Button small tone="quiet" onClick={() => setLetter(previous)}>
+                          {t('letters.open')}
+                        </Button>
+                        <Button
+                          small
+                          tone="quiet"
+                          busy={remove.isPending && remove.variables === previous.id}
+                          onClick={() => {
+                            if (window.confirm(t('letters.confirmDelete')))
+                              remove.mutate(previous.id);
+                          }}
+                        >
+                          {t('letters.delete')}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -192,4 +214,18 @@ export function LettersPanel({ clientId }: { clientId: string }) {
       ) : null}
     </Card>
   );
+}
+
+/**
+ * Prints the letter and nothing else: the page around it (the choice of letter,
+ * the list of earlier ones) used to print above it.
+ */
+function printLetter() {
+  document.body.classList.add('printing-letter');
+  const done = () => {
+    document.body.classList.remove('printing-letter');
+    window.removeEventListener('afterprint', done);
+  };
+  window.addEventListener('afterprint', done);
+  window.print();
 }

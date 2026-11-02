@@ -124,6 +124,9 @@ export class ReadClients {
       address: state.address,
       opensAt: state.opensAt,
       closesAt: state.closesAt,
+      vatRemark: state.vatRemark as 'na' | 'rejected' | null,
+      ctRemark: state.ctRemark as 'na' | 'rejected' | null,
+      taxLoginMethod: state.taxLoginMethod as 'email' | 'uae_pass' | null,
       references: await this.clients.referencesOf(clientId),
       // Staggered per client, so the screen shows which months rather than
       // implying everyone files on calendar quarters.

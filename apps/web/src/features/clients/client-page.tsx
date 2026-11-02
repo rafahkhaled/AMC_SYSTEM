@@ -62,6 +62,7 @@ export function ClientPage({
   const { t, i18n } = useTranslation();
   const queries = useQueryClient();
   const client = useQuery({ queryKey: ['clients', id], queryFn: () => getClient(id) });
+  const [showWork, setShowWork] = useState(false);
 
   if (client.isLoading) return <Loading label={t('loading')} />;
   if (client.isError) return <p className="alert alert--error">{t('clients.failed')}</p>;
@@ -85,7 +86,18 @@ export function ClientPage({
 
       <Card title={t('clients.taxDetails')}>
         <dl className="facts">
-          <Fact label={t('clients.vatNumber')} value={detail.vatTrn} mono />
+          <Fact
+            label={t('clients.vatNumber')}
+            value={
+              detail.vatTrn ??
+              (detail.vatRemark === 'na'
+                ? 'NA'
+                : detail.vatRemark === 'rejected'
+                  ? 'Rejection'
+                  : null)
+            }
+            mono
+          />
           <Fact
             label={t('clients.vatPeriods')}
             /*
@@ -105,7 +117,18 @@ export function ClientPage({
                 : null
             }
           />
-          <Fact label={t('clients.ctNumber')} value={detail.ctTrn} mono />
+          <Fact
+            label={t('clients.ctNumber')}
+            value={
+              detail.ctTrn ??
+              (detail.ctRemark === 'na'
+                ? 'NA'
+                : detail.ctRemark === 'rejected'
+                  ? 'Rejection'
+                  : null)
+            }
+            mono
+          />
           <Fact
             label={t('clients.financialYear')}
             value={
@@ -183,7 +206,21 @@ export function ClientPage({
       <VaultPanel clientId={id} />
 
       <Card title={t('clients.work')}>
-        {detail.projects.length === 0 ? (
+        {/* Folded until asked for, like the contact log: a long-standing
+            client has years of jobs and they made the file endless. */}
+        <div className="u-row">
+          <Button
+            small
+            tone="secondary"
+            onClick={() => setShowWork(!showWork)}
+            aria-expanded={showWork}
+          >
+            {showWork
+              ? t('clients.hideWork')
+              : t('clients.showWork', { count: detail.projects.length })}
+          </Button>
+        </div>
+        {!showWork ? null : detail.projects.length === 0 ? (
           <Empty title={t('clients.noWork')} />
         ) : (
           <div className="u-stack-tight">

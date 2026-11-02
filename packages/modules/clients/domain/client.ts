@@ -54,6 +54,11 @@ export interface ClientState {
   /** "HH:MM", both or neither. */
   readonly opensAt: string | null;
   readonly closesAt: string | null;
+  /** What the tax number box says when there is no number: 'na' or 'rejected'. */
+  readonly vatRemark: string | null;
+  readonly ctRemark: string | null;
+  /** How the firm signs in to the client's tax file: 'email' or 'uae_pass'. */
+  readonly taxLoginMethod: string | null;
   readonly status: ClientStatus;
   readonly vat: TaxRegistration;
   readonly corporateTax: TaxRegistration;
@@ -81,6 +86,9 @@ export interface ClientDetailsChange {
   /** "HH:MM". Both, or neither: hours with one end are not hours. */
   readonly opensAt?: string | null;
   readonly closesAt?: string | null;
+  readonly vatRemark?: string | null;
+  readonly ctRemark?: string | null;
+  readonly taxLoginMethod?: string | null;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -121,6 +129,9 @@ export class Client extends AggregateRoot<ClientId> {
       address: null,
       opensAt: null,
       closesAt: null,
+      vatRemark: null,
+      ctRemark: null,
+      taxLoginMethod: null,
       status: 'active',
       vat: NOT_REGISTERED,
       corporateTax: NOT_REGISTERED,
@@ -205,6 +216,22 @@ export class Client extends AggregateRoot<ClientId> {
       }
       set('opensAt', opens);
       set('closesAt', closes);
+    }
+
+    for (const key of ['vatRemark', 'ctRemark'] as const) {
+      const given = change[key];
+      if (given === undefined) continue;
+      if (given !== null && given !== 'na' && given !== 'rejected') {
+        return err(new Conflict('A tax number is a number, NA, or Rejection'));
+      }
+      set(key, given);
+    }
+    if (change.taxLoginMethod !== undefined) {
+      const method = change.taxLoginMethod;
+      if (method !== null && method !== 'email' && method !== 'uae_pass') {
+        return err(new Conflict('Sign in to the tax file by email or by UAE PASS'));
+      }
+      set('taxLoginMethod', method);
     }
 
     if (changed.length === 0) return ok(true);

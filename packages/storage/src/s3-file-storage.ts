@@ -37,7 +37,7 @@ export class S3FileStorage implements FileStorage {
   ) {}
 
   private get maxBytes(): number {
-    return this.options.maxBytes ?? 25 * 1024 * 1024;
+    return this.options.maxBytes ?? 100 * 1024 * 1024;
   }
 
   async put(key: string, body: Buffer, options: PutOptions): Promise<StoredFile> {

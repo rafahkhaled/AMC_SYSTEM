@@ -8,7 +8,7 @@ describe('filling in a letter (FR-15)', () => {
         client_name: 'Gulf Trading LLC',
         trade_licence: 'CN-1234567',
       }),
-    ).toBe('We act for Gulf Trading LLC, licence CN-1234567.');
+    ).toBe('We act for \u2068Gulf Trading LLC\u2069, licence \u2068CN-1234567\u2069.');
   });
 
   it('leaves a visible gap where a fact is missing, never a blank', () => {
@@ -32,16 +32,22 @@ describe('filling in a letter (FR-15)', () => {
     expect(renderLetter('Signed by {{director_name}}.', {})).toBe('Signed by {{director_name}}.');
   });
 
-  it('escapes what it drops in, because a name is a value somebody typed', () => {
-    // A company with an ampersand in its name is ordinary. The letter is
-    // rendered in a browser, so the value has to be safe there.
-    expect(renderLetter('{{client_name}}', { client_name: 'Smith & Sons <Trading>' })).toBe(
-      'Smith &amp; Sons &lt;Trading&gt;',
+  it('prints an ampersand as an ampersand', () => {
+    // The letter is shown and printed as text, never as HTML, so escaping it
+    // printed "Riad &amp; Amine" on a client's letter.
+    expect(renderLetter('{{client_name}}', { client_name: 'Riad & Amine' })).toBe(
+      '\u2068Riad & Amine\u2069',
+    );
+  });
+
+  it('keeps a number in its own order inside Arabic text', () => {
+    expect(renderLetter('رقم الرخصة {{trade_licence}}.', { trade_licence: '923585' })).toBe(
+      'رقم الرخصة \u2068923585\u2069.',
     );
   });
 
   it('tolerates spacing inside the braces', () => {
-    expect(renderLetter('{{ client_name }}', { client_name: 'Gulf' })).toBe('Gulf');
+    expect(renderLetter('{{ client_name }}', { client_name: 'Gulf' })).toBe('\u2068Gulf\u2069');
   });
 
   it('lists the facts a template needs, so a preview can say what is missing', () => {

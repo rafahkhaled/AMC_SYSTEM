@@ -89,7 +89,7 @@ describe('a client’s folder of files', () => {
     });
 
     it('turns back a file over the size limit with a clear answer, not a stack trace', async () => {
-      const huge = Buffer.alloc(26 * 1024 * 1024, 1);
+      const huge = Buffer.alloc(101 * 1024 * 1024, 1);
       const refused = await upload(manager, 'c-mine', [['huge.bin', huge]]);
 
       expect([400, 413]).toContain(refused.status);
