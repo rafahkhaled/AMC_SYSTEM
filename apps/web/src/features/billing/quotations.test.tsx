@@ -32,6 +32,7 @@ function quotationOf(over: Partial<QuotationView> = {}): QuotationView {
     id: 'q-1',
     clientId: 'c-1',
     clientName: 'Gulf Trading LLC',
+    clientContact: null,
     branch: null,
     reference: 'Q-2026-014',
     state: 'draft',

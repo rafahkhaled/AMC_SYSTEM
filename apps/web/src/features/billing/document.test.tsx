@@ -2,7 +2,7 @@ import type { FirmProfile, InvoiceView, QuotationView } from '@amc/contracts';
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderScreen, useLanguage } from '../../test-support.js';
-import { InvoiceDocument, QuotationDocument } from './document.js';
+import { InvoiceDocument, QuotationDocument, ReceiptDocument } from './document.js';
 
 const aed = (minorUnits: number) => ({ minorUnits, currency: 'AED' });
 
@@ -20,6 +20,7 @@ const invoice = (over: Partial<InvoiceView> = {}): InvoiceView => ({
   id: 'inv-1',
   clientId: 'c-1',
   clientName: 'Skytrek Aviation L.L.C',
+  clientContact: null,
   statementId: 's-1',
   branch: null,
   number: '2070',
@@ -59,6 +60,7 @@ const quotation = (over: Partial<QuotationView> = {}): QuotationView => ({
   id: 'q-1',
   clientId: 'c-1',
   clientName: 'Skytrek Aviation L.L.C',
+  clientContact: null,
   branch: null,
   reference: '192',
   state: 'sent',
@@ -106,7 +108,7 @@ describe('the invoice, as the client receives it', () => {
     expect(screen.getByText('Skytrek Aviation L.L.C')).toBeInTheDocument();
     expect(screen.getByText('2070')).toBeInTheDocument();
     // The firm writes its dates this way and no locale produces it.
-    expect(screen.getByText('11-Sept-2026')).toBeInTheDocument();
+    expect(screen.getByText('11-Sep-2026')).toBeInTheDocument();
   });
 
   it('shows quantity, rate and amount, and a total that agrees with them', async () => {
@@ -251,7 +253,7 @@ describe('the quotation', () => {
    * another, and a client reading a document that does not add up is right to
    * query it.
    */
-  it('shows the discount and the VAT it arrived at the total through', async () => {
+  it('writes a discount as a line of its own, and the VAT it arrived at the total through', async () => {
     await useLanguage('en');
     renderScreen(
       <QuotationDocument
@@ -283,14 +285,13 @@ describe('the quotation', () => {
       />,
     );
 
-    expect(screen.getByText('Subtotal')).toBeInTheDocument();
-    expect(screen.getByText('Discount')).toBeInTheDocument();
+    // Under the line it came off, quantity -1, as the firm's invoices write it.
+    expect(screen.getByText('VAT return-Discount')).toBeInTheDocument();
+    expect(screen.getByText('-1')).toBeInTheDocument();
+    expect(screen.getByText('-500.00')).toBeInTheDocument();
+    expect(screen.getAllByText('5,000.00')).toHaveLength(2);
     expect(screen.getByText('Net')).toBeInTheDocument();
-    // Against the line it came off, as well as in the totals: the client
-    // reads a quotation line by line.
-    expect(screen.getByText(/Less discount 500\.00/)).toBeInTheDocument();
-    // The amount column carries what the line charges, so it adds up.
-    expect(screen.getByText('4,725.00')).toBeInTheDocument();
+    expect(screen.getByText('225.00')).toBeInTheDocument();
     expect(screen.getByText('AED 4,725.00')).toBeInTheDocument();
   });
 
@@ -329,7 +330,8 @@ describe('a document on a branch’s letterhead', () => {
     await useLanguage('en');
     renderScreen(<InvoiceDocument invoice={invoice({ branch: ajman })} profile={profile()} />);
 
-    expect(screen.getByText('Ajman Branch')).toBeInTheDocument();
+    // No branch name under the firm's: the template prints none.
+    expect(screen.queryByText('Ajman Branch')).not.toBeInTheDocument();
     expect(screen.getByText('Ajman: Free Zone, Office 12')).toBeInTheDocument();
     expect(screen.getByText(/AE-AJMAN-IBAN/)).toBeInTheDocument();
     // None of the firm-wide ones.
@@ -343,7 +345,6 @@ describe('a document on a branch’s letterhead', () => {
       <QuotationDocument quotation={quotation({ branch: ajman })} profile={profile()} />,
     );
 
-    expect(screen.getByText('Ajman Branch')).toBeInTheDocument();
     expect(screen.getByText('Ajman: Free Zone, Office 12')).toBeInTheDocument();
   });
 
@@ -378,5 +379,43 @@ describe('a document on a branch’s letterhead', () => {
       />,
     );
     expect(screen.getByText('Ajman: Free Zone, Office 12')).toBeInTheDocument();
+  });
+});
+
+describe('the receipt voucher', () => {
+  it('prints a payment as the firm’s سند قبض: number, client, sum, mode, bank and invoice', async () => {
+    await useLanguage('ar');
+    renderScreen(
+      <ReceiptDocument
+        invoice={invoice()}
+        payment={{
+          id: 'p-1',
+          amount: aed(155_000),
+          receivedOn: '2026-09-08T08:00:00.000Z',
+          method: 'cheque',
+          reference: null,
+          chequeNumber: '000123',
+          chequeDate: '2026-08-29',
+          bankName: 'Rak bank',
+          discount: aed(0),
+          discountReason: null,
+          voucher: '2026/1933',
+          recordedBy: 'Wael',
+        }}
+        profile={profile()}
+      />,
+    );
+
+    // English whatever the interface language, beside the Arabic, as on paper.
+    expect(screen.getByText('RECEIVE VOUCHER')).toBeInTheDocument();
+    expect(screen.getByText('سند قبض')).toBeInTheDocument();
+    expect(screen.getByText(/Voucher No\.:2026\/1933/)).toBeInTheDocument();
+    expect(screen.getByText(/08-09-2026/)).toBeInTheDocument();
+    expect(screen.getAllByText('1550 AED')).toHaveLength(2);
+    expect(screen.getByText(/\u2611 Cheque/)).toBeInTheDocument();
+    expect(screen.getByText(/\u2610 Cash/)).toBeInTheDocument();
+    expect(screen.getByText(/Rak bank/)).toBeInTheDocument();
+    expect(screen.getByText(/29\/08\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Invoice No: /)).toBeInTheDocument();
   });
 });

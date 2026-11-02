@@ -165,6 +165,8 @@ export const paymentSchema = z.object({
   /** What the firm agreed to drop with this payment, and why. Zero when nothing was. */
   discount: moneySchema,
   discountReason: z.string().nullable(),
+  /** The receipt voucher's number, `2026/1934`: the year it was received, then the running number. */
+  voucher: z.string(),
   recordedBy: z.string(),
 });
 export type PaymentView = z.infer<typeof paymentSchema>;
@@ -173,6 +175,8 @@ export const invoiceSchema = z.object({
   id: z.string(),
   clientId: z.string(),
   clientName: z.string().nullable(),
+  /** The person at the client the document is addressed to, printed under the name. */
+  clientContact: z.string().nullable(),
   statementId: z.string(),
   /** The branch it was issued under, fixed at issue; null is the firm-wide letterhead. */
   branch: branchSchema.nullable(),
@@ -304,6 +308,8 @@ export const quotationSchema = z.object({
   id: z.string(),
   clientId: z.string(),
   clientName: z.string().nullable(),
+  /** The person at the client the document is addressed to, printed under the name. */
+  clientContact: z.string().nullable(),
   /** The branch it goes out under; null is the firm-wide letterhead. */
   branch: branchSchema.nullable(),
   /** What the client quotes back on the phone. */

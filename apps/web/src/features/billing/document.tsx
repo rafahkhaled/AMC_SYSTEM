@@ -1,4 +1,4 @@
-import type { FirmProfile, InvoiceView, QuotationView } from '@amc/contracts';
+import type { FirmProfile, InvoiceView, PaymentView, QuotationView } from '@amc/contracts';
 import { useTranslation } from 'react-i18next';
 import { letterheadFor } from '../branches/letterhead.js';
 import { formatMoney } from './money.js';
@@ -35,6 +35,7 @@ function Sheet({
   reference,
   partyLabel,
   partyName,
+  partyContact,
   dateLabel,
   dateValue,
   referenceLabel,
@@ -44,13 +45,15 @@ function Sheet({
   beforeTotal,
   children,
   logoFirst,
-  branchName = null,
+  totalUnderlined = false,
 }: {
   profile: FirmProfile;
   title: string;
   reference: string;
   partyLabel: string;
   partyName: string;
+  /** The person at the client, on the line under the name. */
+  partyContact: string | null;
   dateLabel: string;
   dateValue: string;
   referenceLabel: string;
@@ -67,8 +70,8 @@ function Sheet({
   beforeTotal?: React.ReactNode;
   children: React.ReactNode;
   logoFirst: boolean;
-  /** Which branch this is on the letterhead of, in English: the sheet is an English document. */
-  branchName?: string | null;
+  /** The quotation's total stands on its own, bold and underlined; the invoice's is boxed. */
+  totalUnderlined?: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -89,16 +92,15 @@ function Sheet({
      */
     <article className="doc" dir="ltr" lang="en">
       <header className="doc__head">
-        {/* The quotation leads with the mark and names the firm beneath it;
+        {/* The quotation leads with the mark and names the firm beside it;
             the invoice leads with the name and puts the mark on the right.
-            Both are columns, so neither depends on a logo being configured to
-            keep its shape. */}
-        <div className="doc__headStart">
+            No branch name: the firm's templates print none, and the branch
+            shows in its address and bank account at the foot. */}
+        <div className={logoFirst ? 'doc__headStart doc__headStart--beside' : 'doc__headStart'}>
           {logoFirst ? mark : null}
-          <strong className={logoFirst ? 'doc__firm doc__firm--underMark' : 'doc__firm'}>
+          <strong className={logoFirst ? 'doc__firm doc__firm--besideMark' : 'doc__firm'}>
             {profile.legalName}
           </strong>
-          {branchName ? <span className="doc__branch">{branchName}</span> : null}
         </div>
         <div className="doc__headEnd">
           {logoFirst ? null : mark}
@@ -122,7 +124,15 @@ function Sheet({
 
       <section className="doc__party">
         <h2>{partyLabel}</h2>
-        <p>{partyName}</p>
+        <p>
+          {partyName}
+          {partyContact ? (
+            <>
+              <br />
+              {partyContact}
+            </>
+          ) : null}
+        </p>
       </section>
 
       {/* One ruled box down the page whether it holds one line or twenty, as
@@ -165,7 +175,7 @@ function Sheet({
 
       {beforeTotal}
 
-      <div className="doc__total">
+      <div className={totalUnderlined ? 'doc__total doc__total--underlined' : 'doc__total'}>
         <strong>{t('billing.document.total')}</strong>
         <strong className="doc__totalAmount">{total}</strong>
       </div>
@@ -196,7 +206,6 @@ export function InvoiceDocument({
   return (
     <Sheet
       profile={printed}
-      branchName={invoice.branch?.nameEn ?? null}
       logoFirst={false}
       title={t('billing.document.invoice')}
       dateLabel={t('billing.document.date')}
@@ -205,11 +214,12 @@ export function InvoiceDocument({
       reference={invoice.number}
       partyLabel={t('billing.document.invoiceTo')}
       partyName={invoice.clientName ?? invoice.clientId}
+      partyContact={invoice.clientContact}
       amountHeading={t('billing.document.amount')}
       lines={invoice.lines.map((line) => ({
         key: line.id,
-        description: line.descriptionEn,
-        note: line.descriptionAr || null,
+        description: line.descriptionEn || line.descriptionAr,
+        note: null,
         qty: quantity(line.quantityCenti),
         // Null on a line raised before the document recorded these. The
         // amount is always right, so it stands in rather than a zero.
@@ -291,8 +301,8 @@ export function QuotationDocument({
   return (
     <Sheet
       profile={printed}
-      branchName={quotation.branch?.nameEn ?? null}
       logoFirst={true}
+      totalUnderlined
       title={t('billing.document.quotation')}
       dateLabel={t('billing.document.date')}
       dateValue={documentDate(quotation.createdAt)}
@@ -300,34 +310,40 @@ export function QuotationDocument({
       reference={quotation.reference}
       partyLabel={t('billing.document.customerName')}
       partyName={quotation.clientName ?? quotation.clientId}
+      partyContact={quotation.clientContact}
       amountHeading={t('billing.document.total')}
-      lines={quotation.lines.map((line) => ({
-        key: line.id,
-        description: line.descriptionEn,
-        /*
-         * The Arabic line, and under it what came off this one.
-         *
-         * A discount belongs against the line it was allowed on, not only in
-         * the totals: it is the firm's own argument for the price, and a
-         * client comparing two quotations reads it line by line.
-         */
-        note:
-          [
-            line.descriptionAr || null,
-            line.discount.minorUnits > 0
-              ? `${t('billing.document.lessDiscount')} ${plain(line.discount)}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(' · ') || null,
-        // A quotation priced by hours shows the hours it was priced on: that
-        // is the part the client argues with, and hiding it behind a single
-        // figure makes the conversation harder rather than shorter.
-        qty: line.kind === 'hours' && line.hours !== null ? line.hours.toFixed(2) : '1',
-        rate: plain(line.kind === 'hours' && line.perHour ? line.perHour : line.amount),
-        // What this line charges, which is what the column has to add up to.
-        amount: plain(line.chargeable),
-      }))}
+      /*
+       * A discount is a line of its own under the line it came off, with a
+       * quantity of -1, as the firm's invoices write it: "Accounting &
+       * Bookkeeping-Discount  -1  525.00  -525.00". The column then adds up to
+       * the total without a separate discount row.
+       */
+      lines={quotation.lines.flatMap((line) => {
+        const hourly = line.kind === 'hours' && line.hours !== null;
+        const description = line.descriptionEn || line.descriptionAr;
+        const charged = {
+          key: line.id,
+          description,
+          note: null,
+          // A quotation priced by hours shows the hours it was priced on: that
+          // is the part the client argues with.
+          qty: hourly && line.hours !== null ? line.hours.toFixed(2) : '1',
+          rate: plain(hourly && line.perHour ? line.perHour : line.amount),
+          amount: plain(line.amount),
+        };
+        if (line.discount.minorUnits <= 0) return [charged];
+        return [
+          charged,
+          {
+            key: `${line.id}-discount`,
+            description: `${description}-Discount`,
+            note: null,
+            qty: '-1',
+            rate: plain(line.discount),
+            amount: `-${plain(line.discount)}`,
+          },
+        ];
+      })}
       total={`${quotation.total.currency} ${plain(quotation.total)}`}
       /*
        * The VAT rows, when there is any VAT on the document.
@@ -337,33 +353,22 @@ export function QuotationDocument({
        * right to query it. Absent entirely on a quotation that is all out of
        * scope, which is how the firm's own template has always looked.
        */
+      /*
+       * The VAT rows, when there is any VAT on the document: without them the
+       * column adds up to one figure and the Total says another. Absent on a
+       * quotation that is all out of scope, as the firm's template is.
+       */
       beforeTotal={
-        quotation.vat.minorUnits > 0 || quotation.discount.minorUnits > 0 ? (
+        quotation.vat.minorUnits > 0 ? (
           <div className="doc__tax">
-            {quotation.discount.minorUnits > 0 ? (
-              <>
-                <span>
-                  <span>{t('billing.document.subtotal')}</span>
-                  <span>{plain(quotation.subtotal)}</span>
-                </span>
-                <span>
-                  <span>{t('billing.document.discount')}</span>
-                  <span>{plain(quotation.discount)}</span>
-                </span>
-              </>
-            ) : null}
-            {quotation.vat.minorUnits > 0 ? (
-              <>
-                <span>
-                  <span>{t('billing.document.net')}</span>
-                  <span>{plain(quotation.net)}</span>
-                </span>
-                <span>
-                  <span>{t('billing.document.vat')}</span>
-                  <span>{plain(quotation.vat)}</span>
-                </span>
-              </>
-            ) : null}
+            <span>
+              <span>{t('billing.document.net')}</span>
+              <span>{plain(quotation.net)}</span>
+            </span>
+            <span>
+              <span>{t('billing.document.vat')}</span>
+              <span>{plain(quotation.vat)}</span>
+            </span>
           </div>
         ) : null
       }
@@ -388,7 +393,168 @@ export function QuotationDocument({
 }
 
 /**
- * `11-Sept-2026`, as the firm writes it.
+ * The receipt voucher (سند قبض) for one payment, as the firm's paper one.
+ *
+ * Bilingual on every row, English on the left and Arabic on the right with
+ * the value between them, so it reads the same whichever language the client
+ * reads. Printed from the invoice it paid, which is where the number and the
+ * client come from.
+ */
+export function ReceiptDocument({
+  invoice,
+  payment,
+  profile,
+}: {
+  invoice: InvoiceView;
+  payment: PaymentView;
+  profile: FirmProfile;
+}) {
+  const { t } = useTranslation();
+  const printed = letterheadFor(profile, invoice.branch);
+  const r = (key: string, options?: Record<string, string>) =>
+    t(`billing.document.receipt.${key}`, options ?? {});
+  const sum = `${figure(payment.amount)} ${payment.amount.currency}`;
+  const tick = (ticked: boolean) => (ticked ? '\u2611' : '\u2610');
+
+  return (
+    <article className="doc doc--receipt" dir="ltr" lang="en">
+      <header className="doc__receiptHead">
+        {printed.logoUrl ? <img className="doc__logo" src={printed.logoUrl} alt="" /> : null}
+        <span className="doc__receiptFirm">{printed.legalName}</span>
+        <span className="doc__receiptAddress">
+          {printed.addresses[0] ?? <span className="doc__missing">{MISSING}</span>}
+        </span>
+        <strong>{r('title')}</strong>
+        <strong lang="ar" dir="rtl" className="doc__receiptTitleAr">
+          {r('titleAr')}
+        </strong>
+      </header>
+
+      <table className="doc__receipt">
+        <tbody>
+          <tr>
+            <th>
+              {r('voucherNo')}
+              {payment.voucher}
+            </th>
+            <td />
+            <th className="doc__receiptDate">
+              {r('date')} {dashed(payment.receivedOn)}
+            </th>
+          </tr>
+          <tr className="doc__receiptGap">
+            <td colSpan={3} />
+          </tr>
+          <tr>
+            <th>{r('receivedFrom')}</th>
+            <td className="u-typed">{invoice.clientName ?? invoice.clientId}</td>
+            <th lang="ar" dir="rtl">
+              {r('receivedFromAr')}
+            </th>
+          </tr>
+          <tr>
+            <th>{r('sumOf')}</th>
+            <td>
+              <strong>{sum}</strong>
+            </td>
+            <th lang="ar" dir="rtl">
+              {r('sumOfAr')}
+            </th>
+          </tr>
+          <tr>
+            <th>{r('amount')}</th>
+            <td>
+              <strong>{sum}</strong>
+            </td>
+            <th lang="ar" dir="rtl">
+              {r('amountAr')}
+            </th>
+          </tr>
+          <tr>
+            <th>{r('mode')}</th>
+            <td className="doc__receiptModes">
+              <span>
+                {tick(payment.method === 'cash')} {r('cash')}
+              </span>
+              <span>
+                {tick(payment.method === 'cheque')} {r('cheque')}
+              </span>
+            </td>
+            <th lang="ar" dir="rtl">
+              {r('modeAr')}
+            </th>
+          </tr>
+          <tr>
+            <th>
+              {r('bank')}
+              <br />
+              {r('date')}
+            </th>
+            <td>
+              <strong>
+                {payment.bankName ?? ''}
+                <br />
+                {slashed(payment.chequeDate ?? payment.receivedOn)}
+              </strong>
+            </td>
+            <th lang="ar" dir="rtl">
+              {r('bankAr')}
+              <br />
+              {r('dateAr')}
+            </th>
+          </tr>
+          <tr className="doc__receiptGap">
+            <td colSpan={3} />
+          </tr>
+          <tr className="doc__receiptFor">
+            <th>{r('beingFor')}</th>
+            <td>
+              <strong>{r('invoiceNo', { number: invoice.number })}</strong>
+            </td>
+            <th lang="ar" dir="rtl">
+              {r('beingForAr')}
+            </th>
+          </tr>
+          <tr className="doc__receiptBlank">
+            <td colSpan={3} />
+          </tr>
+          <tr className="doc__receiptSign">
+            <th className="doc__receiptSignLabel">{r('signature')}</th>
+            <td>
+              {printed.stampUrl ? (
+                <img className="doc__stamp" src={printed.stampUrl} alt="" />
+              ) : null}
+            </td>
+            <th lang="ar" dir="rtl" className="doc__receiptSignLabel">
+              {r('signatureAr')}
+            </th>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  );
+}
+
+/** `1550`, or `1550.50`: the voucher writes the figure plainly, without grouping. */
+function figure(amount: { minorUnits: number }): string {
+  const whole = amount.minorUnits % 100 === 0;
+  return whole ? String(amount.minorUnits / 100) : (amount.minorUnits / 100).toFixed(2);
+}
+
+/** `08-09-2026`, the voucher's own date. */
+function dashed(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return `${day}-${month}-${year}`;
+}
+
+/** `29/08/2026`, the cheque or transfer date as the voucher writes it. */
+function slashed(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * `11-Sep-2026`, as the firm writes it.
  *
  * Built by hand rather than through Intl: no locale produces this exact form,
  * and the document is the firm's, not the browser's.
@@ -400,10 +566,10 @@ function documentDate(iso: string): string {
     'Mar',
     'Apr',
     'May',
-    'June',
-    'July',
+    'Jun',
+    'Jul',
     'Aug',
-    'Sept',
+    'Sep',
     'Oct',
     'Nov',
     'Dec',

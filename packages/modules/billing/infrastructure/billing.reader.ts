@@ -16,6 +16,7 @@ type StatementRow = {
   id: string;
   client_id: string;
   client_name: string | null;
+  client_contact?: string | null;
   period_start: string;
   period_end: string;
   state: string;
@@ -125,6 +126,7 @@ export class DrizzleBillingReader implements BillingReader {
         id: row.id,
         clientId: row.client_id,
         clientName: row.client_name,
+        clientContact: row.client_contact ?? null,
         branch: row.branch_code ? (branches.get(row.branch_code) ?? null) : null,
         reference: row.reference,
         state: row.state as QuotationView['state'],
@@ -336,6 +338,7 @@ export class DrizzleBillingReader implements BillingReader {
         id: row.id,
         clientId: row.client_id,
         clientName: row.client_name,
+        clientContact: row.client_contact ?? null,
         statementId: row.statement_id,
         branch: row.branch_code ? (branches.get(row.branch_code) ?? null) : null,
         number: row.number,
@@ -364,6 +367,7 @@ export class DrizzleBillingReader implements BillingReader {
           bankName: payment.bank_name,
           discount: money(payment.discount_minor ?? 0, currency),
           discountReason: payment.discount_reason,
+          voucher: `${new Date(payment.received_on).getUTCFullYear()}/${payment.voucher_number}`,
           recordedBy: payment.recorded_by_name ?? payment.recorded_by,
         })),
         vatBasisPoints: row.vat_basis_points,
@@ -416,7 +420,7 @@ function statusOf(row: InvoiceRow): InvoiceView['status'] {
 }
 
 const INVOICE_SELECT = sql`
-  SELECT i.id, i.client_id, c.legal_name AS client_name, i.statement_id, i.branch_code, i.number,
+  SELECT i.id, i.client_id, c.legal_name AS client_name, c.contact_person AS client_contact, i.statement_id, i.branch_code, i.number,
          i.settlement, i.currency, i.vat_basis_points,
          i.issued_on, i.due_on, i.overdue_since,
          /*
@@ -438,6 +442,7 @@ type InvoiceRow = {
   id: string;
   client_id: string;
   client_name: string | null;
+  client_contact?: string | null;
   statement_id: string;
   branch_code: string | null;
   number: string;
@@ -475,6 +480,7 @@ type PaymentRow = {
   bank_name: string | null;
   discount_minor: string | null;
   discount_reason: string | null;
+  voucher_number: string;
   recorded_by: string;
   recorded_by_name: string | null;
 };
@@ -563,7 +569,7 @@ export function toBranchView(row: BranchRow): BranchView {
 }
 
 const QUOTATION_SELECT = sql`
-  SELECT q.id, q.client_id, c.legal_name AS client_name, q.branch_code, q.reference, q.state,
+  SELECT q.id, q.client_id, c.legal_name AS client_name, c.contact_person AS client_contact, q.branch_code, q.reference, q.state,
          q.currency, q.valid_until, q.sent_at, q.sent_via, q.decided_at,
          q.notes_en, q.notes_ar, q.created_at
   FROM quotations q
@@ -574,6 +580,7 @@ type QuotationRow = {
   id: string;
   client_id: string;
   client_name: string | null;
+  client_contact?: string | null;
   branch_code: string | null;
   reference: string;
   state: string;

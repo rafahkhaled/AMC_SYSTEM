@@ -19,7 +19,7 @@ import {
   reviseLine,
   statement as statementById,
 } from './api.js';
-import { InvoiceDocument } from './document.js';
+import { InvoiceDocument, ReceiptDocument } from './document.js';
 import { formatHours, formatMoney, minorUnitsFrom } from './money.js';
 import { Quotations } from './quotations.js';
 import { Reports } from './reports.js';
@@ -508,6 +508,10 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const queries = useQueryClient();
   const profile = useQuery({ queryKey: ['billing', 'firm-profile'], queryFn: firmProfile });
   const sheet = usePrint(Boolean(profile.data));
+  // One payment's receipt voucher at a time, printed on its own: with the
+  // invoice open beside it, both would go to the printer.
+  const voucher = usePrint(Boolean(profile.data));
+  const [voucherFor, setVoucherFor] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const methods = useOptions('payment_method');
   const [method, setMethod] = useState('bank_transfer');
@@ -631,8 +635,30 @@ function InvoiceDetail({ id, onClose }: { id: string; onClose: () => void }) {
                   {` · ${methods.label(payment.method)}`}
                   {payment.reference ? ` · ${payment.reference}` : null}
                 </span>
-                <span className="u-numeric">{formatMoney(payment.amount, i18n.language)}</span>
+                <span className="u-row u-row--tight">
+                  <span className="u-numeric">{formatMoney(payment.amount, i18n.language)}</span>
+                  <Button
+                    small
+                    tone="quiet"
+                    onClick={() => {
+                      if (voucher.shown && voucherFor === payment.id) {
+                        voucher.toggle();
+                        return;
+                      }
+                      if (sheet.shown) sheet.toggle();
+                      setVoucherFor(payment.id);
+                      voucher.print();
+                    }}
+                  >
+                    {voucher.shown && voucherFor === payment.id
+                      ? t('billing.hideReceipt')
+                      : t('billing.receiptVoucher')}
+                  </Button>
+                </span>
               </div>
+              {voucher.shown && voucherFor === payment.id && profile.data ? (
+                <ReceiptDocument invoice={invoice} payment={payment} profile={profile.data} />
+              ) : null}
               {/* What was recorded about a cheque: the number and date are what gets
                   chased when it bounces, and they used to be saved and never shown. */}
               {payment.chequeNumber || payment.bankName ? (

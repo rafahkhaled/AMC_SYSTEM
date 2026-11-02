@@ -1676,12 +1676,6 @@ a {
   align-items: flex-start;
   gap: var(--space-2);
 }
-/* Under the mark rather than beside the title, and not bold: the logo is
-   already doing the announcing. */
-.doc__firm--underMark {
-  font-size: 13pt;
-  font-weight: 400;
-}
 .doc__logo {
   block-size: 90px;
   inline-size: auto;
@@ -1770,16 +1764,6 @@ a {
   border-block-end: 0;
 }
 
-.doc__branch {
-  /* Under the firm's name: which branch this document is on the letterhead of.
-     The sheet is black on white whatever the theme, like paper, so this takes
-     no theme colour — a pale grey chosen for a dark page would vanish on it. */
-  display: block;
-  font-size: 11pt;
-  color: #000;
-  margin-block-start: 2px;
-}
-
 .doc__total {
   display: flex;
   align-items: baseline;
@@ -1855,6 +1839,106 @@ a {
   padding: 6px 8px;
   /* Two lines of address, the way the template writes them. */
   white-space: pre-line;
+}
+
+/* The quotation's heading: the mark, and the firm's name beside it at its
+   middle, not bold, since the logo is already doing the announcing. */
+.doc__headStart--beside {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-5);
+}
+.doc__firm--besideMark {
+  font-size: 15pt;
+  font-weight: 400;
+}
+
+/* The quotation's total: no box, the word and the figure bold and underlined. */
+.doc__total--underlined {
+  border: 0;
+  margin-block-start: var(--space-4);
+  padding-inline: var(--space-4);
+  text-decoration: underline;
+  font-size: 18pt;
+}
+.doc__total--underlined .doc__totalAmount {
+  font-size: 14pt;
+}
+
+/* ---- the receipt voucher ---- */
+.doc--receipt {
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  font-size: 13pt;
+}
+.doc__receiptHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.doc__receiptFirm {
+  font-size: 15pt;
+}
+.doc__receiptAddress {
+  font-size: 11pt;
+}
+.doc__receiptTitleAr {
+  margin-block: var(--space-3);
+}
+.doc__receipt {
+  inline-size: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-block-start: var(--space-2);
+}
+.doc__receipt th,
+.doc__receipt td {
+  border: 1px solid var(--doc-line);
+  padding: 2px 8px;
+  vertical-align: top;
+}
+.doc__receipt th {
+  inline-size: 29%;
+  text-align: start;
+  font-weight: 700;
+}
+.doc__receipt th[dir="rtl"] {
+  inline-size: 24%;
+  text-align: right;
+}
+.doc__receipt td {
+  text-align: center;
+}
+.doc__receiptDate {
+  inline-size: 24%;
+}
+.doc__receiptGap td {
+  block-size: 1.2em;
+}
+.doc__receiptModes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-block: 4px 12px;
+}
+.doc__receiptFor td,
+.doc__receiptFor th {
+  block-size: 2.6em;
+}
+.doc__receiptBlank td {
+  block-size: 280px;
+}
+.doc__receiptSign th,
+.doc__receiptSign td {
+  block-size: 200px;
+}
+.doc__receipt th.doc__receiptSignLabel {
+  text-align: center;
+}
+.doc__receiptSign .doc__stamp {
+  margin-block-start: var(--space-5);
 }
 
 /* Missing configuration, marked rather than left blank. */
