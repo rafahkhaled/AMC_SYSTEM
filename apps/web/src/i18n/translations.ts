@@ -849,6 +849,7 @@ export const translations = {
         // The receipt voucher is printed in both languages side by side, as
         // the paper one of the firm is, so the same words in either interface.
         receipt: {
+          firm: 'Active Management Consultancy',
           title: 'RECEIVE VOUCHER',
           titleAr: 'سند قبض',
           voucherNo: 'Voucher No.:',
@@ -1273,6 +1274,9 @@ export const translations = {
       editing: 'تعديل بيانات {{name}}',
       save: 'حفظ',
       suspend: 'إيقاف الحساب',
+      delete: 'حذف الموظف',
+      confirmDelete:
+        'حذف {{name}}؟ يُحذف حسابه ويصبح بريده الإلكتروني متاحًا لحساب جديد. الساعات التي سجّلها تبقى باسمه.',
       reinstate: 'إعادة تفعيل الحساب',
       suspended: 'موقوف',
       startsAt: 'بداية الدوام',
@@ -2108,6 +2112,7 @@ export const translations = {
         // The receipt voucher is printed in both languages side by side, as
         // the paper one of the firm is, so the same words in either interface.
         receipt: {
+          firm: 'Active Management Consultancy',
           title: 'RECEIVE VOUCHER',
           titleAr: 'سند قبض',
           voucherNo: 'Voucher No.:',
@@ -2531,6 +2536,9 @@ export const translations = {
       editing: 'Editing {{name}}',
       save: 'Save',
       suspend: 'Suspend account',
+      delete: 'Delete',
+      confirmDelete:
+        'Delete {{name}}? Their account goes and their email address can be used for a new one. Hours they recorded keep their name.',
       reinstate: 'Reinstate account',
       suspended: 'Suspended',
       startsAt: 'Starts at',

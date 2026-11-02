@@ -269,6 +269,33 @@ export class IdentityOperations {
     });
   }
 
+  /**
+   * Deleting somebody, so their email address can be used again.
+   *
+   * Deleted outright when they never recorded anything; otherwise their
+   * account goes and their past work keeps their name (see the repository).
+   * Either way they are signed out everywhere at once.
+   */
+  removeStaff(actor: Actor, userId: string): Promise<Result<'deleted' | 'removed', Conflict>> {
+    const { clock } = this.dependencies;
+    return this.inTransaction(actor, async ({ users, sessions }, work) => {
+      const user = await users.findById(userId);
+      if (!user) return err(new Conflict('There is no such person'));
+      if (user.id === actor.userId) return err(new Conflict('You cannot delete your own account'));
+
+      await sessions.revokeAllForUser(userId, clock.now());
+      const outcome = await users.remove(user.id);
+      work.audit({
+        action: 'identity.user.deleted',
+        entityType: 'user',
+        entityId: user.id,
+        before: { email: user.email.value, displayName: user.displayName },
+        after: { outcome },
+      });
+      return ok(outcome);
+    });
+  }
+
   /* -------------------------------------------- forgotten passwords -- */
 
   /**

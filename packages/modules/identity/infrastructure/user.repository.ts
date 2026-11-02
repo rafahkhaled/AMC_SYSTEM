@@ -1,5 +1,5 @@
 import type { EventCollector } from '@amc/kernel';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { UserRepository } from '../application/ports.js';
 import { EmailAddress, type Role, User, type UserId, type UserStatus } from '../domain/index.js';
@@ -27,6 +27,36 @@ export class DrizzleUserRepository implements UserRepository {
   async findByEmail(email: EmailAddress): Promise<User | null> {
     const [row] = await this.db.select().from(users).where(eq(users.email, email.value)).limit(1);
     return row ? this.toAggregate(row, await this.rolesOf(row.id)) : null;
+  }
+
+  async remove(id: UserId): Promise<'deleted' | 'removed'> {
+    try {
+      /*
+       * In a savepoint, so a refusal leaves the transaction usable. Anything
+       * that keeps their name refuses: their task assignments (and through
+       * them every hour they recorded), quotations, invoices, files.
+       */
+      await this.db.transaction(async (savepoint) => {
+        await savepoint.execute(sql`DELETE FROM users WHERE id = ${id}`);
+      });
+      return 'deleted';
+    } catch (failure) {
+      if (!isForeignKeyRefusal(failure)) throw failure;
+    }
+
+    // `.invalid` is reserved, so the released address can never be delivered to.
+    await this.db.execute(sql`
+      UPDATE users
+         SET email = ${`removed-${id.toLowerCase()}@removed.invalid`},
+             status = 'suspended',
+             password_hash = '!',
+             totp_secret = NULL,
+             totp_confirmed_at = NULL,
+             removed_at = now()
+       WHERE id = ${id}
+    `);
+    await this.db.execute(sql`DELETE FROM user_roles WHERE user_id = ${id}`);
+    return 'removed';
   }
 
   async save(user: User): Promise<void> {
@@ -95,4 +125,10 @@ export class DrizzleUserRepository implements UserRepository {
       lockedUntil: row.lockedUntil,
     });
   }
+}
+
+/** Postgres's "other rows still point at this one", however the driver wrapped it. */
+function isForeignKeyRefusal(failure: unknown): boolean {
+  const code = (value: unknown) => (value as { code?: string } | null)?.code;
+  return code(failure) === '23503' || code((failure as { cause?: unknown })?.cause) === '23503';
 }

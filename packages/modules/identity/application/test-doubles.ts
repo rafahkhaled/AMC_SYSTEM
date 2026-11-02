@@ -25,6 +25,11 @@ export class InMemoryUserRepository implements UserRepository {
     return this.byId.get(id) ?? null;
   }
 
+  async remove(id: UserId): Promise<'deleted' | 'removed'> {
+    this.byId.delete(id);
+    return 'deleted';
+  }
+
   async findByEmail(email: EmailAddress): Promise<User | null> {
     for (const user of this.byId.values()) {
       if (user.email.equals(email)) return user;

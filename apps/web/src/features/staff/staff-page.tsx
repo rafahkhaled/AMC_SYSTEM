@@ -11,7 +11,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import { duration } from '../../lib/duration.js';
-import { addStaff, setStaffPassword, setStaffStatus, staffDirectory, updateStaff } from './api.js';
+import {
+  addStaff,
+  removeStaff,
+  setStaffPassword,
+  setStaffStatus,
+  staffDirectory,
+  updateStaff,
+} from './api.js';
 
 /**
  * Who works here, and what they are carrying (X-01).
@@ -302,6 +309,14 @@ function EditStaff({ person, onDone }: { person: StaffMember | null; onDone: () 
     },
   });
 
+  const removal = useMutation({
+    mutationFn: () => removeStaff(person?.id ?? ''),
+    onSuccess: (staff) => {
+      queries.setQueryData(['staff'], staff);
+      onDone();
+    },
+  });
+
   const status = useMutation({
     mutationFn: (next: 'active' | 'suspended') => setStaffStatus(person?.id ?? '', next),
     onSuccess: (staff) => {
@@ -432,6 +447,7 @@ function EditStaff({ person, onDone }: { person: StaffMember | null; onDone: () 
 
         {save.isError ? <Alert tone="error">{(save.error as Error).message}</Alert> : null}
         {status.isError ? <Alert tone="error">{(status.error as Error).message}</Alert> : null}
+        {removal.isError ? <Alert tone="error">{(removal.error as Error).message}</Alert> : null}
 
         <div className="u-row">
           <Button type="submit" busy={save.isPending} disabled={days.length === 0}>
@@ -444,6 +460,19 @@ function EditStaff({ person, onDone }: { person: StaffMember | null; onDone: () 
             onClick={() => status.mutate(person.status === 'suspended' ? 'active' : 'suspended')}
           >
             {person.status === 'suspended' ? t('staff.reinstate') : t('staff.suspend')}
+          </Button>
+          {/* Deleting frees their email for a new account. Hours they recorded
+              keep their name; see the server for why. */}
+          <Button
+            tone="danger"
+            busy={removal.isPending}
+            onClick={() => {
+              if (window.confirm(t('staff.confirmDelete', { name: person.displayName }))) {
+                removal.mutate();
+              }
+            }}
+          >
+            {t('staff.delete')}
           </Button>
           <Button tone="quiet" onClick={onDone}>
             {t('staff.add.cancel')}

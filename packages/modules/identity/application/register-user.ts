@@ -35,7 +35,13 @@ export class RegisterUser {
     if (!acceptable.ok) return err(acceptable.error);
 
     const existing = await this.users.findByEmail(email.value);
-    if (existing) return err(new Conflict('Someone already uses that email address'));
+    if (existing?.status === 'active') {
+      return err(new Conflict('Someone already uses that email address'));
+    }
+    // A suspended account no longer holds its address: suspending somebody
+    // used to be the only way to take them off, and it kept their email from
+    // ever being given to anyone, them included, again.
+    if (existing) await this.users.remove(existing.id);
 
     const created = User.register({
       id: this.ids.next(),

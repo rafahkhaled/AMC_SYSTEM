@@ -1,5 +1,5 @@
 import { type StaffMember, staffDirectorySchema } from '@amc/contracts';
-import { patch, request, send } from '../auth/api.js';
+import { del, patch, request, send } from '../auth/api.js';
 
 export async function staffDirectory(): Promise<StaffMember[]> {
   return staffDirectorySchema.parse(await request('/staff')).staff;
@@ -52,4 +52,9 @@ export async function setStaffStatus(
  */
 export async function setStaffPassword(id: string, password: string): Promise<void> {
   await send(`/staff/${encodeURIComponent(id)}/password`, { password });
+}
+
+/** Deleting somebody, which frees their email address for a new account. */
+export async function removeStaff(id: string): Promise<StaffMember[]> {
+  return staffDirectorySchema.parse(await del(`/staff/${encodeURIComponent(id)}`)).staff;
 }

@@ -10,6 +10,12 @@ export interface UserRepository {
   findById(id: UserId): Promise<User | null>;
   findByEmail(email: EmailAddress): Promise<User | null>;
   save(user: User): Promise<void>;
+  /**
+   * Takes somebody off the system for good and releases their email address.
+   * Deleted outright when nothing was ever recorded against them; otherwise
+   * the account is removed and their past work keeps their name.
+   */
+  remove(id: UserId): Promise<'deleted' | 'removed'>;
 }
 
 export interface SessionRepository {

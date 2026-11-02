@@ -10,11 +10,13 @@ const addStaff = vi.hoisted(() => vi.fn());
 const updateStaff = vi.hoisted(() => vi.fn());
 const setStaffStatus = vi.hoisted(() => vi.fn());
 const setStaffPassword = vi.hoisted(() => vi.fn());
+const removeStaff = vi.hoisted(() => vi.fn());
 vi.mock('./api.js', () => ({
   staffDirectory,
   addStaff,
   updateStaff,
   setStaffStatus,
+  removeStaff,
   setStaffPassword,
 }));
 
@@ -169,19 +171,29 @@ describe('managing people', () => {
     );
   });
 
-  it('suspends rather than deletes', async () => {
+  it('suspends somebody, who can be let back', async () => {
     setStaffStatus.mockResolvedValue([person({ status: 'suspended' })]);
     renderScreen(<StaffPage canManage />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
-
-    /*
-     * There is no delete, and there should not be: this person's id is on
-     * every hour they recorded and every audit row they caused.
-     */
-    expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Suspend account' }));
     expect(setStaffStatus).toHaveBeenCalledWith('u-1', 'suspended');
+  });
+
+  it('deletes somebody only once it has been confirmed, so the email can be used again', async () => {
+    removeStaff.mockResolvedValue([]);
+    const confirm = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    renderScreen(<StaffPage canManage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(removeStaff).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(removeStaff).toHaveBeenCalledWith('u-1');
+    confirm.mockRestore();
   });
 
   it('saves a name, a role and the days somebody works together', async () => {

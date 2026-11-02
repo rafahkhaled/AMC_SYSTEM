@@ -150,6 +150,46 @@ describe('staff', () => {
     await accountant.post('/staff/anyone/status').send({ status: 'suspended' }).expect(403);
   });
 
+  describe('deleting somebody', () => {
+    const idOf = async (email: string) =>
+      (await manager.get('/staff').expect(200)).body.staff.find(
+        (person: { email: string }) => person.email === email,
+      ).id as string;
+
+    it('deletes somebody who never recorded anything, and their email can be used again', async () => {
+      const email = emailOf('mistake');
+      await manager.post('/staff').send(member(email)).expect(201);
+      const id = await idOf(email);
+
+      await manager.delete(`/staff/${id}`).expect(200);
+      const [row] = await t.sql`SELECT id FROM users WHERE id = ${id}`;
+      expect(row).toBeUndefined();
+      await t.anonymous().post('/auth/sign-in').send({ email, password: PASSWORD }).expect(401);
+
+      await manager.post('/staff').send(member(email)).expect(201);
+    });
+
+    it('lets the email of somebody suspended be given to a new account', async () => {
+      // Suspending was the only way to take somebody off, and it kept their
+      // address from ever being used again.
+      const email = emailOf('suspended');
+      await manager.post('/staff').send(member(email)).expect(201);
+      await manager
+        .post(`/staff/${await idOf(email)}/status`)
+        .send({ status: 'suspended' })
+        .expect(201);
+
+      await manager.post('/staff').send(member(email)).expect(201);
+      await t.anonymous().post('/auth/sign-in').send({ email, password: PASSWORD }).expect(200);
+    });
+
+    it('will not delete your own account, and is the manager’s alone', async () => {
+      await manager.delete(`/staff/${manager.userId}`).expect(409);
+      await accountant.delete(`/staff/${manager.userId}`).expect(403);
+      await manager.delete('/staff/nobody').expect(409);
+    });
+  });
+
   it('records who added somebody, in the audit log', async () => {
     const rows = await t.sql<{ action: string; actor_user_id: string }[]>`
       SELECT action, actor_user_id FROM audit_log WHERE action LIKE 'identity.user.%' OR action LIKE 'identity.staff.%'
@@ -304,5 +344,36 @@ describe('recording time', () => {
         .expect(403);
       await accountant.get('/timer/approvals').expect(403);
     });
+  });
+
+  it('keeps the hours of somebody deleted, under their name, and frees their email', async () => {
+    // Last here: it takes the accountant off.
+    const [before] = await t.sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM time_entries e JOIN project_assignments a ON a.id = e.assignment_id WHERE a.user_id = ${accountant.userId}`;
+    expect(before?.n).toBeGreaterThan(0);
+    const [found] = await t.sql<{ email: string }[]>`
+      SELECT email FROM users WHERE id = ${accountant.userId}`;
+
+    await manager.delete(`/staff/${accountant.userId}`).expect(200);
+
+    const [after] = await t.sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM time_entries e JOIN project_assignments a ON a.id = e.assignment_id WHERE a.user_id = ${accountant.userId}`;
+    expect(after?.n).toBe(before?.n);
+    const [row] = await t.sql<{ name: string; removed: boolean }[]>`
+      SELECT display_name AS name, removed_at IS NOT NULL AS removed FROM users WHERE id = ${accountant.userId}`;
+    expect(row?.removed).toBe(true);
+    await accountant.get('/timer').expect(401);
+    const staff = await manager.get('/staff').expect(200);
+    expect(staff.body.staff.map((p: { id: string }) => p.id)).not.toContain(accountant.userId);
+
+    await manager
+      .post('/staff')
+      .send({
+        email: found?.email,
+        displayName: 'Back again',
+        password: 'a-long-enough-passphrase-9',
+        roles: ['accountant'],
+      })
+      .expect(201);
   });
 });

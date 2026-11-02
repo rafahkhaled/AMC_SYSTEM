@@ -11,6 +11,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -114,6 +115,15 @@ export class StaffController {
     const done = await this.identity.setStaffStatus(actorFrom(caller), id, parsed.data.status);
     if (!done.ok) throw new ConflictException(done.error.message);
 
+    return { staff: await this.staff.directory(caller) };
+  }
+
+  /** Deleting somebody, which releases their email address for a new account. */
+  @Delete(':id')
+  @RequirePermissions('users.manage')
+  async remove(@CurrentCaller() caller: Caller, @Param('id') id: string): Promise<StaffDirectory> {
+    const done = await this.identity.removeStaff(actorFrom(caller), id);
+    if (!done.ok) throw new ConflictException(done.error.message);
     return { staff: await this.staff.directory(caller) };
   }
 

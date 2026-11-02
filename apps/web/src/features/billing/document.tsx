@@ -420,7 +420,9 @@ export function ReceiptDocument({
     <article className="doc doc--receipt" dir="ltr" lang="en">
       <header className="doc__receiptHead">
         {printed.logoUrl ? <img className="doc__logo" src={printed.logoUrl} alt="" /> : null}
-        <span className="doc__receiptFirm">{printed.legalName}</span>
+        {/* The name the firm trades under, which is what its vouchers carry,
+            rather than the legal name on the invoice. */}
+        <span className="doc__receiptFirm">{r('firm')}</span>
         <span className="doc__receiptAddress">
           {printed.addresses[0] ?? <span className="doc__missing">{MISSING}</span>}
         </span>
