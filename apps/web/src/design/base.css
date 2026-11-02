@@ -1645,10 +1645,29 @@ a {
     max-inline-size: none;
     padding: 12mm 14mm;
   }
+  /*
+   * The ruled box takes whatever the page has left.
+   *
+   * A fixed height suited one document and not another: the invoice carries
+   * a bank box and an address under its total that the quotation does not,
+   * and spilled onto a second page. The sheet is a page tall at least, and
+   * the table grows into the room the rest leaves; a long document still
+   * runs on to a second page rather than being cut off.
+   */
+  body .doc:not(.doc--receipt) {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-block-size: 296mm;
+  }
+  body .doc:not(.doc--receipt) > .doc__lines {
+    flex: 1 1 auto;
+  }
+  .doc__filler {
+    block-size: 100%;
+  }
   .doc__filler td {
-    /* Long enough that the ruled box runs down the page as on the firm's
-       paper, short enough that the bank details and address stay on it. */
-    block-size: 460px;
+    block-size: auto;
   }
 
   .letter {
