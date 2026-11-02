@@ -1608,16 +1608,47 @@ a {
     display: none !important;
   }
 
-  /* The sheet is the page. No card around it, no margin of ours: the printer
-     dialog owns the margins and the template's own box rules do the rest. */
-  .doc {
+  /*
+   * A quotation, invoice or voucher on the page: it alone is printed.
+   *
+   * Everything that neither holds the sheet nor sits inside it goes, rather
+   * than being hidden in place: hidden things still take room, and the tabs,
+   * the card's heading and the screen's own copy of the details pushed the
+   * sheet down and onto a second page.
+   */
+  body:has(.doc) :not(:has(.doc)):not(.doc):not(.doc *) {
+    display: none !important;
+  }
+  /* The boxes the sheet sits in, flattened, so it starts at the top. */
+  body:has(.doc) :has(.doc) {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    inline-size: auto !important;
+    max-inline-size: none !important;
+    min-block-size: 0 !important;
+  }
+
+  /* No browser margin, which also drops the date and address the browser
+     prints in it; the sheet keeps its own margin instead. */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  /* `body .doc`, not `.doc`: the sheet's screen rule comes later in this
+     file and would otherwise take its padding back. */
+  body .doc {
     max-inline-size: none;
-    padding: 0;
+    padding: 12mm 14mm;
   }
   .doc__filler td {
-    /* Shorter on paper than on screen, so a one-line invoice still lands on
-       a single page with its bank details and address under it. */
-    block-size: 240px;
+    /* Long enough that the ruled box runs down the page as on the firm's
+       paper, short enough that the bank details and address stay on it. */
+    block-size: 460px;
   }
 
   .letter {
