@@ -185,8 +185,11 @@ export class Client extends AggregateRoot<ClientId> {
     for (const key of ['mobile', 'landline'] as const) {
       const given = change[key];
       if (given === undefined) continue;
-      const number = blank(given);
-      if (number && toE164(number) === null) {
+      const typed = blank(given);
+      // "NA" says there is no such number, which the firm prefers to an
+      // empty box that reads as forgotten.
+      const number = typed && /^n\/?a$/i.test(typed) ? 'NA' : typed;
+      if (number && number !== 'NA' && toE164(number) === null) {
         return err(new Conflict(`The ${key} number could not be read as a phone number`));
       }
       set(key, number);

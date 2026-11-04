@@ -67,6 +67,21 @@ export class DrizzleLetterRepository implements LetterRepository {
     }));
   }
 
+  async reword(clientId: string, letterId: string, body: string): Promise<boolean> {
+    const rows = await this.db
+      .update(generatedDocuments)
+      .set({ body })
+      .where(
+        and(
+          eq(generatedDocuments.id, letterId),
+          eq(generatedDocuments.clientId, clientId),
+          isNull(generatedDocuments.removedAt),
+        ),
+      )
+      .returning({ id: generatedDocuments.id });
+    return rows.length > 0;
+  }
+
   async remove(clientId: string, letterId: string, by: string): Promise<boolean> {
     const rows = await this.db
       .update(generatedDocuments)

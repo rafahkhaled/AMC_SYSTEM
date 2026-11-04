@@ -69,3 +69,19 @@ export async function removeLetter(clientId: string, letterId: string): Promise<
       await del(`/clients/${encodeURIComponent(clientId)}/letters/${encodeURIComponent(letterId)}`),
     ).letters;
 }
+
+/** Saves the wording of a produced letter, changed before it is printed. */
+export async function rewordLetter(
+  clientId: string,
+  letterId: string,
+  body: string,
+): Promise<Letter[]> {
+  return z
+    .object({ letters: z.array(letterSchema) })
+    .parse(
+      await patch(
+        `/clients/${encodeURIComponent(clientId)}/letters/${encodeURIComponent(letterId)}`,
+        { body },
+      ),
+    ).letters;
+}

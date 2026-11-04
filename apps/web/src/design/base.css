@@ -767,6 +767,15 @@ a {
 }
 
 /* Label above value, wrapping into columns as the screen allows. */
+/* A heading inside a card, for a second group of facts under the first
+   (the client's logins under their contact details). */
+.subheading {
+  margin: var(--space-4) 0 0;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--line);
+  font-size: var(--text-base);
+}
+
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
@@ -1670,9 +1679,11 @@ a {
     block-size: auto;
   }
 
-  .letter {
+  /* The page has no margin of its own (see `@page`), so the letter carries
+     the margin a printed letter has; without it the text ran to the edge. */
+  body .letter {
     border: 0;
-    padding: 0;
+    padding: 20mm 22mm;
     background: none;
   }
 

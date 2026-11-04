@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
 import { useOptions } from '../lists/use-options.js';
-import { generateLetter, letterTemplates, lettersFor, removeLetter } from './api.js';
+import { generateLetter, letterTemplates, lettersFor, removeLetter, rewordLetter } from './api.js';
 
 /**
  * Letters the firm sends, filled in from the client's record (FR-15).
@@ -26,6 +26,8 @@ export function LettersPanel({ clientId }: { clientId: string }) {
   const authorities = useOptions('authority');
   const [authority, setAuthority] = useState('');
   const [letter, setLetter] = useState<Letter | null>(null);
+  /** The wording being changed, or null when the letter is only being read. */
+  const [draft, setDraft] = useState<string | null>(null);
 
   const templates = useQuery({ queryKey: ['letter-templates'], queryFn: letterTemplates });
   const history = useQuery({
@@ -37,6 +39,16 @@ export function LettersPanel({ clientId }: { clientId: string }) {
     mutationFn: () => generateLetter(clientId, code, language, authority || undefined),
     onSuccess: (produced) => {
       setLetter(produced);
+      setDraft(null);
+      void history.refetch();
+    },
+  });
+
+  const reword = useMutation({
+    mutationFn: (body: string) => rewordLetter(clientId, letter?.id ?? '', body),
+    onSuccess: (_next, body) => {
+      if (letter) setLetter({ ...letter, body });
+      setDraft(null);
       void history.refetch();
     },
   });
@@ -112,14 +124,25 @@ export function LettersPanel({ clientId }: { clientId: string }) {
         <Button disabled={code === ''} busy={generate.isPending} onClick={() => generate.mutate()}>
           {t('letters.generate')}
         </Button>
-        {letter ? (
-          <Button tone="secondary" onClick={printLetter}>
-            {t('letters.print')}
-          </Button>
+        {letter && draft === null ? (
+          <>
+            <Button tone="secondary" onClick={printLetter}>
+              {t('letters.print')}
+            </Button>
+            {/* A date that is not today, a line for this one client: changed
+                here, and saved, so the history says what was sent. */}
+            <Button
+              tone="quiet"
+              onClick={() => setDraft(letter.body.replace(/[\u2068\u2069]/g, ''))}
+            >
+              {t('letters.edit')}
+            </Button>
+          </>
         ) : null}
       </div>
 
       {generate.error ? <Alert tone="error">{generate.error.message}</Alert> : null}
+      {reword.error ? <Alert tone="error">{reword.error.message}</Alert> : null}
 
       {letter ? (
         <>
@@ -144,8 +167,38 @@ export function LettersPanel({ clientId }: { clientId: string }) {
               The body is plain text the server escaped when it filled in the
               placeholders, so it is rendered as text and never as markup.
             */}
-            <pre className="letter__body">{letter.body}</pre>
+            {draft === null ? (
+              <pre className="letter__body">{letter.body}</pre>
+            ) : (
+              <Field
+                label={t('letters.wording')}
+                control={(props) => (
+                  <textarea
+                    {...props}
+                    className="input"
+                    dir="auto"
+                    rows={16}
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                  />
+                )}
+              />
+            )}
           </article>
+          {draft !== null ? (
+            <div className="u-row">
+              <Button
+                busy={reword.isPending}
+                disabled={draft.trim() === ''}
+                onClick={() => reword.mutate(draft)}
+              >
+                {t('letters.saveWording')}
+              </Button>
+              <Button tone="quiet" onClick={() => setDraft(null)}>
+                {t('letters.cancelWording')}
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : null}
 

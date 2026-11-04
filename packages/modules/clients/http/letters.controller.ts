@@ -2,6 +2,7 @@ import type { Letter, LetterTemplate, LetterTemplateDetail } from '@amc/contract
 import {
   createLetterTemplateSchema,
   generateLetterSchema,
+  rewordLetterSchema,
   updateLetterTemplateSchema,
 } from '@amc/contracts';
 import { type Caller, CurrentCaller, RequirePermissions } from '@amc/http-kit';
@@ -107,6 +108,22 @@ export class LettersController {
     @Param('letterId') letterId: string,
   ): Promise<{ letters: Letter[] }> {
     if (!(await this.letters.remove(caller, clientId, letterId))) {
+      throw new NotFoundException('No such letter');
+    }
+    return { letters: await this.letters.history(caller, clientId) };
+  }
+
+  @Patch('clients/:clientId/letters/:letterId')
+  @RequirePermissions('clients.edit')
+  async reword(
+    @CurrentCaller() caller: Caller,
+    @Param('clientId') clientId: string,
+    @Param('letterId') letterId: string,
+    @Body() body: unknown,
+  ): Promise<{ letters: Letter[] }> {
+    const parsed = rewordLetterSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException('A letter needs some wording');
+    if (!(await this.letters.reword(caller, clientId, letterId, parsed.data.body))) {
       throw new NotFoundException('No such letter');
     }
     return { letters: await this.letters.history(caller, clientId) };

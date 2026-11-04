@@ -17,10 +17,13 @@ export function ClientDetailsCard({
   detail,
   canEdit,
   months,
+  children,
 }: {
   detail: ClientDetail;
   canEdit: boolean;
   months: readonly string[];
+  /** What else belongs with the details: the client's logins. */
+  children?: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -57,6 +60,7 @@ export function ClientDetailsCard({
           </Button>
         </div>
       ) : null}
+      {children}
     </Card>
   );
 }
@@ -210,19 +214,19 @@ function DetailsForm({
             </Select>
           )}
         />
+        {/* Shown as typed, not as dots: the firm copies these from the
+            client's message and needs to see that they went in right. */}
         <Field
           label={t('clients.taxPassword')}
           hint={t('clients.passwordKept')}
-          type="password"
-          autoComplete="new-password"
+          autoComplete="off"
           ltr
           value={taxPassword}
           onChange={(e) => setTaxPassword(e.target.value)}
         />
         <Field
           label={t('clients.booksPassword')}
-          type="password"
-          autoComplete="new-password"
+          autoComplete="off"
           ltr
           value={booksPassword}
           onChange={(e) => setBooksPassword(e.target.value)}
@@ -236,8 +240,8 @@ function DetailsForm({
         />
         <Field
           label={t('clients.landline')}
+          hint={t('clients.landlineHint')}
           ltr
-          inputMode="tel"
           value={landline}
           onChange={(e) => setLandline(e.target.value)}
         />

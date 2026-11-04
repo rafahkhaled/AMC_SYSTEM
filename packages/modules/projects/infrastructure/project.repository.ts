@@ -223,8 +223,14 @@ export class DrizzleProjectRepository implements ProjectRepository {
   }
 
   async remove(id: ProjectId): Promise<void> {
-    // Steps, required documents and assignments go with it (ON DELETE
-    // CASCADE); contact log and letters keep their row and lose the link.
+    // Its time first: entries hold on to their assignment (ON DELETE
+    // RESTRICT), and only unbilled time gets this far. Steps, required
+    // documents and assignments then go with the job (ON DELETE CASCADE);
+    // contact log and letters keep their row and lose the link.
+    await this.db.execute(sql`
+      DELETE FROM time_entries
+       WHERE assignment_id IN (SELECT id FROM project_assignments WHERE project_id = ${id})
+    `);
     await this.db.execute(sql`DELETE FROM projects WHERE id = ${id}`);
   }
 }

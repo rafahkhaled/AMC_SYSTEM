@@ -76,10 +76,11 @@ export class ProjectWorkflow {
    * Deleting a job that should never have been opened, or an old one nobody
    * worked on (feedback: "delete old projects").
    *
-   * Only a job with no recorded time and nothing billed. Time is the firm's
-   * record of what it did, and an invoice line is what a client was charged:
-   * deleting either would rewrite history, so such a job is cancelled instead,
-   * which keeps it out of the way and keeps the record.
+   * Anything not billed. Time recorded on it goes with it: the firm asked
+   * to clear out old jobs that had a few minutes on them, and time nobody
+   * will bill is not a record anybody relies on. A job on a statement or an
+   * invoice is kept, because that is what a client was charged; it is
+   * cancelled instead, which takes it off the lists and the calendar.
    */
   remove(caller: CallerLike, id: string): Promise<Result<true, Conflict>> {
     return this.unitOfWork.run(actorFrom(caller), async (context) => {
@@ -94,12 +95,6 @@ export class ProjectWorkflow {
       if (usage.billed) {
         return err(new ConflictError('This job has been billed, so it is kept; cancel it instead'));
       }
-      if (usage.recordedEntries > 0) {
-        return err(
-          new ConflictError('Time has been recorded on this job, so it is kept; cancel it instead'),
-        );
-      }
-
       const snapshot = project.snapshot();
       await repository.remove(id);
       context.audit({
@@ -111,6 +106,7 @@ export class ProjectWorkflow {
           service: snapshot.service,
           periodKey: snapshot.periodKey,
           state: project.status,
+          timeEntriesDeleted: usage.recordedEntries,
         },
       });
       return ok(true as const);

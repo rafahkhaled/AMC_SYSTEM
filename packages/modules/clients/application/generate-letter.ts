@@ -64,6 +64,22 @@ export class GenerateLetter {
     return this.letters.remove(clientId, letterId, caller.userId);
   }
 
+  /**
+   * A produced letter, worded differently before it goes out: a date that is
+   * not today, a sentence for this one client. Saved, so the history says
+   * what was actually sent rather than what the template would have said.
+   */
+  async reword(
+    caller: CallerLike,
+    clientId: string,
+    letterId: string,
+    body: string,
+  ): Promise<boolean> {
+    const client = await this.clients.findById(clientId, scopeFor(caller));
+    if (!client) return false;
+    return this.letters.reword(clientId, letterId, body);
+  }
+
   async history(caller: CallerLike, clientId: string): Promise<Letter[]> {
     const client = await this.clients.findById(clientId, scopeFor(caller));
     if (!client) return [];

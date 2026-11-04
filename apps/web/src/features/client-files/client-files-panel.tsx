@@ -198,6 +198,17 @@ export function ClientFilesPanel({
     <Card title={t('clientFiles.title')} description={t('clientFiles.hint')}>
       <div className="u-stack">
         <nav aria-label={t('clientFiles.breadcrumb')} className="u-row u-row--tight u-wrap">
+          {/* Back up one level: the path alone was too easy to miss, and an
+              opened folder looked as if it could not be closed again. */}
+          {here !== null ? (
+            <Button
+              small
+              tone="secondary"
+              onClick={() => setCurrent(byId.get(here)?.parentId ?? null)}
+            >
+              {t('clientFiles.up')}
+            </Button>
+          ) : null}
           <Button
             small
             tone={here === null ? 'secondary' : 'quiet'}

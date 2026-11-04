@@ -128,6 +128,8 @@ const ARABIC: Readonly<Record<string, string>> = {
   'This client is already registered for corporation tax': 'هذا العميل مسجّل في ضريبة الشركات',
   'This document has been replaced by a newer one': 'استُبدل هذا المستند بنسخة أحدث',
   'This enquiry has already become a client': 'تم تحويل هذا الاستفسار إلى عميل',
+  'This job has been billed, so it is kept; cancel it instead':
+    'تمت فوترة هذا العمل فلا يُحذف. يمكن إلغاؤه بدلًا من ذلك',
   'This link has expired or has already been used': 'انتهت صلاحية هذا الرابط أو استُخدم من قبل',
   'This session expired through inactivity. Sign in again.':
     'انتهت الجلسة بسبب عدم النشاط. سجّل الدخول من جديد.',
@@ -144,6 +146,7 @@ const ARABIC: Readonly<Record<string, string>> = {
   'Use a date in the form 2026-03-31': 'أدخل التاريخ بشكل صحيح',
   'What a manager may do is fixed, so nobody can lock the firm out':
     'صلاحيات المدير ثابتة حتى لا يُغلَق النظام على الشركة',
+  'You cannot delete your own account': 'لا يمكنك حذف حسابك',
   'You cannot suspend your own account': 'لا يمكنك إيقاف حسابك',
   'You do not have access to this': 'ليست لديك صلاحية لهذا',
 };

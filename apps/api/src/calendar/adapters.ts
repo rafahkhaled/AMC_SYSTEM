@@ -60,7 +60,11 @@ export function deadlineSource(db: Database): DeadlineSource {
            t.id AS project_id
     FROM projects t
     JOIN clients c ON c.id = t.client_id
-    WHERE t.due_at IS NOT NULL AND ${where} AND ${visible(scope, sql`t.client_id`)}
+    WHERE t.due_at IS NOT NULL
+      -- A cancelled job is off the firm's plate; the firm asked for it to
+      -- leave the calendar too, not to sit there ticked off.
+      AND t.state <> 'cancelled'
+      AND ${where} AND ${visible(scope, sql`t.client_id`)}
   `;
 
   const documentsBetween = (scope: CalendarScope, where: SQL) => sql`

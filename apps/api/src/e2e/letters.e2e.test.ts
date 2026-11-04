@@ -188,6 +188,24 @@ describe('letters', () => {
     });
   });
 
+  describe('rewording one before it is printed', () => {
+    it('keeps the new wording in the history, for a manager', async () => {
+      const made = await manager
+        .post('/clients/c-mine/letters')
+        .send({ templateCode: 'salary_certificate_request', language: 'en' })
+        .expect(201);
+      const path = `/clients/c-mine/letters/${made.body.id}`;
+      await accountant.patch(path).send({ body: 'Dated 1 October 2026' }).expect(403);
+      await manager.patch(path).send({ body: '' }).expect(400);
+      await manager.patch(path).send({ body: 'Dated 1 October 2026' }).expect(200);
+
+      const history = await manager.get('/clients/c-mine/letters').expect(200);
+      const saved = history.body.letters.find((l: { id: string }) => l.id === made.body.id);
+      expect(saved.body).toBe('Dated 1 October 2026');
+      await manager.patch('/clients/c-mine/letters/nothing').send({ body: 'x' }).expect(404);
+    });
+  });
+
   describe('changing a letter afterwards', () => {
     it('leaves the letters already produced saying what they said', async () => {
       const before = await make2('c-mine');

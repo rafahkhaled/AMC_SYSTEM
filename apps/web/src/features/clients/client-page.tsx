@@ -145,7 +145,11 @@ export function ClientPage({
         </dl>
       </Card>
 
-      <ClientDetailsCard detail={detail} canEdit={canEdit} months={months} />
+      {/* The logins sit with the rest of the details, where the firm looks
+          for them, rather than in a section of their own further down. */}
+      <ClientDetailsCard detail={detail} canEdit={canEdit} months={months}>
+        <VaultPanel clientId={id} embedded />
+      </ClientDetailsCard>
       <ClassificationPanel entity="client" id={id} canEdit={canEdit} />
 
       <Card title={t('clients.documents')} description={t('clients.documentsHint')}>
@@ -202,8 +206,6 @@ export function ClientPage({
       <LettersPanel clientId={id} />
 
       <ContactLogPanel clientId={id} />
-
-      <VaultPanel clientId={id} />
 
       <Card title={t('clients.work')}>
         {/* Folded until asked for, like the contact log: a long-standing

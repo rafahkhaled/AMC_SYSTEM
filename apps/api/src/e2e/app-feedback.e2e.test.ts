@@ -240,7 +240,7 @@ describe('the App feedback', () => {
       expect(row?.actor_user_id).toBe(manager.userId);
     });
 
-    it('keeps one with recorded time, and says to cancel it instead', async () => {
+    it('deletes one with unbilled time, the time with it (feedback: clear old jobs off the calendar)', async () => {
       const job = (
         await manager
           .post('/projects')
@@ -257,9 +257,12 @@ describe('the App feedback', () => {
         })
         .expect(201);
 
-      const refused = await manager.delete(`/projects/${job}`).expect(409);
-      expect(refused.body.error.message).toContain('cancel it instead');
-      await manager.get(`/projects/${job}`).expect(200);
+      await manager.delete(`/projects/${job}`).expect(200);
+      await manager.get(`/projects/${job}`).expect(404);
+      const [left] = await t.sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM time_entries e
+          JOIN project_assignments a ON a.id = e.assignment_id WHERE a.project_id = ${job}`;
+      expect(left?.n).toBe(0);
     });
 
     it('is the manager’s', async () => {

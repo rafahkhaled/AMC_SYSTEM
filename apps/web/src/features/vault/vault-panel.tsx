@@ -17,7 +17,14 @@ const VISIBLE_SECONDS = 45;
  * Passwords are never in the list at all — they arrive only when asked for,
  * one at a time, with a reason that goes into the audit log.
  */
-export function VaultPanel({ clientId }: { clientId: string }) {
+export function VaultPanel({
+  clientId,
+  embedded = false,
+}: {
+  clientId: string;
+  /** Inside the client's details card, under the contact details, rather than a card of its own. */
+  embedded?: boolean;
+}) {
   const { t } = useTranslation();
   const queries = useQueryClient();
   const key = ['credentials', clientId];
@@ -35,8 +42,8 @@ export function VaultPanel({ clientId }: { clientId: string }) {
     return null;
   }
 
-  return (
-    <Card title={t('vault.title')} description={t('vault.hint')}>
+  const body = (
+    <>
       {(credentials.data ?? []).length === 0 ? (
         <p className="u-text-faint">{t('vault.none')}</p>
       ) : (
@@ -54,6 +61,20 @@ export function VaultPanel({ clientId }: { clientId: string }) {
       )}
 
       <StoreCredential clientId={clientId} onStored={settle} />
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section className="u-stack-tight" aria-label={t('vault.title')}>
+        <h3 className="subheading">{t('vault.title')}</h3>
+        {body}
+      </section>
+    );
+  }
+  return (
+    <Card title={t('vault.title')} description={t('vault.hint')}>
+      {body}
     </Card>
   );
 }

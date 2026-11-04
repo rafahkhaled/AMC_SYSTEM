@@ -323,6 +323,12 @@ describe('clients, their conversations and their logins', () => {
       await manager.patch(path).send({ taxLoginMethod: 'fax' }).expect(400);
     });
 
+    it('takes NA for a number the client does not have', async () => {
+      await manager.patch(path).send({ landline: 'na' }).expect(200);
+      const detail = (await manager.get('/clients/c-mine').expect(200)).body;
+      expect(detail.landline).toBe('NA');
+    });
+
     it('changes only what was sent, and clears what was sent as null', async () => {
       await manager.patch(path).send({ mobile: null }).expect(200);
       const detail = (await manager.get('/clients/c-mine').expect(200)).body;

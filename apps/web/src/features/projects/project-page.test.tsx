@@ -361,14 +361,14 @@ describe('who is on the job, and deleting it', () => {
   it('says why a job with recorded time cannot be deleted', async () => {
     const user = userEvent.setup();
     deleteProject.mockRejectedValue(
-      new Error('Time has been recorded on this job, so it is kept; cancel it instead'),
+      new Error('This job has been billed, so it is kept; cancel it instead'),
     );
     show(detail(), vi.fn(), { canAssign: true });
 
     await user.click(await screen.findByRole('button', { name: 'Delete this job' }));
     await user.click(screen.getByRole('button', { name: 'Yes, delete it for good' }));
 
-    expect(await screen.findByText(/Time has been recorded on this job/)).toBeInTheDocument();
+    expect(await screen.findByText(/This job has been billed/)).toBeInTheDocument();
   });
 
   it('shows neither to somebody who may not assign', async () => {

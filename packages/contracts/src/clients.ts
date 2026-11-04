@@ -339,6 +339,9 @@ export const generateLetterSchema = z.object({
   authority: z.string().trim().max(40).optional(),
 });
 
+/** A produced letter, reworded before it is printed. */
+export const rewordLetterSchema = z.object({ body: z.string().trim().min(1).max(20000) });
+
 /* ------------------------------------------------- lists an admin can edit */
 
 /**

@@ -94,6 +94,8 @@ export interface LetterRepository {
   forClient(clientId: string): Promise<GeneratedLetter[]>;
   /** Takes a letter off the client's list. The row stays, with who removed it and when. */
   remove(clientId: string, letterId: string, by: string): Promise<boolean>;
+  /** Changes what a produced letter says, before it is printed. */
+  reword(clientId: string, letterId: string, body: string): Promise<boolean>;
 }
 
 export interface ContactLogRepository {
