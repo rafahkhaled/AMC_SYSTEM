@@ -313,17 +313,58 @@ function DetailsForm({
                 </Select>
               )}
             />
-            <Field
-              label={t('clients.periodEnd')}
-              control={(
-                props: Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0],
-              ) => (
-                <Select {...props} value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)}>
-                  {monthOptions}
-                </Select>
-              )}
-            />
+            {frequency === 'monthly' ? (
+              <Field
+                label={t('clients.periodEnd')}
+                control={(
+                  props: Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0],
+                ) => (
+                  <Select
+                    {...props}
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                  >
+                    {monthOptions}
+                  </Select>
+                )}
+              />
+            ) : null}
           </div>
+        ) : null}
+        {/*
+         * Four returns a year, so four boxes, one per quarter-end month. They
+         * move together: the authority staggers a client's quarters as a set,
+         * so choosing any one of the four fixes the other three.
+         */}
+        {!vatRegistered &&
+        vatTrn.trim() !== '' &&
+        !remarkOf(vatTrn) &&
+        frequency === 'quarterly' ? (
+          <fieldset className="u-stack-tight">
+            <legend>{t('clients.quarterEnds')}</legend>
+            <div className="u-row u-wrap">
+              {quarterMonths(Number(periodEnd)).map((month, index) => (
+                <Field
+                  key={month}
+                  label={t('clients.quarterEnd', { n: index + 1 })}
+                  control={(
+                    props: Parameters<
+                      NonNullable<React.ComponentProps<typeof Field>['control']>
+                    >[0],
+                  ) => (
+                    <Select
+                      {...props}
+                      value={String(month)}
+                      onChange={(e) => setPeriodEnd(e.target.value)}
+                    >
+                      {monthOptions}
+                    </Select>
+                  )}
+                />
+              ))}
+            </div>
+            <p className="u-text-faint">{t('clients.quarterEndsHint')}</p>
+          </fieldset>
         ) : null}
         <Field
           label={t('clients.ctNumber')}
@@ -404,15 +445,29 @@ function DetailsForm({
   );
 }
 
-/** What NA or Rejection typed in a tax number box means. */
-function remarkOf(typed: string): 'na' | 'rejected' | null {
-  const value = typed.trim().toLowerCase();
+/**
+ * What was typed in a tax number box, when it is not a number.
+ *
+ * Digits (with the spaces and dashes a certificate prints) are a tax number
+ * and register the client; anything else is kept as written, so "De-Reg"
+ * stands there as the firm wrote it. NA and Rejection keep their old codes.
+ */
+export function remarkOf(typed: string): string | null {
+  const text = typed.trim();
+  if (text === '' || /^[\d\s-]+$/.test(text)) return null;
+  const value = text.toLowerCase();
   if (value === 'na' || value === 'n/a') return 'na';
   if (value.startsWith('reject') || value.startsWith('regect') || value === 'مرفوض')
     return 'rejected';
-  return null;
+  return text.slice(0, 60);
 }
 
-function remarkText(remark: string | null): string {
-  return remark === 'na' ? 'NA' : remark === 'rejected' ? 'Rejection' : '';
+/** How a kept note reads back. */
+export function remarkText(remark: string | null): string {
+  return remark === 'na' ? 'NA' : remark === 'rejected' ? 'Rejection' : (remark ?? '');
+}
+
+/** The four months a client's VAT quarters end in, from any one of them, in calendar order. */
+export function quarterMonths(any: number): number[] {
+  return [0, 3, 6, 9].map((step) => ((any - 1 + step) % 12) + 1).sort((a, b) => a - b);
 }

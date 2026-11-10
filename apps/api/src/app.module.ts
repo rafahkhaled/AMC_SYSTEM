@@ -117,6 +117,7 @@ import { BranchesModule } from './branches/branches.module.js';
 import { deadlineSource, holidaySource } from './calendar/adapters.js';
 import { CampaignsModule } from './campaigns/campaigns.module.js';
 import { ClassificationModule } from './classification/classification.module.js';
+import { ClientRemovalModule } from './clients/client-removal.js';
 import { projectSummaries } from './clients/project-summaries.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENVIRONMENT, type Environment, encryptionKey } from './config/env.js';
@@ -185,6 +186,7 @@ const rolePermissionCache = new RolePermissionCache();
     ListsModule,
     BranchesModule,
     CampaignsModule,
+    ClientRemovalModule,
     ProjectAssignmentsModule,
     ClassificationModule,
     StorageModule,

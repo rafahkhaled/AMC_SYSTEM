@@ -71,6 +71,8 @@ const ARABIC: Readonly<Record<string, string>> = {
     'أدخل وقتي الفتح والإغلاق معًا، أو اتركهما فارغين',
   'Give the email address you sign in with': 'أدخل البريد الإلكتروني الذي تسجّل الدخول به',
   'Give the folder a name': 'أدخل اسم المجلد',
+  'Keep what stands in place of a tax number short':
+    'النص بدل الرقم الضريبي يجب ألا يتجاوز 60 حرفًا',
   'Move or remove what is inside this folder first': 'انقل محتويات المجلد أو احذفها أولًا',
   'Name the letter in both English and Arabic': 'أدخل اسم الخطاب بالعربية والإنجليزية',
   'Name the service in both English and Arabic': 'أدخل اسم الخدمة بالعربية والإنجليزية',
@@ -130,6 +132,8 @@ const ARABIC: Readonly<Record<string, string>> = {
   'This enquiry has already become a client': 'تم تحويل هذا الاستفسار إلى عميل',
   'This job has been billed, so it is kept; cancel it instead':
     'تمت فوترة هذا العمل فلا يُحذف. يمكن إلغاؤه بدلًا من ذلك',
+  'This client has statements or invoices, so it is kept; mark it closed instead':
+    'صدر لهذا العميل كشف أو فاتورة فلا يُحذف. يمكن إغلاقه بدلًا من ذلك',
   'This link has expired or has already been used': 'انتهت صلاحية هذا الرابط أو استُخدم من قبل',
   'This session expired through inactivity. Sign in again.':
     'انتهت الجلسة بسبب عدم النشاط. سجّل الدخول من جديد.',

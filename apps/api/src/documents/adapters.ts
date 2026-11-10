@@ -60,6 +60,8 @@ export function documentFileStore(storage: FileStorage): DocumentFileStore {
       return storage.presignGet(storageKey, {
         expiresInSeconds: LINK_SECONDS,
         ...(downloadName ? { downloadName } : {}),
+        // Opened in the browser when it can be; the storage keeps the rest a download.
+        inline: true,
       });
     },
   };
@@ -106,6 +108,8 @@ export function contactFileStore(storage: FileStorage): ContactFileStore {
       return storage.presignGet(key, {
         expiresInSeconds: LINK_SECONDS,
         ...(downloadName ? { downloadName } : {}),
+        // Opened in the browser when it can be; the storage keeps the rest a download.
+        inline: true,
       });
     },
   };
@@ -142,6 +146,8 @@ export function clientFileStore(storage: FileStorage): ClientFileStore {
       return storage.presignGet(key, {
         expiresInSeconds: LINK_SECONDS,
         ...(downloadName ? { downloadName } : {}),
+        // Opened in the browser when it can be; the storage keeps the rest a download.
+        inline: true,
       });
     },
   };

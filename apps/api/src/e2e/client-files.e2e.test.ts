@@ -138,6 +138,21 @@ describe('a client’s folder of files', () => {
       expect(download.headers['content-type']).toContain('application/octet-stream');
     });
 
+    it('opens a PDF in the browser rather than downloading it, sandboxed', async () => {
+      const kept = await upload(manager, 'c-mine', [
+        ['Licence.pdf', Buffer.from('%PDF-1.4 the licence')],
+      ]).expect(201);
+      const id = kept.body.files.find((f: { name: string }) => f.name === 'Licence.pdf').id;
+      const link = await manager.get(`/client-files/${id}/link`).expect(200);
+      const opened = await t
+        .anonymous()
+        .get(link.body.url.replace(/^\/api/, ''))
+        .expect(200);
+
+      expect(opened.headers['content-disposition']).toContain('inline; filename="Licence.pdf"');
+      expect(opened.headers['content-security-policy']).toBe('sandbox');
+    });
+
     it('refuses a link whose signature has been tampered with', async () => {
       const kept = await upload(manager, 'c-mine', [['signed.txt', Buffer.from('s')]]).expect(201);
       const id = kept.body.files.find((f: { name: string }) => f.name === 'signed.txt').id;

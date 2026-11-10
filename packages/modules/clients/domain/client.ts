@@ -54,7 +54,7 @@ export interface ClientState {
   /** "HH:MM", both or neither. */
   readonly opensAt: string | null;
   readonly closesAt: string | null;
-  /** What the tax number box says when there is no number: 'na' or 'rejected'. */
+  /** What the tax number box says when there is no number: 'na', 'rejected', or the firm's words. */
   readonly vatRemark: string | null;
   readonly ctRemark: string | null;
   /** How the firm signs in to the client's tax file: 'email' or 'uae_pass'. */
@@ -224,10 +224,11 @@ export class Client extends AggregateRoot<ClientId> {
     for (const key of ['vatRemark', 'ctRemark'] as const) {
       const given = change[key];
       if (given === undefined) continue;
-      if (given !== null && given !== 'na' && given !== 'rejected') {
-        return err(new Conflict('A tax number is a number, NA, or Rejection'));
+      const note = given === null ? null : given.trim();
+      if (note !== null && (note.length === 0 || note.length > 60)) {
+        return err(new Conflict('Keep what stands in place of a tax number short'));
       }
-      set(key, given);
+      set(key, note);
     }
     if (change.taxLoginMethod !== undefined) {
       const method = change.taxLoginMethod;

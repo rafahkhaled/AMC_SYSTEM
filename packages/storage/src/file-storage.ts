@@ -25,7 +25,21 @@ export interface PresignOptions {
   readonly expiresInSeconds: number;
   /** Makes the browser save it under this name rather than the key. */
   readonly downloadName?: string | undefined;
+  /**
+   * Opened in the browser rather than saved. Honoured only for a PDF or a
+   * picture; anything else is still a download.
+   */
+  readonly inline?: boolean | undefined;
 }
+
+/** What a browser may show in a tab of its own: PDFs and pictures, nothing that runs. */
+export const VIEWABLE_TYPES: ReadonlySet<string> = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
 
 /**
  * Where documents live. One interface, so the same code runs against a folder

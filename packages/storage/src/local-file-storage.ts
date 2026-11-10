@@ -101,6 +101,7 @@ export class LocalFileStorage implements FileStorage {
     const signature = this.sign(key, expiresAt);
     const query = new URLSearchParams({ expires: String(expiresAt), signature });
     if (options.downloadName) query.set('name', options.downloadName);
+    if (options.inline) query.set('inline', '1');
     return `/api/files/${key}?${query.toString()}`;
   }
 

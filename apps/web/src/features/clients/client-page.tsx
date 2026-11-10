@@ -1,8 +1,8 @@
 import type { ClientDetail, DocumentSummary, ProjectSummary } from '@amc/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Card, Empty, Loading } from '../../design/index.js';
+import { Alert, Badge, Button, Card, Empty, Loading } from '../../design/index.js';
 import { ClassificationPanel } from '../classification/classification-panel.js';
 import { ClientFilesPanel } from '../client-files/client-files-panel.js';
 import { ContactLogPanel } from '../contact-log/contact-log-panel.js';
@@ -13,8 +13,8 @@ import { LettersPanel } from '../letters/letters-panel.js';
 import { useOptions } from '../lists/use-options.js';
 import { StartTimerButton } from '../timer/timer-page.js';
 import { VaultPanel } from '../vault/vault-panel.js';
-import { getClient } from './api.js';
-import { ClientDetailsCard } from './client-details.js';
+import { getClient, removeClient } from './api.js';
+import { ClientDetailsCard, remarkText } from './client-details.js';
 
 const MONTHS_AR = [
   'يناير',
@@ -51,10 +51,13 @@ export function ClientPage({
   onBack,
   onOpenProject,
   canEdit = false,
+  canDelete = false,
 }: {
   id: string;
   /** Whether this person may change the client's details. */
   canEdit?: boolean;
+  /** Whether this person may delete the client: the manager's, as it cannot be undone. */
+  canDelete?: boolean;
   onBack: () => void;
   /** Go to one of this client's jobs, finished ones included. */
   onOpenProject?: (projectId: string) => void;
@@ -63,6 +66,13 @@ export function ClientPage({
   const queries = useQueryClient();
   const client = useQuery({ queryKey: ['clients', id], queryFn: () => getClient(id) });
   const [showWork, setShowWork] = useState(false);
+  const removal = useMutation({
+    mutationFn: () => removeClient(id),
+    onSuccess: () => {
+      void queries.invalidateQueries({ queryKey: ['clients'] });
+      onBack();
+    },
+  });
 
   if (client.isLoading) return <Loading label={t('loading')} />;
   if (client.isError) return <p className="alert alert--error">{t('clients.failed')}</p>;
@@ -88,14 +98,7 @@ export function ClientPage({
         <dl className="facts">
           <Fact
             label={t('clients.vatNumber')}
-            value={
-              detail.vatTrn ??
-              (detail.vatRemark === 'na'
-                ? 'NA'
-                : detail.vatRemark === 'rejected'
-                  ? 'Rejection'
-                  : null)
-            }
+            value={detail.vatTrn ?? (remarkText(detail.vatRemark) || null)}
             mono
           />
           <Fact
@@ -119,14 +122,7 @@ export function ClientPage({
           />
           <Fact
             label={t('clients.ctNumber')}
-            value={
-              detail.ctTrn ??
-              (detail.ctRemark === 'na'
-                ? 'NA'
-                : detail.ctRemark === 'rejected'
-                  ? 'Rejection'
-                  : null)
-            }
+            value={detail.ctTrn ?? (remarkText(detail.ctRemark) || null)}
             mono
           />
           <Fact
@@ -236,6 +232,25 @@ export function ClientPage({
           </div>
         )}
       </Card>
+
+      {canDelete ? (
+        <Card title={t('clients.deleteTitle')} description={t('clients.deleteHint')}>
+          {removal.isError ? <Alert tone="error">{(removal.error as Error).message}</Alert> : null}
+          <div className="u-row">
+            <Button
+              tone="danger"
+              busy={removal.isPending}
+              onClick={() => {
+                if (window.confirm(t('clients.deleteConfirm', { name: detail.legalName }))) {
+                  removal.mutate();
+                }
+              }}
+            >
+              {t('clients.delete')}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -244,7 +259,11 @@ function Fact({ label, value, mono }: { label: string; value: string | null; mon
   return (
     <div className="fact">
       <dt className="u-text-faint">{label}</dt>
-      <dd className={mono ? 'u-ltr u-mono' : undefined}>{value ?? '—'}</dd>
+      {/* Isolated, not turned left-to-right: a number then sits under its
+          label like every other value instead of at the far side. */}
+      <dd className={mono ? 'u-mono' : undefined}>
+        {value ? mono ? <bdi dir="ltr">{value}</bdi> : value : '—'}
+      </dd>
     </div>
   );
 }

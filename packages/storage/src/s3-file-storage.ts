@@ -117,9 +117,9 @@ export class S3FileStorage implements FileStorage {
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
-        ...(options.downloadName
+        ...(options.downloadName || options.inline
           ? {
-              ResponseContentDisposition: `attachment; filename="${options.downloadName.replace(/"/g, '')}"`,
+              ResponseContentDisposition: `${options.inline ? 'inline' : 'attachment'}; filename="${(options.downloadName ?? 'document').replace(/"/g, '')}"`,
             }
           : {}),
       }),

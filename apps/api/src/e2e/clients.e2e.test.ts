@@ -319,7 +319,13 @@ describe('clients, their conversations and their logins', () => {
         ctRemark: 'rejected',
         taxLoginMethod: 'uae_pass',
       });
-      await manager.patch(path).send({ vatRemark: 'maybe' }).expect(400);
+      // The firm's own words are kept as written.
+      await manager.patch(path).send({ ctRemark: 'De-Reg' }).expect(200);
+      expect((await manager.get('/clients/c-mine').expect(200)).body.ctRemark).toBe('De-Reg');
+      await manager
+        .patch(path)
+        .send({ vatRemark: 'x'.repeat(61) })
+        .expect(400);
       await manager.patch(path).send({ taxLoginMethod: 'fax' }).expect(400);
     });
 

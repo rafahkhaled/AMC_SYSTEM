@@ -101,9 +101,12 @@ export const clientDetailSchema = clientSummarySchema.extend({
   /** "HH:MM": the hours the client keeps. Both or neither. */
   opensAt: z.string().nullable(),
   closesAt: z.string().nullable(),
-  /** 'na' (not registered) or 'rejected', shown where there is no number. */
-  vatRemark: z.enum(['na', 'rejected']).nullable(),
-  ctRemark: z.enum(['na', 'rejected']).nullable(),
+  /**
+   * What stands where there is no number: 'na', 'rejected', or the firm's own
+   * words ("De-Reg").
+   */
+  vatRemark: z.string().nullable(),
+  ctRemark: z.string().nullable(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable(),
   references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
@@ -463,8 +466,8 @@ export const changeClientDetailsSchema = z.object({
   address: z.string().trim().max(400).nullable().optional(),
   opensAt: z.string().trim().nullable().optional(),
   closesAt: z.string().trim().nullable().optional(),
-  vatRemark: z.enum(['na', 'rejected']).nullable().optional(),
-  ctRemark: z.enum(['na', 'rejected']).nullable().optional(),
+  vatRemark: z.string().trim().min(1).max(60).nullable().optional(),
+  ctRemark: z.string().trim().min(1).max(60).nullable().optional(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable().optional(),
   vat: z
     .object({

@@ -6,7 +6,7 @@ import {
   clientDetailSchema,
   clientListSchema,
 } from '@amc/contracts';
-import { patch, request, send } from '../auth/api.js';
+import { del, patch, request, send } from '../auth/api.js';
 
 export async function listClients(): Promise<ClientSummary[]> {
   return clientListSchema.parse(await request('/clients')).clients;
@@ -27,4 +27,9 @@ export async function changeClientDetails(
 /** Adding a client directly, without an enquiry first. */
 export async function onboardClient(body: OnboardClient): Promise<ClientDetail> {
   return clientDetailSchema.parse(await send('/clients', body));
+}
+
+/** Deletes a client and everything filed under them. Refused once they have been billed. */
+export async function removeClient(id: string): Promise<void> {
+  await del(`/clients/${encodeURIComponent(id)}`);
 }

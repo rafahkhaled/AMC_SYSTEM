@@ -214,6 +214,11 @@ export const translations = {
       mobile: 'رقم الموبايل',
       landline: 'رقم الهاتف الأرضي',
       landlineHint: 'اكتب NA إذا لم يكن له رقم أرضي',
+      deleteTitle: 'حذف العميل',
+      deleteHint:
+        'يُحذف العميل مع كل ما يخصّه: الأعمال والوقت المسجّل عليها وعروض الأسعار والمستندات والملفات وبيانات الدخول والخطابات والمحادثات. العميل الذي صدر له كشف أو فاتورة لا يُحذف، ويمكن إغلاقه بدلًا من ذلك.',
+      delete: 'حذف العميل نهائيًا',
+      deleteConfirm: 'حذف {{name}} وكل ما يخصّه نهائيًا؟ لا يمكن التراجع عن ذلك.',
       dayOff: 'يوم العطلة الأسبوعية',
       noDayOff: 'غير محدد',
       showWork_zero: 'عرض الأعمال',
@@ -230,7 +235,7 @@ export const translations = {
       booksPassword: 'كلمة مرور البرنامج المحاسبي (QuickBooks)',
       passwordKept:
         'تُحفظ مشفّرة في بيانات الدخول، ولا تظهر إلا مع ذكر السبب. اتركها فارغة إن لم تتغيّر.',
-      trnHint: 'الرقم، أو NA إن لم يكن مسجّلًا، أو Rejection إن رُفض التسجيل.',
+      trnHint: 'الرقم المكوّن من 15 خانة، أو أي نص مثل NA أو Rejection أو De-Reg.',
       address: 'العنوان',
       hours: 'ساعات العمل اليومية',
       opensAt: 'يفتح',
@@ -255,6 +260,10 @@ export const translations = {
       monthly: 'شهري',
       quarterly: 'ربع سنوي',
       periodEnd: 'شهر انتهاء الفترة',
+      quarterEnds: 'أشهر انتهاء الإقرارات الأربعة',
+      quarterEnd: 'الإقرار {{n}}',
+      quarterEndsHint:
+        'اختيار أي شهر يضبط الأشهر الثلاثة الأخرى. يُقدَّم كل إقرار قبل يوم 28 من الشهر التالي.',
       ctRegister: 'التسجيل في ضريبة الشركات',
       saveDetails: 'حفظ',
       cancel: 'إلغاء',
@@ -1519,6 +1528,11 @@ export const translations = {
       mobile: 'Mobile',
       landline: 'Landline',
       landlineHint: 'Write NA if there is no landline',
+      deleteTitle: 'Delete this client',
+      deleteHint:
+        'The client goes with everything filed under them: jobs and their time, quotations, documents, files, logins, letters and conversations. A client who has had a statement or an invoice is kept; close it instead.',
+      delete: 'Delete this client for good',
+      deleteConfirm: 'Delete {{name}} and everything filed under them? This cannot be undone.',
       dayOff: 'Weekly day off',
       noDayOff: 'Not set',
       showWork_zero: 'Show the jobs',
@@ -1532,7 +1546,7 @@ export const translations = {
       booksPassword: 'Accounting software (QuickBooks) password',
       passwordKept:
         'Kept encrypted under Portal logins and shown only with a reason. Leave empty if unchanged.',
-      trnHint: 'The number, or NA if not registered, or Rejection if registration was refused.',
+      trnHint: 'The 15-digit number, or any text such as NA, Rejection or De-Reg.',
       address: 'Address',
       hours: 'Daily working hours',
       opensAt: 'Opens',
@@ -1557,6 +1571,10 @@ export const translations = {
       monthly: 'Monthly',
       quarterly: 'Quarterly',
       periodEnd: 'A period ends in',
+      quarterEnds: 'The four return months',
+      quarterEnd: 'Return {{n}}',
+      quarterEndsHint:
+        'Choosing any one sets the other three. Each return is due by the 28th of the following month.',
       ctRegister: 'Register for corporation tax',
       saveDetails: 'Save',
       cancel: 'Cancel',

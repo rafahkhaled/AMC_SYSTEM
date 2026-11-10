@@ -152,3 +152,24 @@ describe('a client’s contact details', () => {
     });
   });
 });
+
+describe('the four VAT return months', () => {
+  it('are the same four whichever of them was chosen, in calendar order', async () => {
+    const { quarterMonths } = await import('./client-details.js');
+    expect(quarterMonths(11)).toEqual([2, 5, 8, 11]);
+    expect(quarterMonths(2)).toEqual([2, 5, 8, 11]);
+    expect(quarterMonths(3)).toEqual([3, 6, 9, 12]);
+  });
+});
+
+describe('what a tax number box holds', () => {
+  it('is a number when it is digits, and the firm’s words otherwise', async () => {
+    const { remarkOf, remarkText } = await import('./client-details.js');
+    expect(remarkOf('100 123-456 700003')).toBeNull();
+    expect(remarkOf('n/a')).toBe('na');
+    expect(remarkOf('Rejection')).toBe('rejected');
+    expect(remarkOf('De-Reg')).toBe('De-Reg');
+    expect(remarkText('De-Reg')).toBe('De-Reg');
+    expect(remarkText('na')).toBe('NA');
+  });
+});

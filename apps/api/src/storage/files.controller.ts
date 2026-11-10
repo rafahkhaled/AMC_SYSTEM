@@ -1,5 +1,5 @@
 import { Public } from '@amc/http-kit';
-import { type FileStorage, LocalFileStorage } from '@amc/storage';
+import { type FileStorage, LocalFileStorage, VIEWABLE_TYPES } from '@amc/storage';
 import {
   Controller,
   Get,
@@ -38,6 +38,7 @@ export class FilesController {
     @Query('expires') expires: string,
     @Query('signature') signature: string,
     @Query('name') name?: string,
+    @Query('inline') inline?: string,
   ): Promise<StreamableFile> {
     if (!(this.storage instanceof LocalFileStorage)) {
       // Against S3 nothing should ever arrive here, and answering would be a
@@ -60,12 +61,17 @@ export class FilesController {
     const { body } = await this.storage.get(key);
     response.setHeader('Content-Type', found.contentType);
     response.setHeader('Content-Length', String(found.size));
-    // Attachment, always. A PDF rendered inline runs in this origin, and an
-    // uploaded file is the last thing that should.
+    /*
+     * Opened in the tab when asked for and it is a PDF or a picture: the firm
+     * wanted to look at a document, not find it in Downloads. Sandboxed, so
+     * even then it runs as nobody in this origin. Anything else is a download.
+     */
+    const show = inline === '1' && VIEWABLE_TYPES.has(found.contentType);
     response.setHeader(
       'Content-Disposition',
-      `attachment; filename="${(name ?? 'document').replace(/["\\\\]/g, '')}"`,
+      `${show ? 'inline' : 'attachment'}; filename="${(name ?? 'document').replace(/["\\\\]/g, '')}"`,
     );
+    if (show) response.setHeader('Content-Security-Policy', 'sandbox');
     response.setHeader('Cache-Control', 'private, no-store');
     // The stored type is the one we chose, and the browser is not to second-guess it.
     response.setHeader('X-Content-Type-Options', 'nosniff');
