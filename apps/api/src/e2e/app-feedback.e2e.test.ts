@@ -48,6 +48,35 @@ describe('the App feedback', () => {
       expect(row).toBeDefined();
     });
 
+    it('numbers clients in the order they were added', async () => {
+      const first = await manager
+        .post('/clients')
+        .send({ legalName: 'Numbered One LLC' })
+        .expect(201);
+      const second = await manager
+        .post('/clients')
+        .send({ legalName: 'Numbered Two LLC' })
+        .expect(201);
+      expect(second.body.number).toBe(first.body.number + 1);
+      const list = await manager.get('/clients').expect(200);
+      const numbers = list.body.clients.map((c: { number: number }) => c.number);
+      expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
+    });
+
+    it('will not add the same company twice, however its name is written', async () => {
+      // "FORMA7 CONCEPTS L.L.C" is the client added above as "Forma7 Concepts LLC".
+      const refused = await manager
+        .post('/clients')
+        .send({ legalName: 'FORMA7 CONCEPTS L.L.C' })
+        .expect(409);
+      expect(refused.body.error.message).toBe('This client is already on the system');
+      // Or under another name with the same licence.
+      await manager
+        .post('/clients')
+        .send({ legalName: 'Another Name', tradeLicenceNumber: 'cn-77' })
+        .expect(409);
+    });
+
     it('refuses a client with no name, and somebody who may not edit clients', async () => {
       await manager.post('/clients').send({ legalName: '  ' }).expect(400);
       await accountant.post('/clients').send({ legalName: 'Mine LLC' }).expect(403);

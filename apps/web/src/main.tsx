@@ -5,6 +5,7 @@ import { App } from './app/app.js';
 import { applyTheme, storedTheme } from './design/theme.js';
 import { SessionProvider } from './features/auth/session.js';
 import { setUpI18n } from './i18n/index.js';
+import { installDraftKeeper } from './lib/draft-keeper.js';
 import './styles.css';
 
 const queryClient = new QueryClient({
@@ -29,6 +30,8 @@ async function start(): Promise<void> {
    */
   applyTheme(storedTheme());
   await setUpI18n();
+  // Every form, every screen: what was typed survives a failed save.
+  installDraftKeeper();
 
   const container = document.getElementById('root');
   if (!container) throw new Error('The root element is missing from index.html');

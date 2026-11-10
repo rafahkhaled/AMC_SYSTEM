@@ -18,7 +18,9 @@ import type {
 
 export interface ClientSummary {
   readonly id: string;
+  readonly number: number | null;
   readonly legalName: string;
+  readonly legalNameArabic: string | null;
   readonly status: string;
   readonly vatState: string;
   readonly vatTrn: string | null;
@@ -41,6 +43,11 @@ export interface ClientRepository {
    * only whether one exists, never which.
    */
   isVatTrnTaken(trn: Trn, exceptClientId?: string): Promise<boolean>;
+  isCtTrnTaken(trn: Trn, exceptClientId?: string): Promise<boolean>;
+  findSame(
+    legalName: string,
+    licence: string | null,
+  ): Promise<{ id: string; number: number | null; legalName: string } | null>;
   referencesOf(clientId: ClientId): Promise<{ label: string; value: string }[]>;
   replaceReferences(
     clientId: ClientId,

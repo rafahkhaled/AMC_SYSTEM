@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { matches, plain } from '../../lib/search.js';
 import { LeadsBoard } from '../leads/leads-board.js';
 import { listClients } from './api.js';
 import { NewClient } from './new-client.js';
@@ -73,17 +74,18 @@ function ClientList({ onOpen }: { onOpen: (id: string) => void }) {
   const clients = useQuery({ queryKey: ['clients'], queryFn: listClients });
 
   const shown = useMemo(() => {
-    const needle = search.trim().toLowerCase();
+    const needle = search;
     return (clients.data ?? []).filter((client) => {
-      // Matched against both names and the tax number, because people search
-      // for whichever of the three is in front of them.
-      const matches =
-        needle === '' ||
-        client.legalName.toLowerCase().includes(needle) ||
-        (client.legalNameArabic ?? '').toLowerCase().includes(needle) ||
-        (client.vatTrn ?? '').includes(needle);
+      // Matched against both names, the tax number and the client's number,
+      // because people search for whichever is in front of them, and often
+      // paste it rather than type it.
+      const found =
+        matches(client.legalName, needle) ||
+        matches(client.legalNameArabic, needle) ||
+        matches(client.vatTrn, needle) ||
+        plain(String(client.number ?? '')) === plain(needle);
 
-      if (!matches) return false;
+      if (!found) return false;
       if (filter === 'documents') return client.documentsExpiring > 0;
       if (filter === 'work') return client.openProjects > 0;
       return true;
@@ -157,6 +159,11 @@ function ClientRow({
     <tr>
       <td>
         <button type="button" className="link-button" onClick={() => onOpen(client.id)}>
+          {client.number !== null ? (
+            <span className="u-text-faint">
+              <bdi>#{client.number}</bdi>{' '}
+            </span>
+          ) : null}
           {client.legalNameArabic ?? client.legalName}
         </button>
         {client.legalNameArabic ? (

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { useDraft } from '../../lib/use-draft.js';
 import { attachmentLink, contactLog, recordContact } from './api.js';
 
 const CHANNELS = ['call', 'whatsapp', 'email', 'meeting', 'portal', 'other'] as const;
@@ -147,6 +148,19 @@ function RecordContact({
   const happenedAt = toLocalStamp(day, time);
   const [summary, setSummary] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  // What was typed, kept until it is recorded; the screenshots cannot be kept.
+  const draft = useDraft(
+    `contact-log.${clientId}`,
+    { channel, direction, day, time, summary },
+    (saved) => {
+      if (saved.channel !== undefined) setChannel(saved.channel);
+      if (saved.direction !== undefined) setDirection(saved.direction);
+      if (saved.day !== undefined) setDay(saved.day);
+      if (saved.time !== undefined) setTime(saved.time);
+      if (saved.summary !== undefined) setSummary(saved.summary);
+      setOpen(true);
+    },
+  );
 
   const record = useMutation({
     mutationFn: () =>
@@ -157,6 +171,7 @@ function RecordContact({
       ),
     onSuccess: (entries) => {
       onRecorded(entries);
+      draft.discard();
       setOpen(false);
       setDay(today());
       setTime(nowClock());

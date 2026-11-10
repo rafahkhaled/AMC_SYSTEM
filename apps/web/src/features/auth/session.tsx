@@ -1,5 +1,6 @@
 import type { Caller } from '@amc/contracts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { forgetAllDrafts } from '../../lib/draft-keeper.js';
 import { currentCaller, signOut as signOutRequest } from './api.js';
 
 type SessionState =
@@ -39,6 +40,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await signOutRequest();
+    // Nothing one person typed stays in this browser for the next.
+    forgetAllDrafts();
     setState({ status: 'signed-out' });
   }, []);
 

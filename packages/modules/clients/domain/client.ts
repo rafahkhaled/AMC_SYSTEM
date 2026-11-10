@@ -43,6 +43,8 @@ export interface ClientState {
   readonly id: ClientId;
   readonly legalName: string;
   readonly legalNameArabic: string | null;
+  /** In the order clients were added, given by the database; null until first saved. */
+  readonly number: number | null;
   readonly tradeLicenceNumber: string | null;
   readonly contactPerson: string | null;
   readonly contactEmail: string | null;
@@ -59,6 +61,9 @@ export interface ClientState {
   readonly ctRemark: string | null;
   /** How the firm signs in to the client's tax file: 'email' or 'uae_pass'. */
   readonly taxLoginMethod: string | null;
+  /** The corporation tax return: when it is due, and when the firm filed it (YYYY-MM-DD). */
+  readonly ctReturnDueOn: string | null;
+  readonly ctReturnFiledOn: string | null;
   readonly status: ClientStatus;
   readonly vat: TaxRegistration;
   readonly corporateTax: TaxRegistration;
@@ -89,6 +94,8 @@ export interface ClientDetailsChange {
   readonly vatRemark?: string | null;
   readonly ctRemark?: string | null;
   readonly taxLoginMethod?: string | null;
+  readonly ctReturnDueOn?: string | null;
+  readonly ctReturnFiledOn?: string | null;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -120,6 +127,7 @@ export class Client extends AggregateRoot<ClientId> {
       id: params.id,
       legalName,
       legalNameArabic: params.legalNameArabic?.trim() || null,
+      number: null,
       tradeLicenceNumber: params.tradeLicenceNumber?.trim() || null,
       contactPerson: null,
       contactEmail: null,
@@ -132,6 +140,8 @@ export class Client extends AggregateRoot<ClientId> {
       vatRemark: null,
       ctRemark: null,
       taxLoginMethod: null,
+      ctReturnDueOn: null,
+      ctReturnFiledOn: null,
       status: 'active',
       vat: NOT_REGISTERED,
       corporateTax: NOT_REGISTERED,
@@ -236,6 +246,14 @@ export class Client extends AggregateRoot<ClientId> {
         return err(new Conflict('Sign in to the tax file by email or by UAE PASS'));
       }
       set('taxLoginMethod', method);
+    }
+    for (const key of ['ctReturnDueOn', 'ctReturnFiledOn'] as const) {
+      const day = change[key];
+      if (day === undefined) continue;
+      if (day !== null && !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+        return err(new Conflict('Use a date in the form 2026-03-31'));
+      }
+      set(key, day);
     }
 
     if (changed.length === 0) return ok(true);

@@ -56,6 +56,7 @@ describe('adding a client directly', () => {
     await user.type(screen.getByLabelText('Legal name (in English, as on the licence)'), 'X');
     await user.click(screen.getByRole('button', { name: 'Add the client' }));
 
-    expect(await screen.findByText('A client needs a legal name')).toBeInTheDocument();
+    // Under the name box, and at the foot of the form.
+    expect(await screen.findAllByText('A client needs a legal name')).toHaveLength(2);
   });
 });

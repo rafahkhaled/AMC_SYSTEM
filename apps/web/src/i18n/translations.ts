@@ -214,6 +214,8 @@ export const translations = {
       mobile: 'رقم الموبايل',
       landline: 'رقم الهاتف الأرضي',
       landlineHint: 'اكتب NA إذا لم يكن له رقم أرضي',
+      ctDueOn: 'موعد تقديم إقرار ضريبة الشركات',
+      ctFiledOn: 'تاريخ تقديم الإقرار',
       deleteTitle: 'حذف العميل',
       deleteHint:
         'يُحذف العميل مع كل ما يخصّه: الأعمال والوقت المسجّل عليها وعروض الأسعار والمستندات والملفات وبيانات الدخول والخطابات والمحادثات. العميل الذي صدر له كشف أو فاتورة لا يُحذف، ويمكن إغلاقه بدلًا من ذلك.',
@@ -1317,6 +1319,9 @@ export const translations = {
     language: 'English',
     listSeparator: '، ',
     loading: 'جارٍ التحميل…',
+    draft: {
+      restored: 'أُعيد ما كتبته ولم يُحفظ. راجعه ثم احفظ.',
+    },
     back: 'رجوع',
   },
   en: {
@@ -1528,6 +1533,8 @@ export const translations = {
       mobile: 'Mobile',
       landline: 'Landline',
       landlineHint: 'Write NA if there is no landline',
+      ctDueOn: 'Corporate tax return due',
+      ctFiledOn: 'Return filed on',
       deleteTitle: 'Delete this client',
       deleteHint:
         'The client goes with everything filed under them: jobs and their time, quotations, documents, files, logins, letters and conversations. A client who has had a statement or an invoice is kept; close it instead.',
@@ -2594,6 +2601,9 @@ export const translations = {
     language: 'العربية',
     listSeparator: ', ',
     loading: 'Loading…',
+    draft: {
+      restored: 'What you typed and did not save is back. Check it, then save.',
+    },
     back: 'Back',
   },
 } as const;

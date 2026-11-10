@@ -45,8 +45,10 @@ export class ReadClients {
         const documents = await this.documents.currentFor(summary.id, scope);
         return {
           id: summary.id,
+          number: summary.number,
           legalName: summary.legalName,
-          legalNameArabic: null,
+          // Sent, so the list can show it and be searched by it.
+          legalNameArabic: summary.legalNameArabic,
           status: summary.status as ClientSummary['status'],
           vatState: summary.vatState as ClientSummary['vatState'],
           vatTrn: summary.vatTrn,
@@ -108,6 +110,7 @@ export class ReadClients {
 
     return {
       id: client.id,
+      number: state.number,
       legalName: state.legalName,
       legalNameArabic: state.legalNameArabic,
       status: state.status,
@@ -127,6 +130,8 @@ export class ReadClients {
       vatRemark: state.vatRemark,
       ctRemark: state.ctRemark,
       taxLoginMethod: state.taxLoginMethod as 'email' | 'uae_pass' | null,
+      ctReturnDueOn: state.ctReturnDueOn,
+      ctReturnFiledOn: state.ctReturnFiledOn,
       references: await this.clients.referencesOf(clientId),
       // Staggered per client, so the screen shows which months rather than
       // implying everyone files on calendar quarters.

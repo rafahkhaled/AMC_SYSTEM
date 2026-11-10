@@ -7,6 +7,8 @@ export const registrationStateSchema = z.enum(['not_registered', 'registered', '
 
 export const clientSummarySchema = z.object({
   id: z.string(),
+  /** In the order clients were added, shown beside the name. */
+  number: z.number().int().nullable(),
   legalName: z.string(),
   legalNameArabic: z.string().nullable(),
   status: clientStatusSchema,
@@ -108,6 +110,9 @@ export const clientDetailSchema = clientSummarySchema.extend({
   vatRemark: z.string().nullable(),
   ctRemark: z.string().nullable(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable(),
+  /** The corporation tax return: when it is due, and when the firm filed it. */
+  ctReturnDueOn: z.string().nullable(),
+  ctReturnFiledOn: z.string().nullable(),
   references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
   /** Which months this client's VAT periods end in. Staggered per client. */
@@ -469,6 +474,8 @@ export const changeClientDetailsSchema = z.object({
   vatRemark: z.string().trim().min(1).max(60).nullable().optional(),
   ctRemark: z.string().trim().min(1).max(60).nullable().optional(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable().optional(),
+  ctReturnDueOn: calendarDay.nullable().optional(),
+  ctReturnFiledOn: calendarDay.nullable().optional(),
   vat: z
     .object({
       trn: z.string().trim().min(1),

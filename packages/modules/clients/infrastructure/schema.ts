@@ -22,6 +22,8 @@ export const clients = pgTable(
     id: text('id').primaryKey(),
     legalName: text('legal_name').notNull(),
     legalNameArabic: text('legal_name_arabic'),
+    /** In the order clients were added; the database gives it (0059). Never written from here. */
+    number: integer('number'),
     tradeLicenceNumber: text('trade_licence_number'),
     contactPerson: text('contact_person'),
     contactEmail: citext('contact_email'),
@@ -34,6 +36,8 @@ export const clients = pgTable(
     vatRemark: text('vat_remark'),
     ctRemark: text('ct_remark'),
     taxLoginMethod: text('tax_login_method'),
+    ctReturnDueOn: date('ct_return_due_on'),
+    ctReturnFiledOn: date('ct_return_filed_on'),
     status: text('status').notNull().default('active'),
 
     vatState: text('vat_state').notNull().default('not_registered'),

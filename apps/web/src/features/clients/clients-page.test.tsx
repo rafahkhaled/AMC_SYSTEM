@@ -20,6 +20,7 @@ function client(over: Partial<ClientSummary> = {}): ClientSummary {
   return {
     id: 'c-1',
     legalName: 'Gulf Trading LLC',
+    number: 7,
     legalNameArabic: null,
     status: 'active',
     vatState: 'registered',
@@ -73,7 +74,7 @@ describe('the client list', () => {
     const user = userEvent.setup();
     const onOpen = show(THREE);
 
-    await user.click(await screen.findByRole('button', { name: 'Marina Contracting LLC' }));
+    await user.click(await screen.findByRole('button', { name: /Marina Contracting LLC/ }));
 
     expect(onOpen).toHaveBeenCalledWith('c-2');
   });

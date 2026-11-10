@@ -84,13 +84,20 @@ export function ClientPage({
   return (
     <div className="u-stack">
       <div className="u-row">
-        <Button tone="quiet" small onClick={onBack}>
+        <Button tone="quiet" className="back-button" onClick={onBack}>
           {t('clients.back')}
         </Button>
       </div>
 
       <div className="u-stack-tight">
-        <h1>{detail.legalNameArabic ?? detail.legalName}</h1>
+        <h1>
+          {detail.number !== null ? (
+            <span className="u-text-faint">
+              <bdi>#{detail.number}</bdi>{' '}
+            </span>
+          ) : null}
+          {detail.legalNameArabic ?? detail.legalName}
+        </h1>
         {detail.legalNameArabic ? <p className="u-text-soft u-ltr">{detail.legalName}</p> : null}
       </div>
 
@@ -133,6 +140,8 @@ export function ClientPage({
                 : null
             }
           />
+          <Fact label={t('clients.ctDueOn')} value={detail.ctReturnDueOn} mono />
+          <Fact label={t('clients.ctFiledOn')} value={detail.ctReturnFiledOn} mono />
           <Fact label={t('clients.licence')} value={detail.tradeLicenceNumber} mono />
           <Fact
             label={t('clients.rate')}

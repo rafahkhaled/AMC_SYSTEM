@@ -1,5 +1,5 @@
 import { type CurrencyCode, type EventCollector, Money, Rate } from '@amc/kernel';
-import { and, asc, eq, exists, ne, sql } from 'drizzle-orm';
+import { type SQL, and, asc, eq, exists, ne, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ClientRepository, ClientSummary } from '../application/ports.js';
 import {
@@ -56,18 +56,25 @@ export class DrizzleClientRepository implements ClientRepository {
   async list(scope: ClientScope, options: { limit?: number } = {}): Promise<ClientSummary[]> {
     if (scope.kind === 'none') return [];
 
-    return this.db
-      .select({
-        id: clients.id,
-        legalName: clients.legalName,
-        status: clients.status,
-        vatState: clients.vatState,
-        vatTrn: clients.vatTrn,
-      })
-      .from(clients)
-      .where(this.visibleTo(scope))
-      .orderBy(asc(clients.legalName))
-      .limit(options.limit ?? 100);
+    return (
+      this.db
+        .select({
+          id: clients.id,
+          number: clients.number,
+          legalName: clients.legalName,
+          legalNameArabic: clients.legalNameArabic,
+          status: clients.status,
+          vatState: clients.vatState,
+          vatTrn: clients.vatTrn,
+        })
+        .from(clients)
+        .where(this.visibleTo(scope))
+        // In the order they were added, which is the number beside each name.
+        .orderBy(asc(clients.number))
+        // The whole book: a cap of 100 hid every client after the hundredth, and
+        // somebody who cannot find a client adds it again.
+        .limit(options.limit ?? 10_000)
+    );
   }
 
   async referencesOf(clientId: ClientId): Promise<{ label: string; value: string }[]> {
@@ -103,6 +110,46 @@ export class DrizzleClientRepository implements ClientRepository {
    * doing it cannot see the client using it. Returning that client instead
    * would leak exactly what the scoping exists to protect.
    */
+  /** Asked first, so a duplicate is a sentence and not the database's refusal (it is unique there too). */
+  async isCtTrnTaken(trn: Trn, exceptClientId?: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(
+        exceptClientId
+          ? and(eq(clients.ctTrn, trn.value), ne(clients.id, exceptClientId))
+          : eq(clients.ctTrn, trn.value),
+      )
+      .limit(1);
+    return row !== undefined;
+  }
+
+  /**
+   * A client already on the books under this name or licence number, so a new
+   * one is not added twice. The name is compared without case, spaces,
+   * punctuation or the company form ("L.L.C", "FZE"), which is how the same
+   * company came to be entered twice. Unscoped, like the tax number check.
+   */
+  async findSame(
+    legalName: string,
+    licence: string | null,
+  ): Promise<{ id: string; number: number | null; legalName: string } | null> {
+    const plain = (value: SQL | string) =>
+      sql`regexp_replace(regexp_replace(lower(${value}), '[^[:alnum:]]', '', 'g'), '(llc|fze|fzllc|fzco|fzc|est)$', '')`;
+    const rows = await this.db.execute<{
+      id: string;
+      number: number | null;
+      legal_name: string;
+    }>(sql`
+      SELECT id, number, legal_name FROM clients
+       WHERE ${plain(sql`legal_name`)} = ${plain(legalName)}
+          ${licence ? sql`OR lower(trade_licence_number) = lower(${licence})` : sql``}
+       LIMIT 1
+    `);
+    const [row] = rows;
+    return row ? { id: row.id, number: row.number, legalName: row.legal_name } : null;
+  }
+
   async isVatTrnTaken(trn: Trn, exceptClientId?: string): Promise<boolean> {
     const [row] = await this.db
       .select({ id: clients.id })
@@ -159,6 +206,8 @@ export class DrizzleClientRepository implements ClientRepository {
       vatRemark: state.vatRemark,
       ctRemark: state.ctRemark,
       taxLoginMethod: state.taxLoginMethod,
+      ctReturnDueOn: state.ctReturnDueOn,
+      ctReturnFiledOn: state.ctReturnFiledOn,
       status: state.status,
       vatState: state.vat.state,
       vatTrn: state.vat.trn?.value ?? null,
@@ -224,6 +273,7 @@ export class DrizzleClientRepository implements ClientRepository {
       id: row.id,
       legalName: row.legalName,
       legalNameArabic: row.legalNameArabic,
+      number: row.number,
       tradeLicenceNumber: row.tradeLicenceNumber,
       contactPerson: row.contactPerson,
       contactEmail: row.contactEmail,
@@ -236,6 +286,8 @@ export class DrizzleClientRepository implements ClientRepository {
       vatRemark: row.vatRemark,
       ctRemark: row.ctRemark,
       taxLoginMethod: row.taxLoginMethod,
+      ctReturnDueOn: row.ctReturnDueOn,
+      ctReturnFiledOn: row.ctReturnFiledOn,
       status: row.status as ClientStatus,
       vat: registrationOf(row.vatState, row.vatTrn, row.vatRegisteredOn, row.vatDeregisteredOn),
       corporateTax: registrationOf(

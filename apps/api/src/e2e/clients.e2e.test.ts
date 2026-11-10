@@ -329,6 +329,30 @@ describe('clients, their conversations and their logins', () => {
       await manager.patch(path).send({ taxLoginMethod: 'fax' }).expect(400);
     });
 
+    it('says when another client has the corporation tax number, instead of failing', async () => {
+      await manager
+        .patch('/clients/c-theirs/details')
+        .send({ corporateTax: { trn: '104415377100001', financialYearEndMonth: 12 } })
+        .expect(200);
+      const refused = await manager
+        .patch(path)
+        .send({ corporateTax: { trn: '104415377100001', financialYearEndMonth: 12 } })
+        .expect(409);
+      expect(refused.body.error.message).toBe(
+        'Another client already has that corporation tax number',
+      );
+    });
+
+    it('keeps when the corporation tax return is due and when it was filed', async () => {
+      await manager
+        .patch(path)
+        .send({ ctReturnDueOn: '2026-09-30', ctReturnFiledOn: '2026-09-12' })
+        .expect(200);
+      const detail = (await manager.get('/clients/c-mine').expect(200)).body;
+      expect(detail).toMatchObject({ ctReturnDueOn: '2026-09-30', ctReturnFiledOn: '2026-09-12' });
+      await manager.patch(path).send({ ctReturnDueOn: 'soon' }).expect(400);
+    });
+
     it('takes NA for a number the client does not have', async () => {
       await manager.patch(path).send({ landline: 'na' }).expect(200);
       const detail = (await manager.get('/clients/c-mine').expect(200)).body;

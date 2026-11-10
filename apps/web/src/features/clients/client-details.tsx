@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
+import { inReadersLanguage } from '../../lib/server-messages.js';
+import { useDraft } from '../../lib/use-draft.js';
 import { storeCredential } from '../vault/api.js';
 import { changeClientDetails } from './api.js';
 
@@ -109,6 +111,55 @@ function DetailsForm({
   const [periodEnd, setPeriodEnd] = useState('3');
   const [ctTrn, setCtTrn] = useState(detail.ctTrn ?? remarkText(detail.ctRemark));
   const [yearEnd, setYearEnd] = useState('12');
+  const [ctDueOn, setCtDueOn] = useState(detail.ctReturnDueOn ?? '');
+  const [ctFiledOn, setCtFiledOn] = useState(detail.ctReturnFiledOn ?? '');
+  /** Which tax number was sent, so a refusal about "a tax number" lands on the right box. */
+  const [sentTax, setSentTax] = useState<'vat' | 'ct' | null>(null);
+
+  // Everything typed, bar the passwords, kept until it is saved.
+  const draft = useDraft(
+    `client-details.${detail.id}`,
+    {
+      licence,
+      person,
+      email,
+      mobile,
+      landline,
+      dayOff,
+      address,
+      opensAt,
+      closesAt,
+      references,
+      vatTrn,
+      loginMethod,
+      frequency,
+      periodEnd,
+      ctTrn,
+      yearEnd,
+      ctDueOn,
+      ctFiledOn,
+    },
+    (saved) => {
+      if (saved.licence !== undefined) setLicence(saved.licence);
+      if (saved.person !== undefined) setPerson(saved.person);
+      if (saved.email !== undefined) setEmail(saved.email);
+      if (saved.mobile !== undefined) setMobile(saved.mobile);
+      if (saved.landline !== undefined) setLandline(saved.landline);
+      if (saved.dayOff !== undefined) setDayOff(saved.dayOff);
+      if (saved.address !== undefined) setAddress(saved.address);
+      if (saved.opensAt !== undefined) setOpensAt(saved.opensAt);
+      if (saved.closesAt !== undefined) setClosesAt(saved.closesAt);
+      if (saved.references !== undefined) setReferences(saved.references);
+      if (saved.vatTrn !== undefined) setVatTrn(saved.vatTrn);
+      if (saved.loginMethod !== undefined) setLoginMethod(saved.loginMethod);
+      if (saved.frequency !== undefined) setFrequency(saved.frequency);
+      if (saved.periodEnd !== undefined) setPeriodEnd(saved.periodEnd);
+      if (saved.ctTrn !== undefined) setCtTrn(saved.ctTrn);
+      if (saved.yearEnd !== undefined) setYearEnd(saved.yearEnd);
+      if (saved.ctDueOn !== undefined) setCtDueOn(saved.ctDueOn);
+      if (saved.ctFiledOn !== undefined) setCtFiledOn(saved.ctFiledOn);
+    },
+  );
 
   const vatRegistered = detail.vatState === 'registered';
   const ctRegistered = detail.ctState === 'registered';
@@ -131,6 +182,8 @@ function DetailsForm({
       // A number is sent only when it was typed or changed. For a client not yet
       // registered it also carries the cycle that gives the deadline a date.
       body.taxLoginMethod = loginMethod === '' ? null : (loginMethod as 'email' | 'uae_pass');
+      body.ctReturnDueOn = ctDueOn === '' ? null : ctDueOn;
+      body.ctReturnFiledOn = ctFiledOn === '' ? null : ctFiledOn;
       // NA or Rejection in the number box is a remark, not a number.
       const vatRemark = remarkOf(vatTrn);
       const ctRemark = remarkOf(ctTrn);
@@ -148,6 +201,7 @@ function DetailsForm({
           ...(ctRegistered ? {} : { financialYearEndMonth: Number(yearEnd) }),
         };
       }
+      setSentTax(body.corporateTax && !body.vat ? 'ct' : body.vat ? 'vat' : null);
       const updated = await changeClientDetails(detail.id, body);
       // The passwords go to the vault, encrypted, never onto the client record.
       const login = text(email) ?? (loginMethod === 'uae_pass' ? 'UAE PASS' : '—');
@@ -169,6 +223,7 @@ function DetailsForm({
       return updated;
     },
     onSuccess: (updated) => {
+      draft.discard();
       queries.setQueryData(['clients', detail.id], updated);
       void queries.invalidateQueries({ queryKey: ['clients'] });
       onDone();
@@ -181,8 +236,19 @@ function DetailsForm({
     </option>
   ));
 
+  /*
+   * The box a refusal is about, marked red under it as well as said at the
+   * foot of the form: the firm asked to see which box is the problem rather
+   * than read a sentence and hunt for it.
+   */
+  const failure = save.isError ? (save.error as Error).message : null;
+  const errorFor = (box: 'email' | 'mobile' | 'landline' | 'vat' | 'ct') => {
+    if (failure === null || boxOf(failure, sentTax) !== box) return {};
+    return { error: failure };
+  };
   return (
     <Card title={t('clients.editDetails')} description={t('clients.passwordsHint')}>
+      {draft.restored ? <Alert tone="info">{t('draft.restored')}</Alert> : null}
       <form
         className="u-stack-tight"
         noValidate
@@ -198,6 +264,7 @@ function DetailsForm({
         />
         <Field
           label={t('clients.email')}
+          {...errorFor('email')}
           hint={t('clients.emailOptional')}
           ltr
           inputMode="email"
@@ -233,6 +300,7 @@ function DetailsForm({
         />
         <Field
           label={t('clients.mobile')}
+          {...errorFor('mobile')}
           ltr
           inputMode="tel"
           value={mobile}
@@ -240,6 +308,7 @@ function DetailsForm({
         />
         <Field
           label={t('clients.landline')}
+          {...errorFor('landline')}
           hint={t('clients.landlineHint')}
           ltr
           value={landline}
@@ -291,6 +360,7 @@ function DetailsForm({
         />
         <Field
           label={t('clients.vatNumber')}
+          {...errorFor('vat')}
           hint={t('clients.trnHint')}
           ltr
           value={vatTrn}
@@ -368,6 +438,7 @@ function DetailsForm({
         ) : null}
         <Field
           label={t('clients.ctNumber')}
+          {...errorFor('ct')}
           hint={t('clients.trnHint')}
           ltr
           value={ctTrn}
@@ -385,6 +456,21 @@ function DetailsForm({
             )}
           />
         ) : null}
+        {/* Typed from the authority's portal: its due date is the one that counts. */}
+        <div className="u-row u-row-top">
+          <Field
+            label={t('clients.ctDueOn')}
+            type="date"
+            value={ctDueOn}
+            onChange={(e) => setCtDueOn(e.target.value)}
+          />
+          <Field
+            label={t('clients.ctFiledOn')}
+            type="date"
+            value={ctFiledOn}
+            onChange={(e) => setCtFiledOn(e.target.value)}
+          />
+        </div>
 
         <fieldset className="u-stack-tight">
           <legend>{t('clients.references')}</legend>
@@ -436,7 +522,15 @@ function DetailsForm({
           <Button type="submit" busy={save.isPending}>
             {t('clients.saveDetails')}
           </Button>
-          <Button tone="quiet" type="button" onClick={onDone}>
+          {/* Cancelling is a decision, so what was typed goes with it. */}
+          <Button
+            tone="quiet"
+            type="button"
+            onClick={() => {
+              draft.discard();
+              onDone();
+            }}
+          >
             {t('clients.cancel')}
           </Button>
         </div>
@@ -470,4 +564,23 @@ export function remarkText(remark: string | null): string {
 /** The four months a client's VAT quarters end in, from any one of them, in calendar order. */
 export function quarterMonths(any: number): number[] {
   return [0, 3, 6, 9].map((step) => ((any - 1 + step) % 12) + 1).sort((a, b) => a - b);
+}
+
+/** Which box a refusal from the server is about, by the sentence it sent. */
+function boxOf(
+  message: string,
+  sentTax: 'vat' | 'ct' | null,
+): 'email' | 'mobile' | 'landline' | 'vat' | 'ct' | null {
+  const said = (english: string) => message === english || message === inReadersLanguage(english);
+  if (said('Another client already has that VAT number')) return 'vat';
+  if (said('Another client already has that corporation tax number')) return 'ct';
+  if (said('That is not an email address')) return 'email';
+  if (said('The mobile number could not be read as a phone number')) return 'mobile';
+  if (said('The landline number could not be read as a phone number')) return 'landline';
+  const aboutTaxNumber = [
+    'A tax registration number is digits only',
+    'A tax registration number is required',
+    'A tax registration number has 15 digits',
+  ].some(said);
+  return aboutTaxNumber ? sentTax : null;
 }

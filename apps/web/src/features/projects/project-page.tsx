@@ -105,7 +105,7 @@ export function ProjectPage({
 
   return (
     <div className="u-stack">
-      <button type="button" className="link-button" onClick={onBack}>
+      <button type="button" className="link-button back-button" onClick={onBack}>
         {t('back')}
       </button>
 

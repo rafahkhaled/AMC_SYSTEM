@@ -202,8 +202,8 @@ export function ClientFilesPanel({
               opened folder looked as if it could not be closed again. */}
           {here !== null ? (
             <Button
-              small
               tone="secondary"
+              className="back-button"
               onClick={() => setCurrent(byId.get(here)?.parentId ?? null)}
             >
               {t('clientFiles.up')}

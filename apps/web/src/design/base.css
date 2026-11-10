@@ -2156,3 +2156,27 @@ a {
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);
 }
+
+/* The note that a form was filled back in with what was not saved
+   (lib/draft-keeper). In a corner, over everything, for a few seconds. */
+.draft-note {
+  position: fixed;
+  inset-block-end: var(--space-4);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-inline-size: min(90vw, 32rem);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+}
+
+/* "Back", wherever it is: bigger than the buttons around it, because it is
+   how people find their way out and the firm found it too small to see. */
+.back-button {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}

@@ -185,15 +185,19 @@ export class LeadWorkflow {
       const lead = await leads.findById(id);
       if (!lead) return err(new ConflictError('No such enquiry'));
 
-      const clientId = this.ids.next();
       const now = new Date();
-      const client = Client.onboard({ id: clientId, legalName: legalName.trim(), now });
-      if (!client.ok) return err(client.error);
+      // A company already on the books is quoted as itself, not added again.
+      const same = await clients.findSame(legalName.trim(), null);
+      const clientId = same?.id ?? this.ids.next();
+      if (!same) {
+        const client = Client.onboard({ id: clientId, legalName: legalName.trim(), now });
+        if (!client.ok) return err(client.error);
+        await clients.save(client.value);
+      }
 
       const quoted = lead.quotedAs(clientId, now);
       if (!quoted.ok) return err(quoted.error);
 
-      await clients.save(client.value);
       await leads.save(lead);
       return ok({ clientId });
     });
@@ -219,7 +223,10 @@ export class LeadWorkflow {
        * drafted. Onboarding a second one would leave the quotation against a
        * company the confirmed client is not.
        */
-      const existing = lead.convertedClientId;
+      // A company already on the books becomes this enquiry's client as it
+      // is, rather than a second copy of itself.
+      const existing =
+        lead.convertedClientId ?? (await clients.findSame(legalName.trim(), null))?.id ?? null;
       const clientId = existing ?? this.ids.next();
 
       if (!existing) {

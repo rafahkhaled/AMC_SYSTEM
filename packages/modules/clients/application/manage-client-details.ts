@@ -58,6 +58,20 @@ export class ManageClientDetails {
     return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const db = (context as unknown as { db: unknown }).db;
       const clients = this.repositories.forTransaction(db, context);
+      // The same company entered twice was how the list came to have two of
+      // several. Said before anything is made, so nobody has to delete one.
+      const same = await clients.findSame(
+        command.legalName,
+        command.tradeLicenceNumber?.trim() || null,
+      );
+      if (same) {
+        return err(
+          new Conflict('This client is already on the system', {
+            number: same.number,
+            legalName: same.legalName,
+          }),
+        );
+      }
       const client = Client.onboard({
         id,
         legalName: command.legalName,
@@ -109,6 +123,10 @@ export class ManageClientDetails {
           ...(command.vatRemark !== undefined && { vatRemark: command.vatRemark }),
           ...(command.ctRemark !== undefined && { ctRemark: command.ctRemark }),
           ...(command.taxLoginMethod !== undefined && { taxLoginMethod: command.taxLoginMethod }),
+          ...(command.ctReturnDueOn !== undefined && { ctReturnDueOn: command.ctReturnDueOn }),
+          ...(command.ctReturnFiledOn !== undefined && {
+            ctReturnFiledOn: command.ctReturnFiledOn,
+          }),
         },
         now,
       );
@@ -119,7 +137,7 @@ export class ManageClientDetails {
         if (!outcome.ok) return outcome;
       }
       if (command.corporateTax) {
-        const outcome = this.corporateTax(client, command.corporateTax, now);
+        const outcome = await this.corporateTax(clients, client, command.corporateTax, now);
         if (!outcome.ok) return outcome;
       }
 
@@ -176,15 +194,21 @@ export class ManageClientDetails {
     });
   }
 
-  private corporateTax(
+  private async corporateTax(
+    clients: ReturnType<ClientRepositoryFactory['forTransaction']>,
     client: NonNullable<
       Awaited<ReturnType<ReturnType<ClientRepositoryFactory['forTransaction']>['findById']>>
     >,
     given: NonNullable<ChangeClientDetails['corporateTax']>,
     now: Date,
-  ): Result<true, Conflict> {
+  ): Promise<Result<true, Conflict>> {
     const trn = Trn.of(given.trn);
     if (!trn.ok) return err(new Conflict(trn.error.message));
+    // Unique in the database too, where a duplicate was a bare "something went
+    // wrong" on the form. Asked first, so it is a sentence that names the box.
+    if (await clients.isCtTrnTaken(trn.value, client.id)) {
+      return err(new Conflict('Another client already has that corporation tax number'));
+    }
     if (client.corporateTax.state === 'registered') {
       return client.correctTrn('corporate_tax', trn.value, now);
     }

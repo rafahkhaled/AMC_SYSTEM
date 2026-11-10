@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
+import { useDraft } from '../../lib/use-draft.js';
 import { draftQuotation } from '../billing/api.js';
 import { useCampaigns } from '../campaigns/use-campaigns.js';
 import { changeClassification } from '../classification/api.js';
@@ -257,6 +258,22 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
     salespersonId: null,
   });
   const services = useServices();
+  // What was typed, kept until the enquiry is saved.
+  const draft = useDraft(
+    'new-enquiry',
+    { name, phone, email, source, sourceDetail, campaignId, requestedService, serviceChoice },
+    (saved) => {
+      if (saved.name !== undefined) setName(saved.name);
+      if (saved.phone !== undefined) setPhone(saved.phone);
+      if (saved.email !== undefined) setEmail(saved.email);
+      if (saved.source !== undefined) setSource(saved.source);
+      if (saved.sourceDetail !== undefined) setSourceDetail(saved.sourceDetail);
+      if (saved.campaignId !== undefined) setCampaignId(saved.campaignId);
+      if (saved.requestedService !== undefined) setRequestedService(saved.requestedService);
+      if (saved.serviceChoice !== undefined) setServiceChoice(saved.serviceChoice);
+      setOpen(true);
+    },
+  );
 
   const capture = useMutation({
     mutationFn: async () => {
@@ -279,6 +296,7 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
     },
     onSuccess: (board) => {
       onCaptured(board);
+      draft.discard();
       setOpen(false);
       setName('');
       setPhone('');

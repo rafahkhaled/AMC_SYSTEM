@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field } from '../../design/index.js';
+import { useDraft } from '../../lib/use-draft.js';
 import { changeClassification } from '../classification/api.js';
 import { ClassificationFields } from '../classification/classification-panel.js';
 import { onboardClient } from './api.js';
@@ -23,6 +24,13 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
   const [licence, setLicence] = useState('');
   const [tried, setTried] = useState(false);
   const [sorting, setSorting] = useState<UpdateClassification>({});
+  // What was typed, kept until the client is made.
+  const draft = useDraft('new-client', { legalName, legalNameArabic, licence }, (saved) => {
+    if (saved.legalName !== undefined) setLegalName(saved.legalName);
+    if (saved.legalNameArabic !== undefined) setLegalNameArabic(saved.legalNameArabic);
+    if (saved.licence !== undefined) setLicence(saved.licence);
+    setOpen(true);
+  });
 
   const create = useMutation({
     mutationFn: () =>
@@ -32,6 +40,7 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
         ...(licence.trim() ? { tradeLicenceNumber: licence.trim() } : {}),
       }),
     onSuccess: async (client) => {
+      draft.discard();
       // Branch, salesperson and who does the work, onto the client just made.
       if (sorting.branchCode || sorting.salespersonId || sorting.performedBy) {
         await changeClassification('client', client.id, sorting);
@@ -66,7 +75,12 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
           required
           value={legalName}
           onChange={(event) => setLegalName(event.target.value)}
-          {...(tried && legalName.trim() === '' ? { error: t('form.required') } : {})}
+          {...(tried && legalName.trim() === ''
+            ? { error: t('form.required') }
+            : create.isError
+              ? // Most often "already on the system": said under the name, in red.
+                { error: (create.error as Error).message }
+              : {})}
         />
         <Field
           label={t('clients.new.legalNameArabic')}

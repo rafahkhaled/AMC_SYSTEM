@@ -1,5 +1,5 @@
 import type { ClientDetail } from '@amc/contracts';
-import { screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen, useLanguage } from '../../test-support.js';
@@ -26,6 +26,7 @@ const MONTHS = [
 const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   id: 'c-1',
   legalName: 'Gulf Trading LLC',
+  number: 7,
   legalNameArabic: null,
   status: 'active',
   vatState: 'not_registered',
@@ -45,6 +46,8 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   vatRemark: null,
   ctRemark: null,
   taxLoginMethod: null,
+  ctReturnDueOn: null,
+  ctReturnFiledOn: null,
   references: [{ label: 'MOL number', value: '99887766' }],
   ctTrn: null,
   vatPeriodEndMonths: [],
@@ -123,8 +126,29 @@ describe('a client’s contact details', () => {
     await user.click(screen.getByRole('button', { name: 'Edit details' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByText('That is not an email address')).toBeInTheDocument();
+    // Under the box it is about, and at the foot of the form.
+    expect(await screen.findAllByText('That is not an email address')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+  });
+
+  it('keeps what was typed when the save fails, and brings it back next time', async () => {
+    const user = userEvent.setup();
+    changeClientDetails.mockRejectedValue(new Error('That is not an email address'));
+    renderScreen(<ClientDetailsCard detail={client()} canEdit months={MONTHS} />);
+
+    await user.click(screen.getByRole('button', { name: 'Edit details' }));
+    const person = screen.getByLabelText('Contact person');
+    await user.clear(person);
+    await user.type(person, 'Someone new');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findAllByText('That is not an email address');
+    // Closed, as when somebody gives up and comes back later.
+    cleanup();
+
+    renderScreen(<ClientDetailsCard detail={client()} canEdit months={MONTHS} />);
+    await user.click(screen.getByRole('button', { name: 'Edit details' }));
+    expect(screen.getByLabelText('Contact person')).toHaveValue('Someone new');
+    expect(screen.getByText(/did not save is back/)).toBeInTheDocument();
   });
 
   it('shows the address and the hours the client keeps', () => {
