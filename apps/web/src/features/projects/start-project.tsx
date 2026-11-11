@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Field, Select } from '../../design/index.js';
+import { listSalespeople } from '../classification/api.js';
 import { listClients } from '../clients/api.js';
 import { useServices } from '../services/use-services.js';
-import { startProject } from './api.js';
+import { assignProject, startProject, unassignProject } from './api.js';
 
 /**
  * Opening a piece of work by hand (FR-10, FR-11).
@@ -18,6 +19,10 @@ import { startProject } from './api.js';
  * the caller often knows one, and left empty otherwise rather than guessed —
  * a made-up deadline on a screen that exists to show real deadlines is worse
  * than no deadline.
+ *
+ * Who does the work is chosen here, on the job, not on the client: one client
+ * is worked on by several people, each on their own service. Left empty, the
+ * job goes to whoever did this client's last job of the same service.
  */
 export function StartProjectForm({ onStarted }: { onStarted: (id: string) => void }) {
   const { t } = useTranslation();
@@ -26,17 +31,38 @@ export function StartProjectForm({ onStarted }: { onStarted: (id: string) => voi
   const [clientId, setClientId] = useState('');
   const [service, setService] = useState<string>('deregistration');
   const [dueOn, setDueOn] = useState('');
+  const [performer, setPerformer] = useState('');
   const services = useServices();
 
   const clients = useQuery({ queryKey: ['clients'], queryFn: listClients, enabled: open });
+  const people = useQuery({
+    queryKey: ['salespeople'],
+    queryFn: listSalespeople,
+    staleTime: 60_000,
+    enabled: open,
+  });
+  // Who can do the work: the firm's own people, with an account.
+  const employees = (people.data ?? []).filter((person) => person.userId && !person.retired);
 
   const start = useMutation({
-    mutationFn: () => startProject({ clientId, service, ...(dueOn ? { dueOn } : {}) }),
+    mutationFn: async () => {
+      const project = await startProject({ clientId, service, ...(dueOn ? { dueOn } : {}) });
+      if (performer) {
+        const before = project.assignees.find((person) => person.role === 'responsible');
+        if (before?.userId !== performer) {
+          await assignProject(project.id, performer, 'responsible');
+          // The one picked from the last job made way: off this one entirely.
+          if (before) await unassignProject(project.id, before.userId);
+        }
+      }
+      return project;
+    },
     onSuccess: (project) => {
       void queries.invalidateQueries({ queryKey: ['projects'] });
       setOpen(false);
       setClientId('');
       setDueOn('');
+      setPerformer('');
       onStarted(project.id);
     },
   });
@@ -83,6 +109,25 @@ export function StartProjectForm({ onStarted }: { onStarted: (id: string) => voi
               {services.live.map((offered) => (
                 <option key={offered.code} value={offered.code}>
                   {t(`services.${offered.code}`)}
+                </option>
+              ))}
+            </Select>
+          )}
+        />
+
+        <Field
+          label={t('classification.performedBy')}
+          hint={t('projects.start.performerHint')}
+          control={(props) => (
+            <Select
+              {...props}
+              value={performer}
+              onChange={(event) => setPerformer(event.target.value)}
+            >
+              <option value="">{t('classification.none')}</option>
+              {employees.map((person) => (
+                <option key={person.id} value={person.userId ?? ''}>
+                  {person.name}
                 </option>
               ))}
             </Select>

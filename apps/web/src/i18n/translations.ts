@@ -1027,6 +1027,8 @@ export const translations = {
         service: 'الخدمة',
         dueOn: 'تاريخ الاستحقاق',
         dueOnHint: 'اتركه فارغاً إن لم يكن معروفاً. موعد مُختلق أسوأ من غيابه.',
+        performerHint:
+          'كل خدمة يمكن أن يقوم بها شخص مختلف. إن تُرك فارغاً يذهب لمن قام بآخر عمل من نفس الخدمة لهذا العميل.',
         submit: 'فتح العمل',
         cancel: 'إلغاء',
       },
@@ -2316,6 +2318,8 @@ export const translations = {
         service: 'Service',
         dueOn: 'Due date',
         dueOnHint: 'Leave empty if it is not known. An invented deadline is worse than none.',
+        performerHint:
+          'Each service can be done by someone different. Left empty, it goes to whoever did this client’s last job of the same service.',
         submit: 'Open it',
         cancel: 'Cancel',
       },

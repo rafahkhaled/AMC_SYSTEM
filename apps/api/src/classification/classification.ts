@@ -35,7 +35,8 @@ const TABLES: Record<
   client: {
     table: sql`clients`,
     branch: true,
-    performer: true,
+    // Who did the work is the job's: one client is worked on by several people.
+    performer: false,
     permission: 'clients.edit',
     clientColumn: sql`id`,
   },

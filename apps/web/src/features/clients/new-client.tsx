@@ -41,8 +41,9 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
       }),
     onSuccess: async (client) => {
       draft.discard();
-      // Branch, salesperson and who does the work, onto the client just made.
-      if (sorting.branchCode || sorting.salespersonId || sorting.performedBy) {
+      // Branch and salesperson onto the client just made. Who does the work is
+      // chosen on each job, since one client is worked on by several people.
+      if (sorting.branchCode || sorting.salespersonId) {
         await changeClassification('client', client.id, sorting);
       }
       void queries.invalidateQueries({ queryKey: ['clients'] });
@@ -96,7 +97,6 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
         <ClassificationFields
           branchCode={sorting.branchCode ?? null}
           salespersonId={sorting.salespersonId ?? null}
-          performedBy={sorting.performedBy ?? null}
           onChange={(changes) => setSorting({ ...sorting, ...changes })}
         />
         {create.isError ? <Alert tone="error">{(create.error as Error).message}</Alert> : null}

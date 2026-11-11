@@ -107,11 +107,12 @@ describe('branch, salesperson and who did the work', () => {
       const onClient = await get('client', clientId);
       expect(onClient.body).toMatchObject({ branchCode: 'ajman', salespersonId: agent });
 
-      // Who does the work is chosen on the client.
-      await set('client', clientId, { performedBy: accountant.userId }).expect(200);
+      // Who does the work is not the client's: it is chosen on each job.
+      expect(onClient.body.performerEditable).toBe(false);
+      await set('client', clientId, { performedBy: accountant.userId }).expect(409);
     });
 
-    it('starts a quotation with the client’s salesperson and performer', async () => {
+    it('starts a quotation with the client’s salesperson, and nobody as performer', async () => {
       const quotation = (
         await manager
           .post('/billing/quotations')
@@ -121,7 +122,7 @@ describe('branch, salesperson and who did the work', () => {
       const onQuote = await get('quotation', quotation);
       expect(onQuote.body).toMatchObject({
         salespersonId: agent,
-        performedBy: accountant.userId,
+        performedBy: null,
         branchEditable: false,
       });
 
@@ -131,10 +132,16 @@ describe('branch, salesperson and who did the work', () => {
       expect((await get('client', clientId)).body.salespersonId).toBe(agent);
     });
 
-    it('starts a job with the client’s branch and salesperson, and the performer responsible', async () => {
+    it('starts a job with the client’s branch and salesperson, and its own performer', async () => {
       const job = (
         await manager.post('/projects').send({ clientId, service: 'emaratax_request' }).expect(201)
       ).body.id;
+      // A first job of a service has nobody until somebody is chosen.
+      expect((await manager.get(`/projects/${job}`).expect(200)).body.assignees).toEqual([]);
+      await manager
+        .post(`/projects/${job}/assignees`)
+        .send({ userId: accountant.userId, role: 'responsible' })
+        .expect(201);
       const onJob = await get('project', job);
       expect(onJob.body).toMatchObject({
         branchCode: 'ajman',
@@ -142,7 +149,15 @@ describe('branch, salesperson and who did the work', () => {
         performedBy: accountant.userId,
         performerEditable: false,
       });
-      const detail = await manager.get(`/projects/${job}`).expect(200);
+
+      // The next job of the same service goes to whoever did the last one.
+      const next = (
+        await manager
+          .post('/projects')
+          .send({ clientId, service: 'emaratax_request', periodKey: '2026-Q4' })
+          .expect(201)
+      ).body.id;
+      const detail = await manager.get(`/projects/${next}`).expect(200);
       expect(detail.body.assignees).toEqual([
         expect.objectContaining({ userId: accountant.userId, role: 'responsible' }),
       ]);
@@ -158,6 +173,10 @@ describe('branch, salesperson and who did the work', () => {
           .send({ clientId, service: 'tax_profile_update' })
           .expect(201)
       ).body.id;
+      await manager
+        .post(`/projects/${job}/assignees`)
+        .send({ userId: accountant.userId, role: 'responsible' })
+        .expect(201);
       await manager
         .post('/timer/entries')
         .send({

@@ -329,6 +329,8 @@ describe('the running timer against a real database', () => {
         `INSERT INTO projects (id, client_service_id, client_id, service, state)
          VALUES ('${projectId}', 'cs-1', 'c-1', 'monthly_accounting', 'in_progress')`,
       );
+      // A second job of a service inherits the last one's person; this fixture names its own.
+      await db.execute(`DELETE FROM project_assignments WHERE project_id = '${projectId}'`);
       await db.execute(
         `INSERT INTO project_assignments (id, project_id, user_id, role, assigned_at, assigned_by)
          VALUES ('${assignmentId}', '${projectId}', 'user-a', 'responsible', '2026-01-01', 'manager')`,
