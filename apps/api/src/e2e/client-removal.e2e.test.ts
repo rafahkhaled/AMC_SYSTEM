@@ -75,6 +75,48 @@ describe('deleting a client', () => {
     await manager.get('/clients/c-billed').expect(200);
   });
 
+  it('keeps the numbers running 1, 2, 3 after one in the middle is deleted', async () => {
+    const add = async (name: string) =>
+      (await manager.post('/clients').send({ legalName: name }).expect(201)).body as {
+        id: string;
+        number: number;
+      };
+    const first = await add('Numbering First LLC');
+    const middle = await add('Numbering Middle LLC');
+    const last = await add('Numbering Last LLC');
+
+    await manager.delete(`/clients/${middle.id}`).expect(200);
+
+    const numbers = (await manager.get('/clients').expect(200)).body.clients.map(
+      (c: { number: number }) => c.number,
+    );
+    expect(numbers).toEqual(numbers.map((_: number, index: number) => index + 1));
+    expect((await manager.get(`/clients/${first.id}`).expect(200)).body.number).toBe(first.number);
+    expect((await manager.get(`/clients/${last.id}`).expect(200)).body.number).toBe(
+      last.number - 1,
+    );
+    // And the next one takes the number after the last, not after a gap.
+    const next = await add('Numbering Next LLC');
+    expect(next.number).toBe(last.number);
+  });
+
+  it('gives back the quotation numbers of a deleted client when they were the last ones', async () => {
+    const client = (
+      await manager.post('/clients').send({ legalName: 'Quoted Then Gone LLC' }).expect(201)
+    ).body.id;
+    const quotation = (
+      await manager.post('/billing/quotations').send({ clientId: client }).expect(201)
+    ).body.reference as string;
+    await manager.delete(`/clients/${client}`).expect(200);
+
+    const other = (
+      await manager.post('/clients').send({ legalName: 'Quoted Next LLC' }).expect(201)
+    ).body.id;
+    const again = (await manager.post('/billing/quotations').send({ clientId: other }).expect(201))
+      .body.reference;
+    expect(again).toBe(quotation);
+  });
+
   it('says so for a client that does not exist', async () => {
     await manager.delete('/clients/nobody').expect(404);
   });

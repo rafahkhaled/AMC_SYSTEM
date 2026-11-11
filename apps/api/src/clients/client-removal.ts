@@ -70,10 +70,29 @@ export class ClientRemoval {
                JOIN projects p ON p.id = a.project_id
               WHERE p.client_id = ${clientId})
         `);
+      const quoted = (
+        await tx.execute<{ reference: string }>(
+          sql`SELECT reference FROM quotations WHERE client_id = ${clientId}`,
+        )
+      ).map((row) => row.reference);
       await tx.execute(sql`DELETE FROM quotations WHERE client_id = ${clientId}`);
+      await giveBackQuotationNumbers(tx, quoted);
       await tx.execute(sql`DELETE FROM client_files WHERE client_id = ${clientId}`);
       await tx.execute(sql`DELETE FROM client_folders WHERE client_id = ${clientId}`);
-      await tx.execute(sql`DELETE FROM clients WHERE id = ${clientId}`);
+      const [gone] = await tx.execute<{ number: number }>(
+        sql`DELETE FROM clients WHERE id = ${clientId} RETURNING number`,
+      );
+      // Everybody after moves up one, so the numbers still run 1, 2, 3. Through
+      // the negatives, so no two clients hold one number on the way.
+      if (gone) {
+        await tx.execute(
+          sql`UPDATE clients SET number = -(number - 1) WHERE number > ${gone.number}`,
+        );
+        await tx.execute(sql`UPDATE clients SET number = -number WHERE number < 0`);
+        await tx.execute(
+          sql`SELECT setval('clients_number_seq', coalesce((SELECT max(number) FROM clients), 0) + 1, false)`,
+        );
+      }
 
       context.audit({
         action: 'clients.client.deleted',
@@ -90,6 +109,29 @@ export class ClientRemoval {
       await this.storage.delete(key).catch(() => undefined);
     }
     return outcome.result;
+  }
+}
+
+/**
+ * The quotation numbers of a deleted client, given back when they were the
+ * last ones handed out, so the next quotation does not skip them.
+ *
+ * Only from the top. A number in the middle has been sent to a client on a
+ * quotation, and renumbering the quotations after it would change documents
+ * clients already hold; a gap there is the honest record of a deleted one.
+ */
+async function giveBackQuotationNumbers(tx: Database, deleted: readonly string[]): Promise<void> {
+  const taken = new Set(deleted);
+  const [counter] = await tx.execute<{ next_value: number }>(
+    sql`SELECT next_value FROM document_numbers WHERE kind = 'quotation' FOR UPDATE`,
+  );
+  if (!counter) return;
+  let next = Number(counter.next_value);
+  while (taken.has(String(next - 1))) next -= 1;
+  if (next !== Number(counter.next_value)) {
+    await tx.execute(
+      sql`UPDATE document_numbers SET next_value = ${next}, updated_at = now() WHERE kind = 'quotation'`,
+    );
   }
 }
 
