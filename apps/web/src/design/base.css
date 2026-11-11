@@ -2180,3 +2180,14 @@ a {
   font-size: var(--text-xl);
   font-weight: 700;
 }
+
+/* A folder in a client's files: its name, how many, and a way in. */
+.folder-row {
+  align-items: center;
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--line);
+}
+.folder-row__name {
+  font-weight: 700;
+  font-size: var(--text-lg);
+}

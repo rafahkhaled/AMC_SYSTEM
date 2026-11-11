@@ -262,7 +262,12 @@ export function ClientFilesPanel({
               onChange={(event) => take(event.target.files)}
             />
             <strong>
-              {upload.isPending ? t('clientFiles.uploading') : t('clientFiles.dropHere')}
+              {upload.isPending
+                ? t('clientFiles.uploading')
+                : here !== null
+                  ? // Inside a folder, say which: the files go there.
+                    t('clientFiles.dropInto', { name: byId.get(here)?.name ?? '' })
+                  : t('clientFiles.dropHere')}
             </strong>
             <span className="u-text-faint">{t('clientFiles.limits')}</span>
           </label>
@@ -532,12 +537,21 @@ function FolderRow({
   }
 
   return (
-    <li className="line">
-      <button type="button" className="link-button u-typed" onClick={onOpen}>
+    /*
+     * A row of its own, the name with a folder mark and a plain button to open
+     * it: the firm took the faint name for a label and could not find how to
+     * put files in the folder, which is done from inside it.
+     */
+    <li className="u-row u-wrap folder-row">
+      <button type="button" className="link-button u-typed folder-row__name" onClick={onOpen}>
+        <span aria-hidden="true">📁 </span>
         {folder.name}
       </button>
       <span className="u-text-faint">{t('clientFiles.items', { count: folder.fileCount })}</span>
       <span className="u-grow" />
+      <Button small tone="secondary" onClick={onOpen}>
+        {canEdit ? t('clientFiles.openToAdd') : t('clientFiles.openFolder')}
+      </Button>
       {canEdit ? (
         confirming ? (
           <>

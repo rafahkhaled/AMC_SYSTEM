@@ -109,6 +109,10 @@ export class ManageClientDetails {
 
       const details = client.changeDetails(
         {
+          ...(command.legalName !== undefined && { legalName: command.legalName }),
+          ...(command.legalNameArabic !== undefined && {
+            legalNameArabic: command.legalNameArabic,
+          }),
           ...(command.tradeLicenceNumber !== undefined && {
             tradeLicenceNumber: command.tradeLicenceNumber,
           }),
@@ -124,6 +128,7 @@ export class ManageClientDetails {
           ...(command.ctRemark !== undefined && { ctRemark: command.ctRemark }),
           ...(command.taxLoginMethod !== undefined && { taxLoginMethod: command.taxLoginMethod }),
           ...(command.ctReturnDueOn !== undefined && { ctReturnDueOn: command.ctReturnDueOn }),
+          ...(command.vatReturns !== undefined && { vatReturns: command.vatReturns }),
           ...(command.ctReturnFiledOn !== undefined && {
             ctReturnFiledOn: command.ctReturnFiledOn,
           }),

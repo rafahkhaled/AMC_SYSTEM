@@ -353,6 +353,29 @@ describe('clients, their conversations and their logins', () => {
       await manager.patch(path).send({ ctReturnDueOn: 'soon' }).expect(400);
     });
 
+    it('corrects the name on the licence, and never to nothing', async () => {
+      await manager.patch(path).send({ legalName: 'Gulf Trading L.L.C' }).expect(200);
+      expect((await manager.get('/clients/c-mine').expect(200)).body.legalName).toBe(
+        'Gulf Trading L.L.C',
+      );
+      await manager.patch(path).send({ legalName: '  ' }).expect(400);
+    });
+
+    it('keeps the four VAT returns, when each is due and when it was filed', async () => {
+      const returns = [
+        { dueOn: '2026-03-28', filedOn: '2026-03-20' },
+        { dueOn: '2026-06-28', filedOn: null },
+        { dueOn: null, filedOn: null },
+        { dueOn: '2026-12-28', filedOn: null },
+      ];
+      await manager.patch(path).send({ vatReturns: returns }).expect(200);
+      expect((await manager.get('/clients/c-mine').expect(200)).body.vatReturns).toEqual(returns);
+      await manager
+        .patch(path)
+        .send({ vatReturns: [...returns, { dueOn: null, filedOn: null }] })
+        .expect(400);
+    });
+
     it('takes NA for a number the client does not have', async () => {
       await manager.patch(path).send({ landline: 'na' }).expect(200);
       const detail = (await manager.get('/clients/c-mine').expect(200)).body;

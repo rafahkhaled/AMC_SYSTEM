@@ -132,6 +132,7 @@ export class ReadClients {
       taxLoginMethod: state.taxLoginMethod as 'email' | 'uae_pass' | null,
       ctReturnDueOn: state.ctReturnDueOn,
       ctReturnFiledOn: state.ctReturnFiledOn,
+      vatReturns: [...state.vatReturns],
       references: await this.clients.referencesOf(clientId),
       // Staggered per client, so the screen shows which months rather than
       // implying everyone files on calendar quarters.

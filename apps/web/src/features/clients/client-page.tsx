@@ -127,11 +127,41 @@ export function ClientPage({
                 : null
             }
           />
+          {/* The year's four VAT returns, each with its due day and, once it
+              has gone in, the day it was filed. */}
+          <div className="fact">
+            <dt className="u-text-faint">{t('clients.vatReturns')}</dt>
+            <dd>
+              {detail.vatReturns.some((one) => one.dueOn || one.filedOn)
+                ? detail.vatReturns.map((one, index) =>
+                    one.dueOn || one.filedOn ? (
+                      <div key={`vat-return-${index + 1}`}>
+                        {t('clients.vatReturnLine', { n: index + 1 })}:{' '}
+                        <bdi dir="ltr">{one.dueOn ?? '—'}</bdi>
+                        {one.filedOn ? (
+                          <span className="u-text-faint">
+                            {' · '}
+                            {t('clients.filedOnShort', { date: one.filedOn })}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null,
+                  )
+                : '—'}
+            </dd>
+          </div>
           <Fact
             label={t('clients.ctNumber')}
             value={detail.ctTrn ?? (remarkText(detail.ctRemark) || null)}
             mono
           />
+          <Fact label={t('clients.ctDueOn')} value={detail.ctReturnDueOn} mono />
+        </dl>
+
+        {/* What is needed less often, below what the firm looks for first:
+            the tax numbers, the return months and when the returns are due. */}
+        <h3 className="subheading">{t('clients.moreTax')}</h3>
+        <dl className="facts">
           <Fact
             label={t('clients.financialYear')}
             value={
@@ -140,7 +170,6 @@ export function ClientPage({
                 : null
             }
           />
-          <Fact label={t('clients.ctDueOn')} value={detail.ctReturnDueOn} mono />
           <Fact label={t('clients.ctFiledOn')} value={detail.ctReturnFiledOn} mono />
           <Fact label={t('clients.licence')} value={detail.tradeLicenceNumber} mono />
           <Fact

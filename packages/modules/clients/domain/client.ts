@@ -64,6 +64,8 @@ export interface ClientState {
   /** The corporation tax return: when it is due, and when the firm filed it (YYYY-MM-DD). */
   readonly ctReturnDueOn: string | null;
   readonly ctReturnFiledOn: string | null;
+  /** The year's four VAT returns: when each is due and when it was filed. */
+  readonly vatReturns: readonly VatReturnDates[];
   readonly status: ClientStatus;
   readonly vat: TaxRegistration;
   readonly corporateTax: TaxRegistration;
@@ -80,7 +82,16 @@ export interface ClientState {
  * `undefined` leaves a field as it is and `null` clears it, so a form can send
  * only what the person touched.
  */
+export interface VatReturnDates {
+  readonly dueOn: string | null;
+  readonly filedOn: string | null;
+}
+
 export interface ClientDetailsChange {
+  readonly vatReturns?: readonly VatReturnDates[];
+  /** The name as on the licence; it can be corrected but never emptied. */
+  readonly legalName?: string;
+  readonly legalNameArabic?: string | null;
   readonly tradeLicenceNumber?: string | null;
   readonly contactPerson?: string | null;
   readonly contactEmail?: string | null;
@@ -142,6 +153,7 @@ export class Client extends AggregateRoot<ClientId> {
       taxLoginMethod: null,
       ctReturnDueOn: null,
       ctReturnFiledOn: null,
+      vatReturns: [],
       status: 'active',
       vat: NOT_REGISTERED,
       corporateTax: NOT_REGISTERED,
@@ -183,6 +195,14 @@ export class Client extends AggregateRoot<ClientId> {
       }
     };
 
+    if (change.legalName !== undefined) {
+      const name = change.legalName.trim();
+      if (name.length === 0) return err(new Conflict('A client needs a legal name'));
+      set('legalName', name);
+    }
+    if (change.legalNameArabic !== undefined) {
+      set('legalNameArabic', blank(change.legalNameArabic));
+    }
     if (change.tradeLicenceNumber !== undefined) {
       set('tradeLicenceNumber', blank(change.tradeLicenceNumber));
     }
@@ -246,6 +266,22 @@ export class Client extends AggregateRoot<ClientId> {
         return err(new Conflict('Sign in to the tax file by email or by UAE PASS'));
       }
       set('taxLoginMethod', method);
+    }
+    if (change.vatReturns !== undefined) {
+      const day = /^\d{4}-\d{2}-\d{2}$/;
+      const returns = change.vatReturns;
+      if (returns.length > 4) return err(new Conflict('A year has four VAT returns'));
+      for (const one of returns) {
+        for (const value of [one.dueOn, one.filedOn]) {
+          if (value !== null && !day.test(value)) {
+            return err(new Conflict('Use a date in the form 2026-03-31'));
+          }
+        }
+      }
+      const next = returns.map((one) => ({ dueOn: one.dueOn, filedOn: one.filedOn }));
+      if (JSON.stringify(next) !== JSON.stringify(this.state.vatReturns)) {
+        set('vatReturns', next);
+      }
     }
     for (const key of ['ctReturnDueOn', 'ctReturnFiledOn'] as const) {
       const day = change[key];

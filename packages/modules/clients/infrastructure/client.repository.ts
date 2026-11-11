@@ -16,6 +16,7 @@ import {
   Trn,
   type VatFrequency,
   VatPeriods,
+  type VatReturnDates,
 } from '../domain/index.js';
 import { clientRates, clientReferences, clientStaffAccess, clients } from './schema.js';
 
@@ -208,6 +209,7 @@ export class DrizzleClientRepository implements ClientRepository {
       taxLoginMethod: state.taxLoginMethod,
       ctReturnDueOn: state.ctReturnDueOn,
       ctReturnFiledOn: state.ctReturnFiledOn,
+      vatReturns: [...state.vatReturns],
       status: state.status,
       vatState: state.vat.state,
       vatTrn: state.vat.trn?.value ?? null,
@@ -288,6 +290,7 @@ export class DrizzleClientRepository implements ClientRepository {
       taxLoginMethod: row.taxLoginMethod,
       ctReturnDueOn: row.ctReturnDueOn,
       ctReturnFiledOn: row.ctReturnFiledOn,
+      vatReturns: (row.vatReturns ?? []) as VatReturnDates[],
       status: row.status as ClientStatus,
       vat: registrationOf(row.vatState, row.vatTrn, row.vatRegisteredOn, row.vatDeregisteredOn),
       corporateTax: registrationOf(

@@ -48,6 +48,7 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   taxLoginMethod: null,
   ctReturnDueOn: null,
   ctReturnFiledOn: null,
+  vatReturns: [],
   references: [{ label: 'MOL number', value: '99887766' }],
   ctTrn: null,
   vatPeriodEndMonths: [],

@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   smallint,
@@ -38,6 +39,7 @@ export const clients = pgTable(
     taxLoginMethod: text('tax_login_method'),
     ctReturnDueOn: date('ct_return_due_on'),
     ctReturnFiledOn: date('ct_return_filed_on'),
+    vatReturns: jsonb('vat_returns').$type<{ dueOn: string | null; filedOn: string | null }[]>(),
     status: text('status').notNull().default('active'),
 
     vatState: text('vat_state').notNull().default('not_registered'),

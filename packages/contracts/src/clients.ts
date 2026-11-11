@@ -113,6 +113,8 @@ export const clientDetailSchema = clientSummarySchema.extend({
   /** The corporation tax return: when it is due, and when the firm filed it. */
   ctReturnDueOn: z.string().nullable(),
   ctReturnFiledOn: z.string().nullable(),
+  /** The year's four VAT returns: when each is due and when it was filed. */
+  vatReturns: z.array(z.object({ dueOn: z.string().nullable(), filedOn: z.string().nullable() })),
   references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
   /** Which months this client's VAT periods end in. Staggered per client. */
@@ -461,6 +463,8 @@ export type ClientFilesUploaded = z.infer<typeof clientFilesUploadedSchema>;
  * client not yet registered it also needs the cycle that makes a deadline.
  */
 export const changeClientDetailsSchema = z.object({
+  legalName: z.string().trim().min(1, 'A client needs a legal name').max(200).optional(),
+  legalNameArabic: z.string().trim().max(200).nullable().optional(),
   tradeLicenceNumber: z.string().trim().max(60).nullable().optional(),
   contactPerson: z.string().trim().max(120).nullable().optional(),
   contactEmail: z.string().trim().max(200).nullable().optional(),
@@ -476,6 +480,10 @@ export const changeClientDetailsSchema = z.object({
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable().optional(),
   ctReturnDueOn: calendarDay.nullable().optional(),
   ctReturnFiledOn: calendarDay.nullable().optional(),
+  vatReturns: z
+    .array(z.object({ dueOn: calendarDay.nullable(), filedOn: calendarDay.nullable() }))
+    .max(4)
+    .optional(),
   vat: z
     .object({
       trn: z.string().trim().min(1),

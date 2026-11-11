@@ -74,7 +74,10 @@ function Row({ label, value, ltr }: { label: string; value: string | null; ltr?:
       {/* Isolated rather than turned left-to-right, so an email or a number
           sits under its label like every other value instead of at the far
           side of the row. */}
-      <dd className="u-typed">{value ? ltr ? <bdi dir="ltr">{value}</bdi> : value : '—'}</dd>
+      {/* Aligned with the page, not with the value's own language: "plaintext"
+          put every English name and email at the far side of its box. The bdi
+          still lets each value read in its own direction. */}
+      <dd>{value ? <bdi dir={ltr ? 'ltr' : 'auto'}>{value}</bdi> : '—'}</dd>
     </div>
   );
 }
@@ -91,6 +94,8 @@ function DetailsForm({
   const { t } = useTranslation();
   const queries = useQueryClient();
 
+  const [legalName, setLegalName] = useState(detail.legalName);
+  const [legalNameArabic, setLegalNameArabic] = useState(detail.legalNameArabic ?? '');
   const [licence, setLicence] = useState(detail.tradeLicenceNumber ?? '');
   const [person, setPerson] = useState(detail.contactPerson ?? '');
   const [email, setEmail] = useState(detail.contactEmail ?? '');
@@ -112,6 +117,15 @@ function DetailsForm({
   const [ctTrn, setCtTrn] = useState(detail.ctTrn ?? remarkText(detail.ctRemark));
   const [yearEnd, setYearEnd] = useState('12');
   const [ctDueOn, setCtDueOn] = useState(detail.ctReturnDueOn ?? '');
+  // Four returns a year, each with the day it is due and the day it went in.
+  const [vatReturns, setVatReturns] = useState(
+    [0, 1, 2, 3].map((index) => ({
+      dueOn: detail.vatReturns[index]?.dueOn ?? '',
+      filedOn: detail.vatReturns[index]?.filedOn ?? '',
+    })),
+  );
+  const setVatReturn = (index: number, part: 'dueOn' | 'filedOn', value: string) =>
+    setVatReturns((now) => now.map((one, i) => (i === index ? { ...one, [part]: value } : one)));
   const [ctFiledOn, setCtFiledOn] = useState(detail.ctReturnFiledOn ?? '');
   /** Which tax number was sent, so a refusal about "a tax number" lands on the right box. */
   const [sentTax, setSentTax] = useState<'vat' | 'ct' | null>(null);
@@ -120,6 +134,8 @@ function DetailsForm({
   const draft = useDraft(
     `client-details.${detail.id}`,
     {
+      legalName,
+      legalNameArabic,
       licence,
       person,
       email,
@@ -138,8 +154,11 @@ function DetailsForm({
       yearEnd,
       ctDueOn,
       ctFiledOn,
+      vatReturns,
     },
     (saved) => {
+      if (saved.legalName !== undefined) setLegalName(saved.legalName);
+      if (saved.legalNameArabic !== undefined) setLegalNameArabic(saved.legalNameArabic);
       if (saved.licence !== undefined) setLicence(saved.licence);
       if (saved.person !== undefined) setPerson(saved.person);
       if (saved.email !== undefined) setEmail(saved.email);
@@ -157,6 +176,7 @@ function DetailsForm({
       if (saved.ctTrn !== undefined) setCtTrn(saved.ctTrn);
       if (saved.yearEnd !== undefined) setYearEnd(saved.yearEnd);
       if (saved.ctDueOn !== undefined) setCtDueOn(saved.ctDueOn);
+      if (saved.vatReturns !== undefined) setVatReturns(saved.vatReturns);
       if (saved.ctFiledOn !== undefined) setCtFiledOn(saved.ctFiledOn);
     },
   );
@@ -168,6 +188,11 @@ function DetailsForm({
     mutationFn: async () => {
       const text = (value: string) => (value.trim() === '' ? null : value.trim());
       const body: ChangeClientDetails = {
+        // The name as on the licence, corrected here when the licence changes.
+        ...(legalName.trim() !== '' && legalName.trim() !== detail.legalName
+          ? { legalName: legalName.trim() }
+          : {}),
+        legalNameArabic: text(legalNameArabic),
         tradeLicenceNumber: text(licence),
         contactPerson: text(person),
         contactEmail: text(email),
@@ -183,6 +208,10 @@ function DetailsForm({
       // registered it also carries the cycle that gives the deadline a date.
       body.taxLoginMethod = loginMethod === '' ? null : (loginMethod as 'email' | 'uae_pass');
       body.ctReturnDueOn = ctDueOn === '' ? null : ctDueOn;
+      body.vatReturns = vatReturns.map((one) => ({
+        dueOn: one.dueOn === '' ? null : one.dueOn,
+        filedOn: one.filedOn === '' ? null : one.filedOn,
+      }));
       body.ctReturnFiledOn = ctFiledOn === '' ? null : ctFiledOn;
       // NA or Rejection in the number box is a remark, not a number.
       const vatRemark = remarkOf(vatTrn);
@@ -353,6 +382,18 @@ function DetailsForm({
         </div>
 
         <Field
+          label={t('clients.new.legalName')}
+          ltr
+          required
+          value={legalName}
+          onChange={(e) => setLegalName(e.target.value)}
+        />
+        <Field
+          label={t('clients.new.legalNameArabic')}
+          value={legalNameArabic}
+          onChange={(e) => setLegalNameArabic(e.target.value)}
+        />
+        <Field
           label={t('clients.licence')}
           ltr
           value={licence}
@@ -436,6 +477,26 @@ function DetailsForm({
             <p className="u-text-faint">{t('clients.quarterEndsHint')}</p>
           </fieldset>
         ) : null}
+        {/* The year's four VAT returns, typed from the authority's portal. */}
+        <fieldset className="u-stack-tight">
+          <legend>{t('clients.vatReturns')}</legend>
+          {vatReturns.map((one, index) => (
+            <div className="u-row u-row-top" key={`vat-return-${index + 1}`}>
+              <Field
+                label={t('clients.vatReturnDue', { n: index + 1 })}
+                type="date"
+                value={one.dueOn}
+                onChange={(e) => setVatReturn(index, 'dueOn', e.target.value)}
+              />
+              <Field
+                label={t('clients.vatReturnFiled', { n: index + 1 })}
+                type="date"
+                value={one.filedOn}
+                onChange={(e) => setVatReturn(index, 'filedOn', e.target.value)}
+              />
+            </div>
+          ))}
+        </fieldset>
         <Field
           label={t('clients.ctNumber')}
           {...errorFor('ct')}
