@@ -1,7 +1,14 @@
 import { Conflict, type Result, err, ok } from '@amc/kernel';
 
 /** How the practice spoke to the client. */
-export type ContactChannel = 'call' | 'whatsapp' | 'email' | 'meeting' | 'portal' | 'other';
+export type ContactChannel =
+  | 'call'
+  | 'whatsapp'
+  | 'email'
+  | 'meeting'
+  | 'portal'
+  | 'social_media'
+  | 'other';
 export type ContactDirection = 'inbound' | 'outbound';
 
 const CHANNELS: readonly ContactChannel[] = [
@@ -10,6 +17,7 @@ const CHANNELS: readonly ContactChannel[] = [
   'email',
   'meeting',
   'portal',
+  'social_media',
   'other',
 ];
 

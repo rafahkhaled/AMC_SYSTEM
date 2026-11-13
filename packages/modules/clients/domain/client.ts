@@ -50,6 +50,8 @@ export interface ClientState {
   readonly contactEmail: string | null;
   readonly mobile: string | null;
   readonly landline: string | null;
+  /** A second mobile: the person to call often has two. */
+  readonly mobile2: string | null;
   /** 0 is Sunday, 6 is Saturday. */
   readonly weeklyDayOff: number | null;
   readonly address: string | null;
@@ -64,6 +66,8 @@ export interface ClientState {
   /** The corporation tax return: when it is due, and when the firm filed it (YYYY-MM-DD). */
   readonly ctReturnDueOn: string | null;
   readonly ctReturnFiledOn: string | null;
+  /** Where the corporation tax return stands, in the firm's words: Done, In progress… */
+  readonly ctReturnStatus: string | null;
   /** The year's four VAT returns: when each is due and when it was filed. */
   readonly vatReturns: readonly VatReturnDates[];
   readonly status: ClientStatus;
@@ -85,6 +89,8 @@ export interface ClientState {
 export interface VatReturnDates {
   readonly dueOn: string | null;
   readonly filedOn: string | null;
+  /** Where the return stands, in the firm's words: Done, To be Done, Rejection… */
+  readonly status?: string | null | undefined;
 }
 
 export interface ClientDetailsChange {
@@ -97,6 +103,7 @@ export interface ClientDetailsChange {
   readonly contactEmail?: string | null;
   readonly mobile?: string | null;
   readonly landline?: string | null;
+  readonly mobile2?: string | null;
   readonly weeklyDayOff?: number | null;
   readonly address?: string | null;
   /** "HH:MM". Both, or neither: hours with one end are not hours. */
@@ -107,6 +114,7 @@ export interface ClientDetailsChange {
   readonly taxLoginMethod?: string | null;
   readonly ctReturnDueOn?: string | null;
   readonly ctReturnFiledOn?: string | null;
+  readonly ctReturnStatus?: string | null;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,6 +152,7 @@ export class Client extends AggregateRoot<ClientId> {
       contactEmail: null,
       mobile: null,
       landline: null,
+      mobile2: null,
       weeklyDayOff: null,
       address: null,
       opensAt: null,
@@ -153,6 +162,7 @@ export class Client extends AggregateRoot<ClientId> {
       taxLoginMethod: null,
       ctReturnDueOn: null,
       ctReturnFiledOn: null,
+      ctReturnStatus: null,
       vatReturns: [],
       status: 'active',
       vat: NOT_REGISTERED,
@@ -212,7 +222,7 @@ export class Client extends AggregateRoot<ClientId> {
       if (email && !EMAIL.test(email)) return err(new Conflict('That is not an email address'));
       set('contactEmail', email);
     }
-    for (const key of ['mobile', 'landline'] as const) {
+    for (const key of ['mobile', 'landline', 'mobile2'] as const) {
       const given = change[key];
       if (given === undefined) continue;
       const typed = blank(given);
@@ -220,7 +230,8 @@ export class Client extends AggregateRoot<ClientId> {
       // empty box that reads as forgotten.
       const number = typed && /^n\/?a$/i.test(typed) ? 'NA' : typed;
       if (number && number !== 'NA' && toE164(number) === null) {
-        return err(new Conflict(`The ${key} number could not be read as a phone number`));
+        const which = key === 'mobile2' ? 'second mobile' : key;
+        return err(new Conflict(`The ${which} number could not be read as a phone number`));
       }
       set(key, number);
     }
@@ -255,7 +266,7 @@ export class Client extends AggregateRoot<ClientId> {
       const given = change[key];
       if (given === undefined) continue;
       const note = given === null ? null : given.trim();
-      if (note !== null && (note.length === 0 || note.length > 60)) {
+      if (note !== null && (note.length === 0 || note.length > 500)) {
         return err(new Conflict('Keep what stands in place of a tax number short'));
       }
       set(key, note);
@@ -278,7 +289,11 @@ export class Client extends AggregateRoot<ClientId> {
           }
         }
       }
-      const next = returns.map((one) => ({ dueOn: one.dueOn, filedOn: one.filedOn }));
+      const next = returns.map((one) => ({
+        dueOn: one.dueOn,
+        filedOn: one.filedOn,
+        status: one.status?.trim() || null,
+      }));
       if (JSON.stringify(next) !== JSON.stringify(this.state.vatReturns)) {
         set('vatReturns', next);
       }
@@ -290,6 +305,9 @@ export class Client extends AggregateRoot<ClientId> {
         return err(new Conflict('Use a date in the form 2026-03-31'));
       }
       set(key, day);
+    }
+    if (change.ctReturnStatus !== undefined) {
+      set('ctReturnStatus', blank(change.ctReturnStatus));
     }
 
     if (changed.length === 0) return ok(true);
@@ -390,6 +408,35 @@ export class Client extends AggregateRoot<ClientId> {
         clientId: this.id,
         trn: params.trn.value,
         frequency: params.periods.frequency,
+      }),
+    );
+    return ok(true);
+  }
+
+  /**
+   * Which months a registered client's VAT periods end in, corrected.
+   *
+   * The authority staggers each business's quarters, and a wrong set put the
+   * client's returns on the wrong months, so the firm has to be able to fix it.
+   */
+  changeVatPeriods(periods: VatPeriods, now: Date): Result<true, Conflict> {
+    if (this.state.vat.state !== 'registered') {
+      return err(new Conflict('This client is not registered for VAT'));
+    }
+    const current = this.state.vatPeriods;
+    if (
+      current &&
+      current.frequency === periods.frequency &&
+      current.anchorEndMonth === periods.anchorEndMonth
+    ) {
+      return ok(true);
+    }
+    this.state = { ...this.state, vatPeriods: periods };
+    this.record(
+      domainEvent('clients.client.vat_periods_changed', this.id, now, {
+        clientId: this.id,
+        frequency: periods.frequency,
+        endMonths: periods.endMonths(),
       }),
     );
     return ok(true);

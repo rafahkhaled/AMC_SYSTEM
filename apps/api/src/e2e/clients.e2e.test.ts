@@ -324,7 +324,7 @@ describe('clients, their conversations and their logins', () => {
       expect((await manager.get('/clients/c-mine').expect(200)).body.ctRemark).toBe('De-Reg');
       await manager
         .patch(path)
-        .send({ vatRemark: 'x'.repeat(61) })
+        .send({ vatRemark: 'x'.repeat(501) })
         .expect(400);
       await manager.patch(path).send({ taxLoginMethod: 'fax' }).expect(400);
     });
@@ -369,11 +369,48 @@ describe('clients, their conversations and their logins', () => {
         { dueOn: '2026-12-28', filedOn: null },
       ];
       await manager.patch(path).send({ vatReturns: returns }).expect(200);
-      expect((await manager.get('/clients/c-mine').expect(200)).body.vatReturns).toEqual(returns);
+      expect((await manager.get('/clients/c-mine').expect(200)).body.vatReturns).toEqual(
+        returns.map((one) => ({ ...one, status: null })),
+      );
       await manager
         .patch(path)
         .send({ vatReturns: [...returns, { dueOn: null, filedOn: null }] })
         .expect(400);
+    });
+
+    it('keeps where each return stands, in the firm’s words', async () => {
+      const returns = [
+        { dueOn: '2027-02-28', filedOn: '2027-02-20', status: 'Done' },
+        { dueOn: '2027-05-28', filedOn: null, status: 'In progress' },
+        { dueOn: '2027-08-28', filedOn: null, status: null },
+        { dueOn: '2027-11-28', filedOn: null, status: 'To be Done' },
+      ];
+      await manager
+        .patch(path)
+        .send({ vatReturns: returns, ctReturnStatus: 'Rejection' })
+        .expect(200);
+      const detail = (await manager.get('/clients/c-mine').expect(200)).body;
+      expect(detail.vatReturns).toEqual(returns);
+      expect(detail.ctReturnStatus).toBe('Rejection');
+    });
+
+    it('keeps a second mobile, and refuses one that is not a number', async () => {
+      await manager.patch(path).send({ mobile2: '+971 50 765 4321' }).expect(200);
+      expect((await manager.get('/clients/c-mine').expect(200)).body.mobile2).toBe(
+        '+971 50 765 4321',
+      );
+      const refused = await manager.patch(path).send({ mobile2: 'abc' }).expect(409);
+      expect(refused.body.error.message).toBe(
+        'The second mobile number could not be read as a phone number',
+      );
+    });
+
+    it('takes a long address or reference without a length refusal', async () => {
+      const long = 'Office 1203, '.repeat(20);
+      await manager
+        .patch(path)
+        .send({ address: long, references: [{ label: 'Establishment card', value: long }] })
+        .expect(200);
     });
 
     it('takes NA for a number the client does not have', async () => {
@@ -428,6 +465,13 @@ describe('clients, their conversations and their logins', () => {
         .patch(path)
         .send({ vat: { trn: '12345' } })
         .expect(409);
+
+      // The months were wrong (March…, when its returns fall in February…): corrected.
+      const corrected = await manager
+        .patch(path)
+        .send({ vatPeriods: { frequency: 'quarterly', anchorEndMonth: 1 } })
+        .expect(200);
+      expect(corrected.body.vatPeriodEndMonths).toEqual([1, 4, 7, 10]);
     });
 
     it('will not give two clients the same VAT number', async () => {

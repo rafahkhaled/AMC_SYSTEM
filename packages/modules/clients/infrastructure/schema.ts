@@ -30,6 +30,7 @@ export const clients = pgTable(
     contactEmail: citext('contact_email'),
     mobile: text('mobile'),
     landline: text('landline'),
+    mobile2: text('mobile_2'),
     weeklyDayOff: smallint('weekly_day_off'),
     address: text('address'),
     opensAt: text('opens_at'),
@@ -39,7 +40,11 @@ export const clients = pgTable(
     taxLoginMethod: text('tax_login_method'),
     ctReturnDueOn: date('ct_return_due_on'),
     ctReturnFiledOn: date('ct_return_filed_on'),
-    vatReturns: jsonb('vat_returns').$type<{ dueOn: string | null; filedOn: string | null }[]>(),
+    ctReturnStatus: text('ct_return_status'),
+    vatReturns:
+      jsonb('vat_returns').$type<
+        { dueOn: string | null; filedOn: string | null; status?: string | null | undefined }[]
+      >(),
     status: text('status').notNull().default('active'),
 
     vatState: text('vat_state').notNull().default('not_registered'),

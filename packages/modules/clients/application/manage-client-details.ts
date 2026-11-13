@@ -120,6 +120,7 @@ export class ManageClientDetails {
           ...(command.contactEmail !== undefined && { contactEmail: command.contactEmail }),
           ...(command.mobile !== undefined && { mobile: command.mobile }),
           ...(command.landline !== undefined && { landline: command.landline }),
+          ...(command.mobile2 !== undefined && { mobile2: command.mobile2 }),
           ...(command.weeklyDayOff !== undefined && { weeklyDayOff: command.weeklyDayOff }),
           ...(command.address !== undefined && { address: command.address }),
           ...(command.opensAt !== undefined && { opensAt: command.opensAt }),
@@ -132,6 +133,7 @@ export class ManageClientDetails {
           ...(command.ctReturnFiledOn !== undefined && {
             ctReturnFiledOn: command.ctReturnFiledOn,
           }),
+          ...(command.ctReturnStatus !== undefined && { ctReturnStatus: command.ctReturnStatus }),
         },
         now,
       );
@@ -139,6 +141,16 @@ export class ManageClientDetails {
 
       if (command.vat) {
         const outcome = await this.vat(clients, client, command.vat, now);
+        if (!outcome.ok) return outcome;
+      }
+      // A registered client's months corrected; a new registration carries its own.
+      if (command.vatPeriods && client.vat.state === 'registered') {
+        const periods = VatPeriods.of(
+          command.vatPeriods.frequency,
+          command.vatPeriods.anchorEndMonth,
+        );
+        if (!periods.ok) return err(new Conflict(periods.error.message));
+        const outcome = client.changeVatPeriods(periods.value, now);
         if (!outcome.ok) return outcome;
       }
       if (command.corporateTax) {

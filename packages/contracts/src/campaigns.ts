@@ -31,7 +31,7 @@ export type CampaignView = z.infer<typeof campaignSchema>;
 export const campaignListSchema = z.object({ campaigns: z.array(campaignSchema) });
 
 export const createCampaignSchema = z.object({
-  name: z.string().trim().min(1, 'A campaign needs a name').max(120),
+  name: z.string().trim().min(1, 'A campaign needs a name').max(300),
   typeCode: z.string().regex(/^[a-z0-9_]{1,40}$/, 'Choose the type of campaign'),
   startsOn: day,
   durationDays: z.number().int().positive().max(3650).optional(),
@@ -44,7 +44,7 @@ export type CreateCampaignRequest = z.infer<typeof createCampaignSchema>;
 
 /** Only what is sent changes. A field sent as null is cleared. */
 export const updateCampaignSchema = z.object({
-  name: z.string().trim().min(1).max(120).optional(),
+  name: z.string().trim().min(1).max(300).optional(),
   typeCode: z
     .string()
     .regex(/^[a-z0-9_]{1,40}$/)

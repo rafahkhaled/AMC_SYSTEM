@@ -55,9 +55,9 @@ const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date in the f
 
 export const documentUploadSchema = z.object({
   type: z.string().min(1),
-  authority: z.string().trim().max(40).optional(),
-  label: z.string().trim().max(200).optional(),
-  referenceNumber: z.string().trim().max(120).optional(),
+  authority: z.string().trim().max(500).optional(),
+  label: z.string().trim().max(1000).optional(),
+  referenceNumber: z.string().trim().max(500).optional(),
   issuedOn: calendarDay.optional(),
   expiresOn: calendarDay.optional(),
   /** Set when replacing a document already on file, which supersedes it. */
@@ -87,8 +87,8 @@ export const rateChangeSchema = z.object({
 
 /** A named reference number: establishment card, MOL, chamber of commerce. */
 export const clientReferenceSchema = z.object({
-  label: z.string().trim().min(1).max(60),
-  value: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(500),
+  value: z.string().trim().min(1).max(1000),
 });
 export type ClientReference = z.infer<typeof clientReferenceSchema>;
 
@@ -98,6 +98,7 @@ export const clientDetailSchema = clientSummarySchema.extend({
   contactEmail: z.string().nullable(),
   mobile: z.string().nullable(),
   landline: z.string().nullable(),
+  mobile2: z.string().nullable(),
   weeklyDayOff: z.number().int().nullable(),
   address: z.string().nullable(),
   /** "HH:MM": the hours the client keeps. Both or neither. */
@@ -113,8 +114,16 @@ export const clientDetailSchema = clientSummarySchema.extend({
   /** The corporation tax return: when it is due, and when the firm filed it. */
   ctReturnDueOn: z.string().nullable(),
   ctReturnFiledOn: z.string().nullable(),
-  /** The year's four VAT returns: when each is due and when it was filed. */
-  vatReturns: z.array(z.object({ dueOn: z.string().nullable(), filedOn: z.string().nullable() })),
+  /** Where the corporation tax return stands, in the firm's words. */
+  ctReturnStatus: z.string().nullable(),
+  /** The year's four VAT returns: when each is due, when it was filed, where it stands. */
+  vatReturns: z.array(
+    z.object({
+      dueOn: z.string().nullable(),
+      filedOn: z.string().nullable(),
+      status: z.string().nullable().optional(),
+    }),
+  ),
   references: z.array(clientReferenceSchema),
   ctTrn: z.string().nullable(),
   /** Which months this client's VAT periods end in. Staggered per client. */
@@ -170,7 +179,15 @@ export const revealedCredentialSchema = z.object({
 });
 export type RevealedCredential = z.infer<typeof revealedCredentialSchema>;
 
-export const contactChannels = ['call', 'whatsapp', 'email', 'meeting', 'portal', 'other'] as const;
+export const contactChannels = [
+  'call',
+  'whatsapp',
+  'email',
+  'meeting',
+  'portal',
+  'social_media',
+  'other',
+] as const;
 
 export const contactLogEntrySchema = z.object({
   id: z.string(),
@@ -310,8 +327,8 @@ export const letterTemplateDetailsSchema = z.object({
 });
 
 export const createLetterTemplateSchema = z.object({
-  nameEn: z.string().trim().min(1, 'Name the letter in English').max(120),
-  nameAr: z.string().trim().min(1, 'Name the letter in Arabic').max(120),
+  nameEn: z.string().trim().min(1, 'Name the letter in English').max(500),
+  nameAr: z.string().trim().min(1, 'Name the letter in Arabic').max(500),
   bodyEn: z.string().min(1, 'The letter needs its English wording').max(20_000),
   bodyAr: z.string().min(1, 'The letter needs its Arabic wording').max(20_000),
 });
@@ -346,7 +363,7 @@ export const generateLetterSchema = z.object({
   language: z.enum(['en', 'ar']),
   projectId: z.string().optional(),
   /** Who it is addressed to, from the authority list. */
-  authority: z.string().trim().max(40).optional(),
+  authority: z.string().trim().max(500).optional(),
 });
 
 /** A produced letter, reworded before it is printed. */
@@ -392,15 +409,15 @@ export const addReferenceOptionSchema = z.object({
     .string()
     .trim()
     .regex(/^[a-z0-9_]{1,40}$/, 'Use lower case letters, digits and underscores'),
-  nameEn: z.string().trim().min(1).max(120),
-  nameAr: z.string().trim().min(1).max(120),
+  nameEn: z.string().trim().min(1).max(500),
+  nameAr: z.string().trim().min(1).max(500),
   position: z.number().int().min(0).max(9999).optional(),
 });
 export type AddReferenceOptionRequest = z.infer<typeof addReferenceOptionSchema>;
 
 export const updateReferenceOptionSchema = z.object({
-  nameEn: z.string().trim().min(1).max(120).optional(),
-  nameAr: z.string().trim().min(1).max(120).optional(),
+  nameEn: z.string().trim().min(1).max(500).optional(),
+  nameAr: z.string().trim().min(1).max(500).optional(),
   position: z.number().int().min(0).max(9999).optional(),
   retired: z.boolean().optional(),
 });
@@ -433,16 +450,18 @@ export const clientFolderSchema = z.object({
   name: z.string(),
   /** Files directly in it, not counting what is in folders below. */
   fileCount: z.number().int().nonnegative(),
+  /** Folders directly inside it. */
+  folderCount: z.number().int().nonnegative().default(0),
 });
 export type ClientFolderView = z.infer<typeof clientFolderSchema>;
 export const clientFoldersSchema = z.object({ folders: z.array(clientFolderSchema) });
 
 export const createFolderSchema = z.object({
-  name: z.string().trim().min(1, 'Give the folder a name').max(80),
+  name: z.string().trim().min(1, 'Give the folder a name').max(500),
   parentId: z.string().min(1).nullable().optional(),
 });
 export const renameFolderSchema = z.object({
-  name: z.string().trim().min(1, 'Give the folder a name').max(80),
+  name: z.string().trim().min(1, 'Give the folder a name').max(500),
 });
 export const moveFileSchema = z.object({ folderId: z.string().min(1).nullable() });
 
@@ -463,25 +482,33 @@ export type ClientFilesUploaded = z.infer<typeof clientFilesUploadedSchema>;
  * client not yet registered it also needs the cycle that makes a deadline.
  */
 export const changeClientDetailsSchema = z.object({
-  legalName: z.string().trim().min(1, 'A client needs a legal name').max(200).optional(),
-  legalNameArabic: z.string().trim().max(200).nullable().optional(),
-  tradeLicenceNumber: z.string().trim().max(60).nullable().optional(),
-  contactPerson: z.string().trim().max(120).nullable().optional(),
-  contactEmail: z.string().trim().max(200).nullable().optional(),
-  mobile: z.string().trim().max(30).nullable().optional(),
-  landline: z.string().trim().max(30).nullable().optional(),
+  legalName: z.string().trim().min(1, 'A client needs a legal name').max(500).optional(),
+  legalNameArabic: z.string().trim().max(500).nullable().optional(),
+  tradeLicenceNumber: z.string().trim().max(500).nullable().optional(),
+  contactPerson: z.string().trim().max(500).nullable().optional(),
+  contactEmail: z.string().trim().max(500).nullable().optional(),
+  mobile: z.string().trim().max(100).nullable().optional(),
+  landline: z.string().trim().max(100).nullable().optional(),
+  mobile2: z.string().trim().max(100).nullable().optional(),
   /** 0 is Sunday, 6 is Saturday. */
   weeklyDayOff: z.number().int().min(0).max(6).nullable().optional(),
-  address: z.string().trim().max(400).nullable().optional(),
+  address: z.string().trim().max(2000).nullable().optional(),
   opensAt: z.string().trim().nullable().optional(),
   closesAt: z.string().trim().nullable().optional(),
-  vatRemark: z.string().trim().min(1).max(60).nullable().optional(),
-  ctRemark: z.string().trim().min(1).max(60).nullable().optional(),
+  vatRemark: z.string().trim().min(1).max(500).nullable().optional(),
+  ctRemark: z.string().trim().min(1).max(500).nullable().optional(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable().optional(),
   ctReturnDueOn: calendarDay.nullable().optional(),
   ctReturnFiledOn: calendarDay.nullable().optional(),
+  ctReturnStatus: z.string().trim().max(500).nullable().optional(),
   vatReturns: z
-    .array(z.object({ dueOn: calendarDay.nullable(), filedOn: calendarDay.nullable() }))
+    .array(
+      z.object({
+        dueOn: calendarDay.nullable(),
+        filedOn: calendarDay.nullable(),
+        status: z.string().trim().max(500).nullable().optional(),
+      }),
+    )
     .max(4)
     .optional(),
   vat: z
@@ -493,6 +520,13 @@ export const changeClientDetailsSchema = z.object({
         .optional(),
       frequency: z.enum(['monthly', 'quarterly']).optional(),
       anchorEndMonth: z.number().int().min(1).max(12).optional(),
+    })
+    .optional(),
+  /** Which months a client already registered for VAT files in, corrected. */
+  vatPeriods: z
+    .object({
+      frequency: z.enum(['monthly', 'quarterly']),
+      anchorEndMonth: z.number().int().min(1).max(12),
     })
     .optional(),
   corporateTax: z
@@ -537,8 +571,8 @@ export type PublicEnquiry = z.infer<typeof publicEnquirySchema>;
 
 /** Adding a client directly, without an enquiry first. */
 export const onboardClientSchema = z.object({
-  legalName: z.string().trim().min(1, 'A client needs a legal name').max(200),
-  legalNameArabic: z.string().trim().max(200).optional(),
-  tradeLicenceNumber: z.string().trim().max(60).optional(),
+  legalName: z.string().trim().min(1, 'A client needs a legal name').max(500),
+  legalNameArabic: z.string().trim().max(500).optional(),
+  tradeLicenceNumber: z.string().trim().max(500).optional(),
 });
 export type OnboardClient = z.infer<typeof onboardClientSchema>;

@@ -123,6 +123,7 @@ export class ReadClients {
       contactEmail: state.contactEmail,
       mobile: state.mobile,
       landline: state.landline,
+      mobile2: state.mobile2,
       weeklyDayOff: state.weeklyDayOff,
       address: state.address,
       opensAt: state.opensAt,
@@ -132,7 +133,12 @@ export class ReadClients {
       taxLoginMethod: state.taxLoginMethod as 'email' | 'uae_pass' | null,
       ctReturnDueOn: state.ctReturnDueOn,
       ctReturnFiledOn: state.ctReturnFiledOn,
-      vatReturns: [...state.vatReturns],
+      ctReturnStatus: state.ctReturnStatus,
+      vatReturns: state.vatReturns.map((one) => ({
+        dueOn: one.dueOn,
+        filedOn: one.filedOn,
+        status: one.status ?? null,
+      })),
       references: await this.clients.referencesOf(clientId),
       // Staggered per client, so the screen shows which months rather than
       // implying everyone files on calendar quarters.

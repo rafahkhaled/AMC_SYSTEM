@@ -39,6 +39,7 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   contactEmail: 'mariam@gulf.example',
   mobile: '050 123 4567',
   landline: '04 123 4567',
+  mobile2: null,
   weeklyDayOff: 0,
   address: 'Office 523, Block C, DAFZA, Dubai',
   opensAt: '08:30',
@@ -48,6 +49,7 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   taxLoginMethod: null,
   ctReturnDueOn: null,
   ctReturnFiledOn: null,
+  ctReturnStatus: null,
   vatReturns: [],
   references: [{ label: 'MOL number', value: '99887766' }],
   ctTrn: null,
@@ -109,14 +111,36 @@ describe('a client’s contact details', () => {
     expect(screen.queryByLabelText('Filed')).toBeNull();
     await user.type(screen.getByLabelText('Tax registration number (VAT)'), '100111222333003');
     expect(screen.getByLabelText('Filed')).toBeInTheDocument();
+    // No months assumed: saving waits until they are chosen.
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      (await screen.findAllByText('Choose the months the periods end in before saving')).length,
+    ).toBeGreaterThan(0);
+    expect(changeClientDetails).not.toHaveBeenCalled();
+
+    // Choosing one sets all four, and dates the four returns from them.
+    await user.selectOptions(screen.getByLabelText('Return 1'), '1');
+    expect(screen.getByLabelText('Return 2')).toHaveValue('4');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(changeClientDetails).toHaveBeenCalled());
-    expect(changeClientDetails.mock.calls[0]?.[1].vat).toEqual({
-      trn: '100111222333003',
-      frequency: 'quarterly',
-      anchorEndMonth: 3,
-    });
+    const sent = changeClientDetails.mock.calls[0]?.[1];
+    expect(sent.vat).toEqual({ trn: '100111222333003', frequency: 'quarterly', anchorEndMonth: 1 });
+    expect(sent.vatReturns.map((one: { dueOn: string }) => one.dueOn.slice(5)).sort()).toEqual([
+      '02-28',
+      '05-28',
+      '08-28',
+      '11-28',
+    ]);
+  });
+
+  it('hides the VAT return dates for a client with no VAT number', async () => {
+    const user = userEvent.setup();
+    renderScreen(<ClientDetailsCard detail={client()} canEdit months={MONTHS} />);
+    await user.click(screen.getByRole('button', { name: 'Edit details' }));
+    expect(screen.getByText('The four VAT returns')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Tax registration number (VAT)'), 'NA');
+    expect(screen.queryByText('The four VAT returns')).toBeNull();
   });
 
   it('shows the refusal in the form instead of closing it', async () => {

@@ -106,18 +106,27 @@ export class DrizzleClientFileRepository implements ClientFileRepository {
   async foldersFor(
     clientId: string,
     scope: ClientScope,
-  ): Promise<{ folder: ClientFolder; fileCount: number }[]> {
+  ): Promise<{ folder: ClientFolder; fileCount: number; folderCount: number }[]> {
     if (!(await clientIsReachable(this.db, clientId, scope))) return [];
-    const rows = await this.db.execute<FolderRow & { file_count: string }>(sql`
+    const rows = await this.db.execute<
+      FolderRow & { file_count: string; folder_count: string }
+    >(sql`
       SELECT d.*, (
         SELECT count(*) FROM client_files f
         WHERE f.folder_id = d.id AND f.removed_at IS NULL
-      )::text AS file_count
+      )::text AS file_count, (
+        SELECT count(*) FROM client_folders c
+        WHERE c.parent_id = d.id AND c.removed_at IS NULL
+      )::text AS folder_count
       FROM client_folders d
       WHERE d.client_id = ${clientId} AND d.removed_at IS NULL
       ORDER BY lower(d.name), d.id
     `);
-    return rows.map((row) => ({ folder: toFolder(row), fileCount: Number(row.file_count) }));
+    return rows.map((row) => ({
+      folder: toFolder(row),
+      fileCount: Number(row.file_count),
+      folderCount: Number(row.folder_count),
+    }));
   }
 
   async findFolder(id: string, scope: ClientScope): Promise<ClientFolder | null> {
@@ -158,6 +167,29 @@ export class DrizzleClientFileRepository implements ClientFileRepository {
         AND id <> ${exceptId ?? ''}
     `);
     return rows.length > 0;
+  }
+
+  /**
+   * The folders inside this one, at any depth, and how many files they hold
+   * between them (this folder's own included).
+   */
+  async beneath(folderId: string): Promise<{ folderIds: string[]; files: number }> {
+    const rows = await this.db.execute<{ id: string; files: string }>(sql`
+      WITH RECURSIVE tree AS (
+        SELECT id FROM client_folders WHERE id = ${folderId}
+        UNION ALL
+        SELECT c.id FROM client_folders c JOIN tree t ON c.parent_id = t.id
+         WHERE c.removed_at IS NULL
+      )
+      SELECT t.id,
+             (SELECT count(*) FROM client_files f
+               WHERE f.folder_id = t.id AND f.removed_at IS NULL)::text AS files
+        FROM tree t
+    `);
+    return {
+      folderIds: rows.map((row) => row.id).filter((id) => id !== folderId),
+      files: rows.reduce((sum, row) => sum + Number(row.files), 0),
+    };
   }
 
   async folderHasContents(folderId: string): Promise<boolean> {

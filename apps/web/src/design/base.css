@@ -790,6 +790,10 @@ a {
 .fact dd {
   margin: 0;
 }
+/* A value too long for a column, such as an email address: a row of its own. */
+.fact--wide {
+  grid-column: 1 / -1;
+}
 
 /* One item in a list: the thing, then whatever qualifies it, pushed to the end. */
 .line {

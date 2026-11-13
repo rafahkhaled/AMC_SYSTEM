@@ -225,8 +225,8 @@ export const servicesSchema = z.object({ services: z.array(serviceViewSchema) })
 export type Services = z.infer<typeof servicesSchema>;
 
 const serviceStepSchema = z.object({
-  nameEn: z.string().trim().max(120),
-  nameAr: z.string().trim().max(120),
+  nameEn: z.string().trim().max(500),
+  nameAr: z.string().trim().max(500),
 });
 const serviceDocumentSchema = z.object({
   type: z.string().trim().min(1).max(60),
@@ -235,8 +235,8 @@ const serviceDocumentSchema = z.object({
 
 /** Adding a service. Always one-off: a recurring one needs a period rule, which is code. */
 export const createServiceSchema = z.object({
-  nameEn: z.string().trim().min(1).max(120),
-  nameAr: z.string().trim().min(1).max(120),
+  nameEn: z.string().trim().min(1).max(500),
+  nameAr: z.string().trim().min(1).max(500),
   deadlineDays: z.number().int().min(1).max(730).nullable(),
   steps: z.array(serviceStepSchema).min(1).max(30),
   requiredDocuments: z.array(serviceDocumentSchema).max(30),

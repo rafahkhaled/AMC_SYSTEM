@@ -76,6 +76,9 @@ function harness() {
           fileCount: [...rows.values()].filter(
             (file) => file.folderId === folder.id && !file.isRemoved,
           ).length,
+          folderCount: [...folders.values()].filter(
+            (child) => child.parentId === folder.id && !child.isRemoved,
+          ).length,
         }));
     },
     findFolder: async (id, scope) => {
@@ -107,6 +110,25 @@ function harness() {
     folderHasContents: async (id) =>
       [...rows.values()].some((file) => file.folderId === id && !file.isRemoved) ||
       [...folders.values()].some((folder) => folder.parentId === id && !folder.isRemoved),
+    beneath: async (id) => {
+      const ids: string[] = [];
+      const walk = (parent: string) => {
+        for (const child of folders.values()) {
+          if (child.parentId === parent && !child.isRemoved) {
+            ids.push(child.id);
+            walk(child.id);
+          }
+        }
+      };
+      walk(id);
+      const all = new Set([id, ...ids]);
+      return {
+        folderIds: ids,
+        files: [...rows.values()].filter(
+          (file) => file.folderId !== null && all.has(file.folderId) && !file.isRemoved,
+        ).length,
+      };
+    },
     saveFolder: async (folder) => {
       for (const event of folder.pullEvents()) events.push(event.name);
       folders.set(folder.id, folder);
@@ -370,6 +392,32 @@ describe('folders inside a client’s folder', () => {
     expect((await h.files.removeFolder(manager, inner)).ok).toBe(true);
     expect((await h.files.removeFolder(manager, outer)).ok).toBe(true);
     expect(await h.files.folders(manager, 'c-1')).toEqual([]);
+  });
+
+  it('removes a folder whose folders hold no files, those folders with it', async () => {
+    const h = harness();
+    const outer = await made(h, 'CT Re-turn');
+    await made(h, 'CT Re-turn 2024', outer);
+    const deeper = await made(h, 'CT Re-turn 2025', outer);
+    await made(h, 'Drafts', deeper);
+
+    // "0 files" on the screen, and now it goes, with the empty folders inside.
+    expect((await h.files.folders(manager, 'c-1')).find((f) => f.id === outer)).toMatchObject({
+      fileCount: 0,
+      folderCount: 2,
+    });
+    expect((await h.files.removeFolder(manager, outer)).ok).toBe(true);
+    expect(await h.files.folders(manager, 'c-1')).toEqual([]);
+  });
+
+  it('keeps a folder with a file anywhere inside it', async () => {
+    const h = harness();
+    const outer = await made(h, 'Outer');
+    const deep = await made(h, 'Deep', await made(h, 'Middle', outer));
+    await h.files.upload(manager, 'c-1', [upload('kept.pdf')], deep);
+    const refused = await h.files.removeFolder(manager, outer);
+    expect(!refused.ok && refused.error.message).toContain('Move or remove');
+    expect(await h.files.folders(manager, 'c-1')).toHaveLength(3);
   });
 
   it('gives a stranger no folders and no way to make one', async () => {

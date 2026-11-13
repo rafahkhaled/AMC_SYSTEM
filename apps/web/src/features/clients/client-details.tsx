@@ -10,6 +10,17 @@ import { changeClientDetails } from './api.js';
 
 const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
+/** The words the firm writes beside a return. Offered, not imposed. */
+export const RETURN_STATUSES = [
+  'Done',
+  'To be Done',
+  'Rejection',
+  'De Registration',
+  'In progress',
+] as const;
+
+type ControlProps = Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0];
+
 /**
  * Who to call at a client, the numbers the firm quotes back, and the weekly day
  * off. Shown to everyone who can see the client; editable by people who may
@@ -37,10 +48,21 @@ export function ClientDetailsCard({
 
   return (
     <Card title={t('clients.contactTitle')}>
+      {/* What the firm reaches for, first; the email on a row of its own so
+          a long address reads whole instead of squeezed into a column. */}
       <dl className="facts">
+        <Row label={t('clients.email')} value={detail.contactEmail} ltr wide />
         <Row label={t('clients.contactPerson')} value={detail.contactPerson} />
-        <Row label={t('clients.email')} value={detail.contactEmail} ltr />
         <Row label={t('clients.mobile')} value={detail.mobile} ltr />
+        {detail.mobile2 ? <Row label={t('clients.mobile2')} value={detail.mobile2} ltr /> : null}
+        <Row label={t('clients.address')} value={detail.address} />
+        {detail.references.map((reference) => (
+          <Row key={reference.label} label={reference.label} value={reference.value} ltr />
+        ))}
+      </dl>
+      {/* Seldom needed, so below and quieter. */}
+      <h3 className="subheading">{t('clients.moreContact')}</h3>
+      <dl className="facts">
         <Row label={t('clients.landline')} value={detail.landline} ltr />
         <Row label={t('clients.dayOff')} value={dayName(detail.weeklyDayOff)} />
         <Row
@@ -50,10 +72,6 @@ export function ClientDetailsCard({
           }
           ltr
         />
-        <Row label={t('clients.address')} value={detail.address} />
-        {detail.references.map((reference) => (
-          <Row key={reference.label} label={reference.label} value={reference.value} ltr />
-        ))}
       </dl>
       {canEdit ? (
         <div className="u-row">
@@ -67,9 +85,19 @@ export function ClientDetailsCard({
   );
 }
 
-function Row({ label, value, ltr }: { label: string; value: string | null; ltr?: boolean }) {
+function Row({
+  label,
+  value,
+  ltr,
+  wide,
+}: {
+  label: string;
+  value: string | null;
+  ltr?: boolean;
+  wide?: boolean;
+}) {
   return (
-    <div className="fact">
+    <div className={wide ? 'fact fact--wide' : 'fact'}>
       <dt className="u-text-faint">{label}</dt>
       {/* Isolated rather than turned left-to-right, so an email or a number
           sits under its label like every other value instead of at the far
@@ -101,6 +129,7 @@ function DetailsForm({
   const [email, setEmail] = useState(detail.contactEmail ?? '');
   const [mobile, setMobile] = useState(detail.mobile ?? '');
   const [landline, setLandline] = useState(detail.landline ?? '');
+  const [mobile2, setMobile2] = useState(detail.mobile2 ?? '');
   const [dayOff, setDayOff] = useState(
     detail.weeklyDayOff === null ? '' : String(detail.weeklyDayOff),
   );
@@ -111,9 +140,15 @@ function DetailsForm({
   const [vatTrn, setVatTrn] = useState(detail.vatTrn ?? remarkText(detail.vatRemark));
   const [loginMethod, setLoginMethod] = useState(detail.taxLoginMethod ?? '');
   const [taxPassword, setTaxPassword] = useState('');
+  const [booksUser, setBooksUser] = useState('');
   const [booksPassword, setBooksPassword] = useState('');
-  const [frequency, setFrequency] = useState<'monthly' | 'quarterly'>('quarterly');
-  const [periodEnd, setPeriodEnd] = useState('3');
+  // The months as they are on file; nothing is assumed for a client without
+  // them, because a guess (March, June…) was saved as if it were known.
+  const onFile = detail.vatPeriodEndMonths;
+  const [frequency, setFrequency] = useState<'monthly' | 'quarterly'>(
+    onFile.length === 12 ? 'monthly' : 'quarterly',
+  );
+  const [periodEnd, setPeriodEnd] = useState(onFile.length > 0 ? String(onFile[0]) : '');
   const [ctTrn, setCtTrn] = useState(detail.ctTrn ?? remarkText(detail.ctRemark));
   const [yearEnd, setYearEnd] = useState('12');
   const [ctDueOn, setCtDueOn] = useState(detail.ctReturnDueOn ?? '');
@@ -122,11 +157,25 @@ function DetailsForm({
     [0, 1, 2, 3].map((index) => ({
       dueOn: detail.vatReturns[index]?.dueOn ?? '',
       filedOn: detail.vatReturns[index]?.filedOn ?? '',
+      status: detail.vatReturns[index]?.status ?? '',
     })),
   );
-  const setVatReturn = (index: number, part: 'dueOn' | 'filedOn', value: string) =>
+  const setVatReturn = (index: number, part: 'dueOn' | 'filedOn' | 'status', value: string) =>
     setVatReturns((now) => now.map((one, i) => (i === index ? { ...one, [part]: value } : one)));
+  /*
+   * Choosing the months a quarter ends in also dates the four returns: each is
+   * due on the 28th of the month after its quarter ends. The two are one fact,
+   * and typed separately they had come to disagree.
+   */
+  const chooseQuarterEnd = (month: string) => {
+    setPeriodEnd(month);
+    if (month === '') return;
+    const due = returnDueDates(quarterMonths(Number(month)), new Date());
+    setVatReturns((now) => now.map((one, i) => ({ ...one, dueOn: due[i] ?? one.dueOn })));
+  };
   const [ctFiledOn, setCtFiledOn] = useState(detail.ctReturnFiledOn ?? '');
+  const [ctStatus, setCtStatus] = useState(detail.ctReturnStatus ?? '');
+  const [missingMonths, setMissingMonths] = useState(false);
   /** Which tax number was sent, so a refusal about "a tax number" lands on the right box. */
   const [sentTax, setSentTax] = useState<'vat' | 'ct' | null>(null);
 
@@ -141,6 +190,7 @@ function DetailsForm({
       email,
       mobile,
       landline,
+      mobile2,
       dayOff,
       address,
       opensAt,
@@ -154,7 +204,9 @@ function DetailsForm({
       yearEnd,
       ctDueOn,
       ctFiledOn,
+      ctStatus,
       vatReturns,
+      booksUser,
     },
     (saved) => {
       if (saved.legalName !== undefined) setLegalName(saved.legalName);
@@ -164,6 +216,7 @@ function DetailsForm({
       if (saved.email !== undefined) setEmail(saved.email);
       if (saved.mobile !== undefined) setMobile(saved.mobile);
       if (saved.landline !== undefined) setLandline(saved.landline);
+      if (saved.mobile2 !== undefined) setMobile2(saved.mobile2);
       if (saved.dayOff !== undefined) setDayOff(saved.dayOff);
       if (saved.address !== undefined) setAddress(saved.address);
       if (saved.opensAt !== undefined) setOpensAt(saved.opensAt);
@@ -178,6 +231,8 @@ function DetailsForm({
       if (saved.ctDueOn !== undefined) setCtDueOn(saved.ctDueOn);
       if (saved.vatReturns !== undefined) setVatReturns(saved.vatReturns);
       if (saved.ctFiledOn !== undefined) setCtFiledOn(saved.ctFiledOn);
+      if (saved.ctStatus !== undefined) setCtStatus(saved.ctStatus);
+      if (saved.booksUser !== undefined) setBooksUser(saved.booksUser);
     },
   );
 
@@ -198,6 +253,7 @@ function DetailsForm({
         contactEmail: text(email),
         mobile: text(mobile),
         landline: text(landline),
+        mobile2: text(mobile2),
         weeklyDayOff: dayOff === '' ? null : Number(dayOff),
         address: text(address),
         opensAt: text(opensAt),
@@ -211,8 +267,10 @@ function DetailsForm({
       body.vatReturns = vatReturns.map((one) => ({
         dueOn: one.dueOn === '' ? null : one.dueOn,
         filedOn: one.filedOn === '' ? null : one.filedOn,
+        status: text(one.status),
       }));
       body.ctReturnFiledOn = ctFiledOn === '' ? null : ctFiledOn;
+      body.ctReturnStatus = text(ctStatus);
       // NA or Rejection in the number box is a remark, not a number.
       const vatRemark = remarkOf(vatTrn);
       const ctRemark = remarkOf(ctTrn);
@@ -223,6 +281,15 @@ function DetailsForm({
           trn: vatTrn.trim(),
           ...(vatRegistered ? {} : { frequency, anchorEndMonth: Number(periodEnd) }),
         };
+      }
+      // The months corrected on a client already registered.
+      if (
+        vatRegistered &&
+        periodEnd !== '' &&
+        (frequency !== (onFile.length === 12 ? 'monthly' : 'quarterly') ||
+          (frequency === 'quarterly' && !onFile.includes(Number(periodEnd))))
+      ) {
+        body.vatPeriods = { frequency, anchorEndMonth: Number(periodEnd) };
       }
       if (!ctRemark && ctTrn.trim() !== '' && ctTrn.trim() !== (detail.ctTrn ?? '')) {
         body.corporateTax = {
@@ -245,7 +312,8 @@ function DetailsForm({
       if (booksPassword) {
         await storeCredential(detail.id, {
           kind: 'accounting_software',
-          username: login,
+          // The program's own user (QuickBooks), not the tax file's login.
+          username: text(booksUser) ?? login,
           secret: booksPassword,
         });
       }
@@ -259,6 +327,12 @@ function DetailsForm({
     },
   });
 
+  // Months are asked for a client with a VAT number, registered or about to be.
+  const hasVat = vatRegistered || (vatTrn.trim() !== '' && !remarkOf(vatTrn));
+  // NA: the client has no VAT (or corporation tax), so there are no returns to date.
+  const vatIsNa = remarkOf(vatTrn) === 'na';
+  const ctIsNa = remarkOf(ctTrn) === 'na';
+
   const monthOptions = months.map((name, index) => (
     <option key={name} value={String(index + 1)}>
       {name}
@@ -271,7 +345,7 @@ function DetailsForm({
    * than read a sentence and hunt for it.
    */
   const failure = save.isError ? (save.error as Error).message : null;
-  const errorFor = (box: 'email' | 'mobile' | 'landline' | 'vat' | 'ct') => {
+  const errorFor = (box: 'email' | 'mobile' | 'mobile2' | 'landline' | 'vat' | 'ct') => {
     if (failure === null || boxOf(failure, sentTax) !== box) return {};
     return { error: failure };
   };
@@ -283,6 +357,10 @@ function DetailsForm({
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
+          const registering =
+            !vatRegistered && vatTrn.trim() !== '' && !remarkOf(vatTrn) && periodEnd === '';
+          setMissingMonths(registering && frequency === 'quarterly');
+          if (registering && frequency === 'quarterly') return;
           save.mutate();
         }}
       >
@@ -321,6 +399,13 @@ function DetailsForm({
           onChange={(e) => setTaxPassword(e.target.value)}
         />
         <Field
+          label={t('clients.booksUser')}
+          autoComplete="off"
+          ltr
+          value={booksUser}
+          onChange={(e) => setBooksUser(e.target.value)}
+        />
+        <Field
           label={t('clients.booksPassword')}
           autoComplete="off"
           ltr
@@ -334,6 +419,14 @@ function DetailsForm({
           inputMode="tel"
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
+        />
+        <Field
+          label={t('clients.mobile2')}
+          {...errorFor('mobile2')}
+          ltr
+          inputMode="tel"
+          value={mobile2}
+          onChange={(e) => setMobile2(e.target.value)}
         />
         <Field
           label={t('clients.landline')}
@@ -407,13 +500,16 @@ function DetailsForm({
           value={vatTrn}
           onChange={(e) => setVatTrn(e.target.value)}
         />
-        {!vatRegistered && vatTrn.trim() !== '' && !remarkOf(vatTrn) ? (
+        {/*
+         * How often and in which months: asked when registering, and open to
+         * correction afterwards. Nothing is chosen for the person: a default
+         * of March, June… was saved on clients whose quarters end elsewhere.
+         */}
+        {hasVat ? (
           <div className="u-row">
             <Field
               label={t('clients.vatHowOften')}
-              control={(
-                props: Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0],
-              ) => (
+              control={(props: ControlProps) => (
                 <Select
                   {...props}
                   value={frequency}
@@ -424,17 +520,16 @@ function DetailsForm({
                 </Select>
               )}
             />
-            {frequency === 'monthly' ? (
+            {frequency === 'monthly' && !vatRegistered ? (
               <Field
                 label={t('clients.periodEnd')}
-                control={(
-                  props: Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0],
-                ) => (
+                control={(props: ControlProps) => (
                   <Select
                     {...props}
                     value={periodEnd}
                     onChange={(e) => setPeriodEnd(e.target.value)}
                   >
+                    <option value="">{t('clients.chooseMonth')}</option>
                     {monthOptions}
                   </Select>
                 )}
@@ -445,58 +540,72 @@ function DetailsForm({
         {/*
          * Four returns a year, so four boxes, one per quarter-end month. They
          * move together: the authority staggers a client's quarters as a set,
-         * so choosing any one of the four fixes the other three.
+         * so choosing any one of the four fixes the other three, and dates the
+         * four returns below.
          */}
-        {!vatRegistered &&
-        vatTrn.trim() !== '' &&
-        !remarkOf(vatTrn) &&
-        frequency === 'quarterly' ? (
+        {hasVat && frequency === 'quarterly' ? (
           <fieldset className="u-stack-tight">
             <legend>{t('clients.quarterEnds')}</legend>
             <div className="u-row u-wrap">
-              {quarterMonths(Number(periodEnd)).map((month, index) => (
-                <Field
-                  key={month}
-                  label={t('clients.quarterEnd', { n: index + 1 })}
-                  control={(
-                    props: Parameters<
-                      NonNullable<React.ComponentProps<typeof Field>['control']>
-                    >[0],
-                  ) => (
-                    <Select
-                      {...props}
-                      value={String(month)}
-                      onChange={(e) => setPeriodEnd(e.target.value)}
-                    >
-                      {monthOptions}
-                    </Select>
-                  )}
-                />
-              ))}
+              {(periodEnd === '' ? [0, 0, 0, 0] : quarterMonths(Number(periodEnd))).map(
+                (month, index) => (
+                  <Field
+                    key={`quarter-${index + 1}`}
+                    label={t('clients.quarterEnd', { n: index + 1 })}
+                    {...(missingMonths && periodEnd === ''
+                      ? { error: t('clients.chooseQuarterMonths') }
+                      : {})}
+                    control={(props: ControlProps) => (
+                      <Select
+                        {...props}
+                        value={month === 0 ? '' : String(month)}
+                        onChange={(e) => chooseQuarterEnd(e.target.value)}
+                      >
+                        <option value="">{t('clients.chooseMonth')}</option>
+                        {monthOptions}
+                      </Select>
+                    )}
+                  />
+                ),
+              )}
             </div>
             <p className="u-text-faint">{t('clients.quarterEndsHint')}</p>
           </fieldset>
         ) : null}
-        {/* The year's four VAT returns, typed from the authority's portal. */}
-        <fieldset className="u-stack-tight">
-          <legend>{t('clients.vatReturns')}</legend>
-          {vatReturns.map((one, index) => (
-            <div className="u-row u-row-top" key={`vat-return-${index + 1}`}>
-              <Field
-                label={t('clients.vatReturnDue', { n: index + 1 })}
-                type="date"
-                value={one.dueOn}
-                onChange={(e) => setVatReturn(index, 'dueOn', e.target.value)}
-              />
-              <Field
-                label={t('clients.vatReturnFiled', { n: index + 1 })}
-                type="date"
-                value={one.filedOn}
-                onChange={(e) => setVatReturn(index, 'filedOn', e.target.value)}
-              />
-            </div>
+        {/* The year's four VAT returns. Not asked of a client with no VAT number (NA). */}
+        {vatIsNa ? null : (
+          <fieldset className="u-stack-tight">
+            <legend>{t('clients.vatReturns')}</legend>
+            {vatReturns.map((one, index) => (
+              <div className="u-row u-row-top u-wrap" key={`vat-return-${index + 1}`}>
+                <Field
+                  label={t('clients.vatReturnDue', { n: index + 1 })}
+                  type="date"
+                  value={one.dueOn}
+                  onChange={(e) => setVatReturn(index, 'dueOn', e.target.value)}
+                />
+                <Field
+                  label={t('clients.vatReturnFiled', { n: index + 1 })}
+                  type="date"
+                  value={one.filedOn}
+                  onChange={(e) => setVatReturn(index, 'filedOn', e.target.value)}
+                />
+                <Field
+                  label={t('clients.returnStatus')}
+                  list="return-statuses"
+                  value={one.status}
+                  onChange={(e) => setVatReturn(index, 'status', e.target.value)}
+                />
+              </div>
+            ))}
+          </fieldset>
+        )}
+        {/* The words the firm uses, offered; anything else can be typed. */}
+        <datalist id="return-statuses">
+          {RETURN_STATUSES.map((word) => (
+            <option key={word} value={word} />
           ))}
-        </fieldset>
+        </datalist>
         <Field
           label={t('clients.ctNumber')}
           {...errorFor('ct')}
@@ -508,9 +617,7 @@ function DetailsForm({
         {!ctRegistered && ctTrn.trim() !== '' && !remarkOf(ctTrn) ? (
           <Field
             label={t('clients.financialYear')}
-            control={(
-              props: Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0],
-            ) => (
+            control={(props: ControlProps) => (
               <Select {...props} value={yearEnd} onChange={(e) => setYearEnd(e.target.value)}>
                 {monthOptions}
               </Select>
@@ -518,20 +625,28 @@ function DetailsForm({
           />
         ) : null}
         {/* Typed from the authority's portal: its due date is the one that counts. */}
-        <div className="u-row u-row-top">
-          <Field
-            label={t('clients.ctDueOn')}
-            type="date"
-            value={ctDueOn}
-            onChange={(e) => setCtDueOn(e.target.value)}
-          />
-          <Field
-            label={t('clients.ctFiledOn')}
-            type="date"
-            value={ctFiledOn}
-            onChange={(e) => setCtFiledOn(e.target.value)}
-          />
-        </div>
+        {ctIsNa ? null : (
+          <div className="u-row u-row-top u-wrap">
+            <Field
+              label={t('clients.ctDueOn')}
+              type="date"
+              value={ctDueOn}
+              onChange={(e) => setCtDueOn(e.target.value)}
+            />
+            <Field
+              label={t('clients.ctFiledOn')}
+              type="date"
+              value={ctFiledOn}
+              onChange={(e) => setCtFiledOn(e.target.value)}
+            />
+            <Field
+              label={t('clients.returnStatus')}
+              list="return-statuses"
+              value={ctStatus}
+              onChange={(e) => setCtStatus(e.target.value)}
+            />
+          </div>
+        )}
 
         <fieldset className="u-stack-tight">
           <legend>{t('clients.references')}</legend>
@@ -614,12 +729,34 @@ export function remarkOf(typed: string): string | null {
   if (value === 'na' || value === 'n/a') return 'na';
   if (value.startsWith('reject') || value.startsWith('regect') || value === 'مرفوض')
     return 'rejected';
-  return text.slice(0, 60);
+  return text.slice(0, 500);
 }
 
 /** How a kept note reads back. */
 export function remarkText(remark: string | null): string {
   return remark === 'na' ? 'NA' : remark === 'rejected' ? 'Rejection' : (remark ?? '');
+}
+
+/**
+ * When the returns for these quarter-end months fall due: the 28th of the
+ * month after each quarter ends, the next four from today, earliest first.
+ */
+export function returnDueDates(endMonths: readonly number[], today: Date): string[] {
+  const now = today.toISOString().slice(0, 10);
+  return endMonths
+    .map((end) => {
+      const month = (end % 12) + 1;
+      let year = today.getUTCFullYear() - 1;
+      let due = '';
+      do {
+        year += 1;
+        // A December quarter is due in January of the year after.
+        const dueYear = end === 12 ? year + 1 : year;
+        due = `${dueYear}-${String(month).padStart(2, '0')}-28`;
+      } while (due < now);
+      return due;
+    })
+    .sort();
 }
 
 /** The four months a client's VAT quarters end in, from any one of them, in calendar order. */
@@ -631,13 +768,14 @@ export function quarterMonths(any: number): number[] {
 function boxOf(
   message: string,
   sentTax: 'vat' | 'ct' | null,
-): 'email' | 'mobile' | 'landline' | 'vat' | 'ct' | null {
+): 'email' | 'mobile' | 'mobile2' | 'landline' | 'vat' | 'ct' | null {
   const said = (english: string) => message === english || message === inReadersLanguage(english);
   if (said('Another client already has that VAT number')) return 'vat';
   if (said('Another client already has that corporation tax number')) return 'ct';
   if (said('That is not an email address')) return 'email';
   if (said('The mobile number could not be read as a phone number')) return 'mobile';
   if (said('The landline number could not be read as a phone number')) return 'landline';
+  if (said('The second mobile number could not be read as a phone number')) return 'mobile2';
   const aboutTaxNumber = [
     'A tax registration number is digits only',
     'A tax registration number is required',

@@ -87,12 +87,12 @@ export type Branches = z.infer<typeof branchesSchema>;
 const addressLinesSchema = z.array(z.string().trim().min(1).max(200)).max(6);
 
 export const createBranchSchema = z.object({
-  nameEn: z.string().trim().min(1).max(80),
-  nameAr: z.string().trim().min(1).max(80),
+  nameEn: z.string().trim().min(1).max(300),
+  nameAr: z.string().trim().min(1).max(300),
   addresses: addressLinesSchema.default([]),
   bank: z
     .object({
-      accountHolder: z.string().trim().min(1).max(120),
+      accountHolder: z.string().trim().min(1).max(300),
       iban: z.string().trim().min(1).max(40),
       bic: z.string().trim().max(20).nullable().default(null),
     })
@@ -243,14 +243,14 @@ export const recordPaymentRequestSchema = z
     receivedOn: z.string(),
     // A code from the payment methods an administrator maintains in Settings.
     method: z.string().regex(/^[a-z0-9_]{1,40}$/, 'Choose how it was paid'),
-    reference: z.string().trim().max(120).optional(),
+    reference: z.string().trim().max(500).optional(),
     /** A cheque's own number and date, which is what gets chased. */
-    chequeNumber: z.string().trim().max(60).optional(),
+    chequeNumber: z.string().trim().max(200).optional(),
     chequeDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    bankName: z.string().trim().max(120).optional(),
+    bankName: z.string().trim().max(300).optional(),
     /**
      * What the firm agreed to drop.
      *
@@ -354,7 +354,7 @@ export const draftQuotationRequestSchema = z.object({
    * firm's own estimate sequence. Given only when recording a quotation that
    * was issued by hand before this system existed.
    */
-  reference: z.string().trim().min(1).max(60).optional(),
+  reference: z.string().trim().min(1).max(200).optional(),
   validUntil: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

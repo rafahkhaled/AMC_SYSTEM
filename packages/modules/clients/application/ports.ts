@@ -167,11 +167,11 @@ export interface ClientFileRepository {
   findById(id: string, scope: ClientScope): Promise<ClientFile | null>;
   save(file: ClientFile): Promise<void>;
 
-  /** Folders still in use, with how many files sit directly in each. */
+  /** Folders still in use, with how many files and folders sit directly in each. */
   foldersFor(
     clientId: ClientId,
     scope: ClientScope,
-  ): Promise<{ folder: ClientFolder; fileCount: number }[]>;
+  ): Promise<{ folder: ClientFolder; fileCount: number; folderCount: number }[]>;
   /** Null when it does not exist, and equally when its client is out of scope. */
   findFolder(id: string, scope: ClientScope): Promise<ClientFolder | null>;
   /** Levels from the top: 1 for a folder directly in the client's folder. */
@@ -183,6 +183,8 @@ export interface ClientFileRepository {
     exceptId?: string,
   ): Promise<boolean>;
   folderHasContents(folderId: string): Promise<boolean>;
+  /** The folders inside one at any depth, and the files held in it and them. */
+  beneath(folderId: string): Promise<{ folderIds: string[]; files: number }>;
   saveFolder(folder: ClientFolder): Promise<void>;
 }
 

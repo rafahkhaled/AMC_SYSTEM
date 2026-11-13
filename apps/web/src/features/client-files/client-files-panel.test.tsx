@@ -55,6 +55,23 @@ describe('the client’s folder', () => {
     expect(screen.getByText('Wael Ajam')).toBeInTheDocument();
   });
 
+  it('removes every ticked file at once, after asking', async () => {
+    clientFiles.mockResolvedValue([kept(), kept({ id: 'f-2', name: 'VAT Q1.pdf' })]);
+    removeClientFile.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderScreen(<ClientFilesPanel clientId="c-1" />);
+    await screen.findByText('VAT Q1.pdf');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+    expect(screen.getByText('Selected: 2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Remove selected' }));
+    expect(removeClientFile).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Yes, remove 2 files' }));
+
+    await waitFor(() => expect(removeClientFile).toHaveBeenCalledTimes(2));
+    expect(removeClientFile.mock.calls.map((call) => call[0])).toEqual(['f-1', 'f-2']);
+  });
+
   it('says so when the folder is empty', async () => {
     clientFiles.mockResolvedValue([]);
     renderScreen(<ClientFilesPanel clientId="c-1" />);
@@ -184,6 +201,7 @@ const folder = (over: Partial<ClientFolderView> = {}): ClientFolderView => ({
   parentId: null,
   name: '2025',
   fileCount: 2,
+  folderCount: 0,
   ...over,
 });
 

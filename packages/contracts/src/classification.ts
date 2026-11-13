@@ -12,7 +12,7 @@ export type Salesperson = z.infer<typeof salespersonSchema>;
 export const salespeopleSchema = z.object({ salespeople: z.array(salespersonSchema) });
 
 export const addSalespersonSchema = z.object({
-  name: z.string().trim().min(1, 'Give the salesperson’s name').max(120),
+  name: z.string().trim().min(1, 'Give the salesperson’s name').max(300),
 });
 
 /** What can be classified, from the first enquiry to the invoice. */

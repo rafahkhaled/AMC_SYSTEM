@@ -20,6 +20,17 @@ const MAX_BYTES = 100 * 1024 * 1024;
 /** What goes in one request: ten files, or less when they are big, so the server never holds much at once. */
 const BATCH_BYTES = 30 * 1024 * 1024;
 
+/** A file to send, and the folders it sat in on the computer (empty for a loose file). */
+interface Incoming {
+  readonly file: File;
+  readonly dirs: readonly string[];
+}
+/** What was chosen or dropped: the files, and every folder, the empty ones too. */
+interface Delivery {
+  readonly files: readonly Incoming[];
+  readonly folders: readonly (readonly string[])[];
+}
+
 /**
  * The folder every client has (any file, not only the paperwork).
  *
@@ -53,6 +64,10 @@ export function ClientFilesPanel({
   const [current, setCurrent] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /** Files ticked for removing together. */
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [confirmingMany, setConfirmingMany] = useState(false);
+  const [reading, setReading] = useState(false);
 
   const allFolders = folderList.data ?? [];
   const byId = new Map(allFolders.map((one) => [one.id, one]));
@@ -125,11 +140,13 @@ export function ClientFilesPanel({
    * made here (or found, if it is already there) and its files go into it.
    */
   const upload = useMutation({
-    mutationFn: async (files: File[]) => {
+    mutationFn: async ({ files, folders }: Delivery) => {
       const folderFor = await folderMaker(clientId, here, allFolders);
+      // Every folder first, so one with nothing in it arrives as well.
+      for (const path of folders) await folderFor([...path]);
       const groups = new Map<string | null, File[]>();
-      for (const file of files) {
-        const target = await folderFor(directoriesOf(file));
+      for (const { file, dirs } of files) {
+        const target = await folderFor([...dirs]);
         groups.set(target, [...(groups.get(target) ?? []), file]);
       }
       let last: Awaited<ReturnType<typeof uploadClientFiles>> = { files: [], refused: [] };
@@ -157,23 +174,58 @@ export function ClientFilesPanel({
       void queries.invalidateQueries({ queryKey: key });
     },
   });
+  /* Several at once: one by one on the server, each recorded as its own removal. */
+  const removeMany = useMutation({
+    mutationFn: async (ids: readonly string[]) => {
+      for (const id of ids) await removeClientFile(id);
+    },
+    onSettled: () => {
+      setSelected(new Set());
+      setConfirmingMany(false);
+      changed();
+    },
+  });
 
   function take(list: FileList | null) {
     const chosen = Array.from(list ?? []);
-    if (chosen.length === 0) return;
-
-    // Too big is said here, before anything is sent: finding out after
-    // uploading twenty megabytes is a worse way to learn the limit.
-    const tooBig = chosen.filter((file) => file.size > MAX_BYTES);
-    const fine = chosen.filter((file) => file.size <= MAX_BYTES);
-    setRefused(tooBig.map((file) => ({ name: file.name, reason: t('clientFiles.tooLarge') })));
-    if (fine.length > 0) upload.mutate(fine);
+    send({ files: chosen.map((file) => ({ file, dirs: directoriesOf(file) })), folders: [] });
   }
 
-  function onDrop(event: DragEvent<HTMLLabelElement>) {
+  function send(delivery: Delivery) {
+    if (delivery.files.length === 0 && delivery.folders.length === 0) return;
+    // Too big is said here, before anything is sent: finding out after
+    // uploading twenty megabytes is a worse way to learn the limit.
+    const tooBig = delivery.files.filter(({ file }) => file.size > MAX_BYTES);
+    setRefused(tooBig.map(({ file }) => ({ name: file.name, reason: t('clientFiles.tooLarge') })));
+    const fine = delivery.files.filter(({ file }) => file.size <= MAX_BYTES);
+    if (fine.length === 0 && delivery.folders.length === 0) return;
+    upload.mutate({ files: fine, folders: delivery.folders });
+  }
+
+  /*
+   * A folder dragged in arrives as one entry the browser has to be asked to
+   * open: its files list holds nothing of what is inside. So the folders are
+   * walked here, the empty ones too, and come out in the same shape as a
+   * folder chosen with the button.
+   */
+  async function onDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     setDragging(false);
-    take(event.dataTransfer.files);
+    const entries = Array.from(event.dataTransfer.items ?? [])
+      .map((item) => item.webkitGetAsEntry?.() ?? null)
+      .filter((entry): entry is FileSystemEntry => entry !== null);
+    if (!entries.some((entry) => entry.isDirectory)) {
+      take(event.dataTransfer.files);
+      return;
+    }
+    setReading(true);
+    try {
+      send(await walk(entries));
+    } catch (error) {
+      setProblem((error as Error).message);
+    } finally {
+      setReading(false);
+    }
   }
 
   /*
@@ -251,7 +303,7 @@ export function ClientFilesPanel({
               setDragging(true);
             }}
             onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
+            onDrop={(event) => void onDrop(event)}
           >
             <input
               ref={input}
@@ -262,12 +314,14 @@ export function ClientFilesPanel({
               onChange={(event) => take(event.target.files)}
             />
             <strong>
-              {upload.isPending
-                ? t('clientFiles.uploading')
-                : here !== null
-                  ? // Inside a folder, say which: the files go there.
-                    t('clientFiles.dropInto', { name: byId.get(here)?.name ?? '' })
-                  : t('clientFiles.dropHere')}
+              {reading
+                ? t('clientFiles.readingFolder')
+                : upload.isPending
+                  ? t('clientFiles.uploading')
+                  : here !== null
+                    ? // Inside a folder, say which: the files go there.
+                      t('clientFiles.dropInto', { name: byId.get(here)?.name ?? '' })
+                    : t('clientFiles.dropHere')}
             </strong>
             <span className="u-text-faint">{t('clientFiles.limits')}</span>
           </label>
@@ -327,11 +381,59 @@ export function ClientFilesPanel({
           </ul>
         ) : null}
 
+        {canEdit && files.length > 0 ? (
+          <div className="u-row u-wrap">
+            <label className="u-row u-row--tight">
+              <input
+                type="checkbox"
+                data-no-draft
+                checked={files.every((file) => selected.has(file.id))}
+                onChange={(event) =>
+                  setSelected(
+                    event.target.checked ? new Set(files.map((file) => file.id)) : new Set(),
+                  )
+                }
+              />
+              {t('clientFiles.selectAll')}
+            </label>
+            {selected.size > 0 ? (
+              <>
+                <span className="u-text-faint">
+                  {t('clientFiles.selected', { count: selected.size })}
+                </span>
+                {confirmingMany ? (
+                  <>
+                    <Button
+                      small
+                      tone="danger"
+                      busy={removeMany.isPending}
+                      onClick={() => removeMany.mutate([...selected])}
+                    >
+                      {t('clientFiles.confirmRemoveSelected', { count: selected.size })}
+                    </Button>
+                    <Button small tone="quiet" onClick={() => setConfirmingMany(false)}>
+                      {t('clientFiles.keep')}
+                    </Button>
+                  </>
+                ) : (
+                  <Button small tone="secondary" onClick={() => setConfirmingMany(true)}>
+                    {t('clientFiles.removeSelected')}
+                  </Button>
+                )}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {removeMany.isError ? (
+          <Alert tone="error">{(removeMany.error as Error).message}</Alert>
+        ) : null}
+
         {files.length > 0 ? (
           <div className="table-scroll">
             <table className="table">
               <thead>
                 <tr>
+                  {canEdit ? <th scope="col" /> : null}
                   <th scope="col">{t('clientFiles.columns.name')}</th>
                   <th scope="col" className="table__figure">
                     {t('clientFiles.columns.size')}
@@ -343,6 +445,23 @@ export function ClientFilesPanel({
               <tbody>
                 {files.map((file) => (
                   <tr key={file.id}>
+                    {canEdit ? (
+                      <td>
+                        <input
+                          type="checkbox"
+                          data-no-draft
+                          aria-label={t('clientFiles.selectFile', { name: file.name })}
+                          checked={selected.has(file.id)}
+                          onChange={(event) => {
+                            const next = new Set(selected);
+                            if (event.target.checked) next.add(file.id);
+                            else next.delete(file.id);
+                            setSelected(next);
+                            setConfirmingMany(false);
+                          }}
+                        />
+                      </td>
+                    ) : null}
                     <th scope="row" className="u-typed">
                       {file.name}
                     </th>
@@ -547,7 +666,12 @@ function FolderRow({
         <span aria-hidden="true">📁 </span>
         {folder.name}
       </button>
-      <span className="u-text-faint">{t('clientFiles.items', { count: folder.fileCount })}</span>
+      <span className="u-text-faint">
+        {t('clientFiles.items', { count: folder.fileCount })}
+        {folder.folderCount > 0
+          ? ` · ${t('clientFiles.subfolders', { count: folder.folderCount })}`
+          : ''}
+      </span>
       <span className="u-grow" />
       <Button small tone="secondary" onClick={onOpen}>
         {canEdit ? t('clientFiles.openToAdd') : t('clientFiles.openFolder')}
@@ -625,6 +749,34 @@ async function folderMaker(
     }
     return parent;
   };
+}
+
+/** Everything inside the dropped files and folders, each file with the folders it sat in. */
+async function walk(entries: readonly FileSystemEntry[]): Promise<Delivery> {
+  const files: Incoming[] = [];
+  const folders: string[][] = [];
+  const visit = async (entry: FileSystemEntry, dirs: string[]): Promise<void> => {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) =>
+        (entry as FileSystemFileEntry).file(resolve, reject),
+      );
+      files.push({ file, dirs });
+      return;
+    }
+    const path = [...dirs, entry.name];
+    folders.push(path);
+    const reader = (entry as FileSystemDirectoryEntry).createReader();
+    // A directory is read in pages; an empty page is the end of it.
+    for (;;) {
+      const page = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+        reader.readEntries(resolve, reject),
+      );
+      if (page.length === 0) break;
+      for (const child of page) await visit(child, path);
+    }
+  };
+  for (const entry of entries) await visit(entry, []);
+  return { files, folders };
 }
 
 /** Ten files to a request at most, and a big file on its own. */

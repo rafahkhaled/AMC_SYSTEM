@@ -211,9 +211,9 @@ export class ClientFiles {
 
   async folders(caller: CallerLike, clientId: string): Promise<ClientFolderView[]> {
     const stored = await this.files.foldersFor(clientId, scopeFor(caller));
-    return stored.map(({ folder, fileCount }) => {
+    return stored.map(({ folder, fileCount, folderCount }) => {
       const state = folder.snapshot();
-      return { id: state.id, parentId: state.parentId, name: state.name, fileCount };
+      return { id: state.id, parentId: state.parentId, name: state.name, fileCount, folderCount };
     });
   }
 
@@ -279,7 +279,12 @@ export class ClientFiles {
     });
   }
 
-  /** Only an empty folder. Anything inside has to be moved or removed first, on purpose. */
+  /**
+   * A folder with no files in it, at any depth. Empty folders inside it go
+   * with it: they hold nothing, and the firm could not delete a folder that
+   * said "0 files" because of them. A file anywhere inside stops it: deleting
+   * someone's files by deleting the folder around them is too easy a mistake.
+   */
   async removeFolder(caller: CallerLike, folderId: string): Promise<Result<true, Conflict>> {
     return this.unitOfWork.run(actorFrom(caller), async (context) => {
       const repository = this.repositories.forTransaction(
@@ -288,11 +293,21 @@ export class ClientFiles {
       );
       const folder = await repository.findFolder(folderId, scopeFor(caller));
       if (!folder || folder.isRemoved) return err(new Conflict('No such folder'));
-      if (await repository.folderHasContents(folderId)) {
+      const inside = await repository.beneath(folderId);
+      if (inside.files > 0) {
         return err(new Conflict('Move or remove what is inside this folder first'));
       }
 
-      const removed = folder.remove(caller.userId, new Date());
+      const now = new Date();
+      // Deepest first is not needed: each is marked removed, none is erased.
+      for (const id of inside.folderIds) {
+        const child = await repository.findFolder(id, scopeFor(caller));
+        if (!child || child.isRemoved) continue;
+        const gone = child.remove(caller.userId, now);
+        if (!gone.ok) return err(gone.error);
+        await repository.saveFolder(child);
+      }
+      const removed = folder.remove(caller.userId, now);
       if (!removed.ok) return err(removed.error);
       await repository.saveFolder(folder);
       return ok(true as const);

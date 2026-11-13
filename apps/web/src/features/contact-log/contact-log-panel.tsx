@@ -6,7 +6,15 @@ import { Alert, Badge, Button, Card, Empty, Field, Loading, Select } from '../..
 import { useDraft } from '../../lib/use-draft.js';
 import { attachmentLink, contactLog, recordContact } from './api.js';
 
-const CHANNELS = ['call', 'whatsapp', 'email', 'meeting', 'portal', 'other'] as const;
+const CHANNELS = [
+  'call',
+  'whatsapp',
+  'email',
+  'meeting',
+  'portal',
+  'social_media',
+  'other',
+] as const;
 
 /** Screenshots, which is what makes "we asked three times" provable. */
 const ACCEPT = '.png,.jpg,.jpeg,.webp,.heic,.pdf';
