@@ -157,17 +157,18 @@ function ClientRow({
 
   return (
     <tr>
-      <td>
+      {/* The licence name first, as on the client's page; never machine-translated. */}
+      <td translate="no">
         <button type="button" className="link-button" onClick={() => onOpen(client.id)}>
           {client.number !== null ? (
             <span className="u-text-faint">
               <bdi>#{client.number}</bdi>{' '}
             </span>
           ) : null}
-          {client.legalNameArabic ?? client.legalName}
+          <bdi dir="ltr">{client.legalName}</bdi>
         </button>
         {client.legalNameArabic ? (
-          <div className="u-text-faint u-ltr">{client.legalName}</div>
+          <div className="u-text-faint">{client.legalNameArabic}</div>
         ) : null}
       </td>
       <td>

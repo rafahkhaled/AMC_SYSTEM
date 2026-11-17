@@ -4,6 +4,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ClientRepository, ClientSummary } from '../application/ports.js';
 import {
   Client,
+  type ClientBranch,
   type ClientId,
   type ClientScope,
   type ClientState,
@@ -212,6 +213,7 @@ export class DrizzleClientRepository implements ClientRepository {
       ctReturnFiledOn: state.ctReturnFiledOn,
       ctReturnStatus: state.ctReturnStatus,
       vatReturns: [...state.vatReturns],
+      branches: [...state.branches],
       status: state.status,
       vatState: state.vat.state,
       vatTrn: state.vat.trn?.value ?? null,
@@ -295,6 +297,7 @@ export class DrizzleClientRepository implements ClientRepository {
       ctReturnFiledOn: row.ctReturnFiledOn,
       ctReturnStatus: row.ctReturnStatus,
       vatReturns: (row.vatReturns ?? []) as VatReturnDates[],
+      branches: (row.branches ?? []) as ClientBranch[],
       status: row.status as ClientStatus,
       vat: registrationOf(row.vatState, row.vatTrn, row.vatRegisteredOn, row.vatDeregisteredOn),
       corporateTax: registrationOf(

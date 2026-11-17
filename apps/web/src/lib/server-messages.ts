@@ -113,6 +113,7 @@ const ARABIC: Readonly<Record<string, string>> = {
     'رقم الهاتف الأرضي غير صحيح. اكتب الرقم أو NA',
   'The mobile number could not be read as a phone number': 'رقم الموبايل غير صحيح',
   'The second mobile number could not be read as a phone number': 'رقم الموبايل الثاني غير صحيح',
+  'Give each branch a name': 'اكتب اسم كل فرع',
   'This client is not registered for VAT': 'هذا العميل غير مسجل في ضريبة القيمة المضافة',
   'That is not an email address': 'هذا ليس بريدًا إلكترونيًا صحيحًا',
   'That password is too easy to guess': 'كلمة المرور سهلة التخمين',

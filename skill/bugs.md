@@ -869,3 +869,12 @@ Every one of these passed its unit tests.
   deterministically.
 - **Dependency audit**: multer < 2.4 and proxy-addr < 2.0.8 had advisories;
   pinned through `pnpm.overrides`. Run `pnpm audit --prod` before a release.
+- **Every nightly backup from 30 Sep to 16 Nov 2026 was empty.** The host's
+  `pg_dump` was 16 and the database 17; pg_dump refuses a newer server, and
+  `set -e` stopped the script before its own size check could say so. Backups
+  now dump (and restores load) inside the database container, where the two
+  versions match. Check `/var/log/amc-backup.log` after any Postgres upgrade.
+- **No backup could have been restored anyway.** pg_dump restores with an empty
+  `search_path`, and `e164()` called `is_national_ae()` unqualified, so loading
+  `client_contacts` failed. Migration 0064 pins `search_path` on every function
+  of ours. `infra/backup/verify-restore.sh` is the test: run it, don't assume.

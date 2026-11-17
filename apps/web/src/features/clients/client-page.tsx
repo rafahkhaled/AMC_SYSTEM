@@ -90,15 +90,25 @@ export function ClientPage({
       </div>
 
       <div className="u-stack-tight">
-        <h1>
+        {/*
+         * The name on the licence, as written there, is the title: it is the
+         * one the firm checks against. The Arabic name sits under it. Neither
+         * is for the browser to translate: Chrome turned an Arabic name into
+         * "AIM Design in My Vidwc" and showed that as the company.
+         */}
+        <h1 translate="no">
           {detail.number !== null ? (
             <span className="u-text-faint">
               <bdi>#{detail.number}</bdi>{' '}
             </span>
           ) : null}
-          {detail.legalNameArabic ?? detail.legalName}
+          <bdi dir="ltr">{detail.legalName}</bdi>
         </h1>
-        {detail.legalNameArabic ? <p className="u-text-soft u-ltr">{detail.legalName}</p> : null}
+        {detail.legalNameArabic ? (
+          <p className="u-text-soft" translate="no">
+            {detail.legalNameArabic}
+          </p>
+        ) : null}
       </div>
 
       <Card title={t('clients.taxDetails')}>

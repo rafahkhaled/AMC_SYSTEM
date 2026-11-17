@@ -140,24 +140,48 @@ export function ClientFilesPanel({
    * made here (or found, if it is already there) and its files go into it.
    */
   const upload = useMutation({
+    /*
+     * One folder or one batch that fails does not stop the rest: the firm's
+     * folders run to hundreds of files, and an upload that gave up at the
+     * first problem left most of them behind without saying which. Whatever
+     * did not go in is listed by name at the end, with the reason.
+     */
     mutationFn: async ({ files, folders }: Delivery) => {
       const folderFor = await folderMaker(clientId, here, allFolders);
-      // Every folder first, so one with nothing in it arrives as well.
-      for (const path of folders) await folderFor([...path]);
-      const groups = new Map<string | null, File[]>();
-      for (const { file, dirs } of files) {
-        const target = await folderFor([...dirs]);
-        groups.set(target, [...(groups.get(target) ?? []), file]);
-      }
-      let last: Awaited<ReturnType<typeof uploadClientFiles>> = { files: [], refused: [] };
       const refusedAll: { name: string; reason: string }[] = [];
-      for (const [target, group] of groups) {
-        for (const batch of batches(group)) {
-          last = await uploadClientFiles(clientId, batch, target);
-          refusedAll.push(...last.refused);
+      const reasonOf = (error: unknown) => (error as Error).message || t('clientFiles.failed');
+      // Every folder first, so one with nothing in it arrives as well.
+      const brokenFolders = new Map<string, string>();
+      for (const path of folders) {
+        try {
+          await folderFor([...path]);
+        } catch (error) {
+          brokenFolders.set(path.join('/'), reasonOf(error));
+          refusedAll.push({ name: `${path.join(' / ')} /`, reason: reasonOf(error) });
         }
       }
-      return { files: last.files, refused: refusedAll };
+      const groups = new Map<string | null, File[]>();
+      for (const { file, dirs } of files) {
+        try {
+          const target = await folderFor([...dirs]);
+          groups.set(target, [...(groups.get(target) ?? []), file]);
+        } catch (error) {
+          const name = [...dirs, file.name].join(' / ');
+          refusedAll.push({ name, reason: brokenFolders.get(dirs.join('/')) ?? reasonOf(error) });
+        }
+      }
+      let last: Awaited<ReturnType<typeof uploadClientFiles>> | null = null;
+      for (const [target, group] of groups) {
+        for (const batch of batches(group)) {
+          try {
+            last = await uploadClientFiles(clientId, batch, target);
+            refusedAll.push(...last.refused);
+          } catch (error) {
+            for (const file of batch) refusedAll.push({ name: file.name, reason: reasonOf(error) });
+          }
+        }
+      }
+      return { files: last?.files ?? (await clientFiles(clientId)), refused: refusedAll };
     },
     onSuccess: (result) => {
       queries.setQueryData(key, result.files);

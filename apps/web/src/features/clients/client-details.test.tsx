@@ -50,6 +50,7 @@ const client = (over: Partial<ClientDetail> = {}): ClientDetail => ({
   ctReturnDueOn: null,
   ctReturnFiledOn: null,
   ctReturnStatus: null,
+  branches: [],
   vatReturns: [],
   references: [{ label: 'MOL number', value: '99887766' }],
   ctTrn: null,
@@ -126,7 +127,8 @@ describe('a client’s contact details', () => {
     await waitFor(() => expect(changeClientDetails).toHaveBeenCalled());
     const sent = changeClientDetails.mock.calls[0]?.[1];
     expect(sent.vat).toEqual({ trn: '100111222333003', frequency: 'quarterly', anchorEndMonth: 1 });
-    expect(sent.vatReturns.map((one: { dueOn: string }) => one.dueOn.slice(5)).sort()).toEqual([
+    // In the order the firm writes them, February first, whatever comes next.
+    expect(sent.vatReturns.map((one: { dueOn: string }) => one.dueOn.slice(5))).toEqual([
       '02-28',
       '05-28',
       '08-28',

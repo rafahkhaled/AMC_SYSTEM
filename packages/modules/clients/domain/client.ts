@@ -70,6 +70,8 @@ export interface ClientState {
   readonly ctReturnStatus: string | null;
   /** The year's four VAT returns: when each is due and when it was filed. */
   readonly vatReturns: readonly VatReturnDates[];
+  /** Branches the licence has, each with its own licence number. */
+  readonly branches: readonly ClientBranch[];
   readonly status: ClientStatus;
   readonly vat: TaxRegistration;
   readonly corporateTax: TaxRegistration;
@@ -93,7 +95,15 @@ export interface VatReturnDates {
   readonly status?: string | null | undefined;
 }
 
+/** A branch of the client's business, which often has a licence of its own. */
+export interface ClientBranch {
+  readonly name: string;
+  readonly licenceNumber: string | null;
+  readonly address: string | null;
+}
+
 export interface ClientDetailsChange {
+  readonly branches?: readonly ClientBranch[];
   readonly vatReturns?: readonly VatReturnDates[];
   /** The name as on the licence; it can be corrected but never emptied. */
   readonly legalName?: string;
@@ -164,6 +174,7 @@ export class Client extends AggregateRoot<ClientId> {
       ctReturnFiledOn: null,
       ctReturnStatus: null,
       vatReturns: [],
+      branches: [],
       status: 'active',
       vat: NOT_REGISTERED,
       corporateTax: NOT_REGISTERED,
@@ -305,6 +316,19 @@ export class Client extends AggregateRoot<ClientId> {
         return err(new Conflict('Use a date in the form 2026-03-31'));
       }
       set(key, day);
+    }
+    if (change.branches !== undefined) {
+      const next: ClientBranch[] = [];
+      for (const branch of change.branches) {
+        const name = branch.name.trim();
+        if (name === '') return err(new Conflict('Give each branch a name'));
+        next.push({
+          name,
+          licenceNumber: blank(branch.licenceNumber),
+          address: blank(branch.address),
+        });
+      }
+      if (JSON.stringify(next) !== JSON.stringify(this.state.branches)) set('branches', next);
     }
     if (change.ctReturnStatus !== undefined) {
       set('ctReturnStatus', blank(change.ctReturnStatus));

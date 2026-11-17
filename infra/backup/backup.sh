@@ -24,9 +24,32 @@ mkdir -p "$DESTINATION"
 
 echo "Backing up to ${TARGET}"
 
+# The dump is taken by the database's own pg_dump when it runs in a container.
+# The host's was version 16 against a version 17 server, which pg_dump refuses
+# outright, and every nightly backup from 30 September to 16 November was an
+# empty file. Inside the container the two versions are the same by
+# construction. PG_DUMP_CONTAINER names it; left unset, a running container
+# whose name ends in "postgres-1" (docker compose's naming) is used if there is
+# one, and the host's pg_dump otherwise.
+if [ -z "${PG_DUMP_CONTAINER:-}" ] && command -v docker > /dev/null 2>&1; then
+  PG_DUMP_CONTAINER="$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E 'postgres-1$' | head -1 || true)"
+fi
+dump() {
+  if [ -n "${PG_DUMP_CONTAINER:-}" ]; then
+    # The database URL names the host's port; inside, the socket is the way in.
+    local user db
+    user="$(printf '%s' "$DATABASE_URL" | sed -E 's#^[a-z]+://([^:@/]+).*#\1#')"
+    db="$(printf '%s' "$DATABASE_URL" | sed -E 's#.*/([^/?]+)(\?.*)?$#\1#')"
+    docker exec -i "$PG_DUMP_CONTAINER" pg_dump --username="$user" --dbname="$db" "$@"
+  else
+    pg_dump "$DATABASE_URL" "$@"
+  fi
+}
+echo "Dumping with $([ -n "${PG_DUMP_CONTAINER:-}" ] && echo "pg_dump in ${PG_DUMP_CONTAINER}" || echo "the host's pg_dump")"
+
 # --clean --if-exists so the dump can be restored over an existing database.
 # --no-owner because the restoring role is rarely the one that created things.
-pg_dump "$DATABASE_URL" \
+dump \
   --format=plain \
   --clean --if-exists \
   --no-owner --no-privileges \

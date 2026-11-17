@@ -41,6 +41,10 @@ export const clients = pgTable(
     ctReturnDueOn: date('ct_return_due_on'),
     ctReturnFiledOn: date('ct_return_filed_on'),
     ctReturnStatus: text('ct_return_status'),
+    branches: jsonb('branches')
+      .$type<{ name: string; licenceNumber: string | null; address: string | null }[]>()
+      .notNull()
+      .default([]),
     vatReturns:
       jsonb('vat_returns').$type<
         { dueOn: string | null; filedOn: string | null; status?: string | null | undefined }[]

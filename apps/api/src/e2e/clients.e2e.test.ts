@@ -394,6 +394,19 @@ describe('clients, their conversations and their logins', () => {
       expect(detail.ctReturnStatus).toBe('Rejection');
     });
 
+    it('keeps the branches of a licence, each with its own licence number', async () => {
+      const branches = [
+        { name: 'Deira branch', licenceNumber: '1234567-01', address: 'Deira, Dubai' },
+        { name: 'Ajman branch', licenceNumber: null, address: null },
+      ];
+      await manager.patch(path).send({ branches }).expect(200);
+      expect((await manager.get('/clients/c-mine').expect(200)).body.branches).toEqual(branches);
+      await manager
+        .patch(path)
+        .send({ branches: [{ name: ' ', licenceNumber: null, address: null }] })
+        .expect(400);
+    });
+
     it('keeps a second mobile, and refuses one that is not a number', async () => {
       await manager.patch(path).send({ mobile2: '+971 50 765 4321' }).expect(200);
       expect((await manager.get('/clients/c-mine').expect(200)).body.mobile2).toBe(

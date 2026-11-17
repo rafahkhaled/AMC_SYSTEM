@@ -134,6 +134,7 @@ export class ReadClients {
       ctReturnDueOn: state.ctReturnDueOn,
       ctReturnFiledOn: state.ctReturnFiledOn,
       ctReturnStatus: state.ctReturnStatus,
+      branches: state.branches.map((branch) => ({ ...branch })),
       vatReturns: state.vatReturns.map((one) => ({
         dueOn: one.dueOn,
         filedOn: one.filedOn,

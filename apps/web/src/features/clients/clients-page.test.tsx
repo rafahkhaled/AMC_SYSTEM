@@ -108,7 +108,8 @@ describe('the client list', () => {
 
     await user.type(await screen.findByLabelText('Search'), 'الخليج');
 
-    expect(screen.getByRole('button', { name: /الخليج/ })).toBeInTheDocument();
+    // Found by its Arabic name, shown under the licence name.
+    expect(screen.getByText('الخليج للتجارة')).toBeInTheDocument();
   });
 
   it('narrows to the clients with a document needing attention', async () => {

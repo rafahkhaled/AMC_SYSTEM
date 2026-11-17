@@ -134,6 +134,7 @@ export class ManageClientDetails {
             ctReturnFiledOn: command.ctReturnFiledOn,
           }),
           ...(command.ctReturnStatus !== undefined && { ctReturnStatus: command.ctReturnStatus }),
+          ...(command.branches !== undefined && { branches: command.branches }),
         },
         now,
       );

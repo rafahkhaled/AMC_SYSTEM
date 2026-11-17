@@ -329,7 +329,7 @@ describe('folders inside a client’s folder', () => {
   it('will not nest past the limit', async () => {
     const h = harness();
     let parent: string | null = null;
-    for (let level = 1; level <= 6; level += 1) parent = await made(h, `level ${level}`, parent);
+    for (let level = 1; level <= 20; level += 1) parent = await made(h, `level ${level}`, parent);
     const tooDeep = await h.files.createFolder(manager, 'c-1', 'too deep', parent);
     expect(!tooDeep.ok && tooDeep.error.message).toContain('levels deep');
   });

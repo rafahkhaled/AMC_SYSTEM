@@ -1,8 +1,14 @@
 import { AggregateRoot, Conflict, type Result, domainEvent, err, ok } from '@amc/kernel';
 
-/** Deepest a folder may sit: the client's own folder is level 0. */
-export const MAX_FOLDER_DEPTH = 6;
-const MAX_NAME = 80;
+/**
+ * Deepest a folder may sit: the client's own folder is level 0.
+ *
+ * Deep enough for a folder brought whole from the firm's computers. At 6, a
+ * year folder of month folders of quarter folders inside a client folder went
+ * past it, and the upload stopped with most of the files left behind.
+ */
+export const MAX_FOLDER_DEPTH = 20;
+const MAX_NAME = 500;
 
 /**
  * What a folder may be called.

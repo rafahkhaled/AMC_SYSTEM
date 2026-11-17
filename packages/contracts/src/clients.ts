@@ -116,6 +116,14 @@ export const clientDetailSchema = clientSummarySchema.extend({
   ctReturnFiledOn: z.string().nullable(),
   /** Where the corporation tax return stands, in the firm's words. */
   ctReturnStatus: z.string().nullable(),
+  /** Branches the licence has, each with its own licence number. */
+  branches: z.array(
+    z.object({
+      name: z.string(),
+      licenceNumber: z.string().nullable(),
+      address: z.string().nullable(),
+    }),
+  ),
   /** The year's four VAT returns: when each is due, when it was filed, where it stands. */
   vatReturns: z.array(
     z.object({
@@ -501,6 +509,16 @@ export const changeClientDetailsSchema = z.object({
   ctReturnDueOn: calendarDay.nullable().optional(),
   ctReturnFiledOn: calendarDay.nullable().optional(),
   ctReturnStatus: z.string().trim().max(500).nullable().optional(),
+  branches: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, 'Give each branch a name').max(500),
+        licenceNumber: z.string().trim().max(500).nullable(),
+        address: z.string().trim().max(2000).nullable(),
+      }),
+    )
+    .max(50)
+    .optional(),
   vatReturns: z
     .array(
       z.object({

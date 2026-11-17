@@ -60,6 +60,29 @@ export function ClientDetailsCard({
           <Row key={reference.label} label={reference.label} value={reference.value} ltr />
         ))}
       </dl>
+      {detail.branches.length > 0 ? (
+        <>
+          <h3 className="subheading">{t('clients.branches')}</h3>
+          <dl className="facts">
+            {detail.branches.map((branch, index) => (
+              <Row
+                key={`${branch.name}-${index + 1}`}
+                label={branch.name}
+                value={
+                  [
+                    branch.licenceNumber
+                      ? `${t('clients.licence')}: ${branch.licenceNumber}`
+                      : null,
+                    branch.address,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || null
+                }
+              />
+            ))}
+          </dl>
+        </>
+      ) : null}
       {/* Seldom needed, so below and quieter. */}
       <h3 className="subheading">{t('clients.moreContact')}</h3>
       <dl className="facts">
@@ -137,11 +160,23 @@ function DetailsForm({
   const [opensAt, setOpensAt] = useState(detail.opensAt ?? '');
   const [closesAt, setClosesAt] = useState(detail.closesAt ?? '');
   const [references, setReferences] = useState(detail.references.map((r) => ({ ...r })));
+  const [branches, setBranches] = useState(
+    detail.branches.map((b) => ({
+      name: b.name,
+      licenceNumber: b.licenceNumber ?? '',
+      address: b.address ?? '',
+    })),
+  );
+  const setBranch = (index: number, part: 'name' | 'licenceNumber' | 'address', value: string) =>
+    setBranches((now) => now.map((one, i) => (i === index ? { ...one, [part]: value } : one)));
   const [vatTrn, setVatTrn] = useState(detail.vatTrn ?? remarkText(detail.vatRemark));
   const [loginMethod, setLoginMethod] = useState(detail.taxLoginMethod ?? '');
   const [taxPassword, setTaxPassword] = useState('');
   const [booksUser, setBooksUser] = useState('');
   const [booksPassword, setBooksPassword] = useState('');
+  // A second QuickBooks user: the program often has more than one.
+  const [booksUser2, setBooksUser2] = useState('');
+  const [booksPassword2, setBooksPassword2] = useState('');
   // The months as they are on file; nothing is assumed for a client without
   // them, because a guess (March, June…) was saved as if it were known.
   const onFile = detail.vatPeriodEndMonths;
@@ -196,6 +231,7 @@ function DetailsForm({
       opensAt,
       closesAt,
       references,
+      branches,
       vatTrn,
       loginMethod,
       frequency,
@@ -207,6 +243,7 @@ function DetailsForm({
       ctStatus,
       vatReturns,
       booksUser,
+      booksUser2,
     },
     (saved) => {
       if (saved.legalName !== undefined) setLegalName(saved.legalName);
@@ -222,6 +259,7 @@ function DetailsForm({
       if (saved.opensAt !== undefined) setOpensAt(saved.opensAt);
       if (saved.closesAt !== undefined) setClosesAt(saved.closesAt);
       if (saved.references !== undefined) setReferences(saved.references);
+      if (saved.branches !== undefined) setBranches(saved.branches);
       if (saved.vatTrn !== undefined) setVatTrn(saved.vatTrn);
       if (saved.loginMethod !== undefined) setLoginMethod(saved.loginMethod);
       if (saved.frequency !== undefined) setFrequency(saved.frequency);
@@ -233,6 +271,7 @@ function DetailsForm({
       if (saved.ctFiledOn !== undefined) setCtFiledOn(saved.ctFiledOn);
       if (saved.ctStatus !== undefined) setCtStatus(saved.ctStatus);
       if (saved.booksUser !== undefined) setBooksUser(saved.booksUser);
+      if (saved.booksUser2 !== undefined) setBooksUser2(saved.booksUser2);
     },
   );
 
@@ -259,6 +298,14 @@ function DetailsForm({
         opensAt: text(opensAt),
         closesAt: text(closesAt),
         references: references.filter((r) => r.label.trim() !== '' && r.value.trim() !== ''),
+        // A row with no name is one that was opened and not used.
+        branches: branches
+          .filter((b) => b.name.trim() !== '')
+          .map((b) => ({
+            name: b.name.trim(),
+            licenceNumber: text(b.licenceNumber),
+            address: text(b.address),
+          })),
       };
       // A number is sent only when it was typed or changed. For a client not yet
       // registered it also carries the cycle that gives the deadline a date.
@@ -315,6 +362,14 @@ function DetailsForm({
           // The program's own user (QuickBooks), not the tax file's login.
           username: text(booksUser) ?? login,
           secret: booksPassword,
+        });
+      }
+      if (booksPassword2) {
+        await storeCredential(detail.id, {
+          kind: 'accounting_software',
+          username: text(booksUser2) ?? login,
+          secret: booksPassword2,
+          slot: 2,
         });
       }
       return updated;
@@ -412,6 +467,22 @@ function DetailsForm({
           value={booksPassword}
           onChange={(e) => setBooksPassword(e.target.value)}
         />
+        <div className="u-row u-row-top u-wrap">
+          <Field
+            label={t('clients.booksUser2')}
+            autoComplete="off"
+            ltr
+            value={booksUser2}
+            onChange={(e) => setBooksUser2(e.target.value)}
+          />
+          <Field
+            label={t('clients.booksPassword2')}
+            autoComplete="off"
+            ltr
+            value={booksPassword2}
+            onChange={(e) => setBooksPassword2(e.target.value)}
+          />
+        </div>
         <Field
           label={t('clients.mobile')}
           {...errorFor('mobile')}
@@ -492,6 +563,46 @@ function DetailsForm({
           value={licence}
           onChange={(e) => setLicence(e.target.value)}
         />
+        {/* A licence with branches: each one named, with its own licence number. */}
+        <fieldset className="u-stack-tight">
+          <legend>{t('clients.branches')}</legend>
+          {branches.map((branch, index) => (
+            <div className="u-row u-row-top u-wrap" key={`branch-${index + 1}`}>
+              <Field
+                label={t('clients.branchName')}
+                value={branch.name}
+                onChange={(e) => setBranch(index, 'name', e.target.value)}
+              />
+              <Field
+                label={t('clients.branchLicence')}
+                ltr
+                value={branch.licenceNumber}
+                onChange={(e) => setBranch(index, 'licenceNumber', e.target.value)}
+              />
+              <Field
+                label={t('clients.address')}
+                value={branch.address}
+                onChange={(e) => setBranch(index, 'address', e.target.value)}
+              />
+              <Button
+                small
+                tone="quiet"
+                type="button"
+                onClick={() => setBranches(branches.filter((_, i) => i !== index))}
+              >
+                {t('clients.removeBranch')}
+              </Button>
+            </div>
+          ))}
+          <Button
+            small
+            tone="secondary"
+            type="button"
+            onClick={() => setBranches([...branches, { name: '', licenceNumber: '', address: '' }])}
+          >
+            {t('clients.addBranch')}
+          </Button>
+        </fieldset>
         <Field
           label={t('clients.vatNumber')}
           {...errorFor('vat')}
@@ -739,7 +850,11 @@ export function remarkText(remark: string | null): string {
 
 /**
  * When the returns for these quarter-end months fall due: the 28th of the
- * month after each quarter ends, the next four from today, earliest first.
+ * month after each quarter ends, each the next one from today.
+ *
+ * In calendar order of the month (February, May, August, November), the way
+ * the firm writes them. Ordered by which comes first, November led and the
+ * four read 11-2-5-8, which looked like a mistake.
  */
 export function returnDueDates(endMonths: readonly number[], today: Date): string[] {
   const now = today.toISOString().slice(0, 10);
@@ -756,7 +871,7 @@ export function returnDueDates(endMonths: readonly number[], today: Date): strin
       } while (due < now);
       return due;
     })
-    .sort();
+    .sort((a, b) => a.slice(5).localeCompare(b.slice(5)));
 }
 
 /** The four months a client's VAT quarters end in, from any one of them, in calendar order. */
