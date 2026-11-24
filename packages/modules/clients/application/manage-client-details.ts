@@ -128,6 +128,7 @@ export class ManageClientDetails {
           ...(command.vatRemark !== undefined && { vatRemark: command.vatRemark }),
           ...(command.ctRemark !== undefined && { ctRemark: command.ctRemark }),
           ...(command.taxLoginMethod !== undefined && { taxLoginMethod: command.taxLoginMethod }),
+          ...(command.taxLoginId !== undefined && { taxLoginId: command.taxLoginId }),
           ...(command.ctReturnDueOn !== undefined && { ctReturnDueOn: command.ctReturnDueOn }),
           ...(command.vatReturns !== undefined && { vatReturns: command.vatReturns }),
           ...(command.ctReturnFiledOn !== undefined && {

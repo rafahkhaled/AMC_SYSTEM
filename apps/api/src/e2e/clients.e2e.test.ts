@@ -407,6 +407,20 @@ describe('clients, their conversations and their logins', () => {
         .expect(400);
     });
 
+    it('keeps what UAE PASS is signed into with, and the email as pasted from WhatsApp', async () => {
+      await manager
+        .patch(path)
+        .send({
+          taxLoginMethod: 'uae_pass',
+          taxLoginId: '784-1990-1234567-1',
+          contactEmail: '\u200Eaccounts.gulf@hotmail.com\u200E',
+        })
+        .expect(200);
+      const detail = (await manager.get('/clients/c-mine').expect(200)).body;
+      expect(detail.taxLoginId).toBe('784-1990-1234567-1');
+      expect(detail.contactEmail).toBe('accounts.gulf@hotmail.com');
+    });
+
     it('keeps a second mobile, and refuses one that is not a number', async () => {
       await manager.patch(path).send({ mobile2: '+971 50 765 4321' }).expect(200);
       expect((await manager.get('/clients/c-mine').expect(200)).body.mobile2).toBe(

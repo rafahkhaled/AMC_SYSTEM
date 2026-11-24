@@ -751,6 +751,12 @@ a {
  * something rather than going somewhere, but it should not look like one:
  * a table of primary buttons is a table nobody can read.
  */
+/* The small arrow that unfolds a box seldom needed. */
+.more-button {
+  font-size: var(--text-sm);
+  color: var(--accent, inherit);
+}
+
 .link-button {
   font: inherit;
   color: var(--accent);

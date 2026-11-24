@@ -29,7 +29,8 @@ export function NewClient({ onCreated }: { onCreated: (id: string) => void }) {
     if (saved.legalName !== undefined) setLegalName(saved.legalName);
     if (saved.legalNameArabic !== undefined) setLegalNameArabic(saved.legalNameArabic);
     if (saved.licence !== undefined) setLicence(saved.licence);
-    setOpen(true);
+    // Not opened by itself: the list is what the page is for, and a form left
+    // half-filled once took its place every time. It is there when asked for.
   });
 
   const create = useMutation({

@@ -136,8 +136,12 @@ export class DrizzleClientRepository implements ClientRepository {
     legalName: string,
     licence: string | null,
   ): Promise<{ id: string; number: number | null; legalName: string } | null> {
+    // Case, spaces and punctuation do not make another company ("L.L.C" is
+    // "LLC"), but the kind of company does: an establishment that became an
+    // LLC is two clients, "E O S Technical Services" and "... LLC", and the
+    // firm keeps both. Stripping the ending had refused the second.
     const plain = (value: SQL | string) =>
-      sql`regexp_replace(regexp_replace(lower(${value}), '[^[:alnum:]]', '', 'g'), '(llc|fze|fzllc|fzco|fzc|est)$', '')`;
+      sql`regexp_replace(lower(${value}), '[^[:alnum:]]', '', 'g')`;
     const rows = await this.db.execute<{
       id: string;
       number: number | null;
@@ -209,6 +213,7 @@ export class DrizzleClientRepository implements ClientRepository {
       vatRemark: state.vatRemark,
       ctRemark: state.ctRemark,
       taxLoginMethod: state.taxLoginMethod,
+      taxLoginId: state.taxLoginId,
       ctReturnDueOn: state.ctReturnDueOn,
       ctReturnFiledOn: state.ctReturnFiledOn,
       ctReturnStatus: state.ctReturnStatus,
@@ -293,6 +298,7 @@ export class DrizzleClientRepository implements ClientRepository {
       vatRemark: row.vatRemark,
       ctRemark: row.ctRemark,
       taxLoginMethod: row.taxLoginMethod,
+      taxLoginId: row.taxLoginId,
       ctReturnDueOn: row.ctReturnDueOn,
       ctReturnFiledOn: row.ctReturnFiledOn,
       ctReturnStatus: row.ctReturnStatus,

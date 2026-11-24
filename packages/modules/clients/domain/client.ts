@@ -3,6 +3,7 @@ import {
   Conflict,
   Rate,
   type Result,
+  cleanEmail,
   domainEvent,
   err,
   ok,
@@ -63,6 +64,8 @@ export interface ClientState {
   readonly ctRemark: string | null;
   /** How the firm signs in to the client's tax file: 'email' or 'uae_pass'. */
   readonly taxLoginMethod: string | null;
+  /** What UAE PASS is signed into with: an email, a mobile or an Emirates ID number. */
+  readonly taxLoginId: string | null;
   /** The corporation tax return: when it is due, and when the firm filed it (YYYY-MM-DD). */
   readonly ctReturnDueOn: string | null;
   readonly ctReturnFiledOn: string | null;
@@ -122,6 +125,7 @@ export interface ClientDetailsChange {
   readonly vatRemark?: string | null;
   readonly ctRemark?: string | null;
   readonly taxLoginMethod?: string | null;
+  readonly taxLoginId?: string | null;
   readonly ctReturnDueOn?: string | null;
   readonly ctReturnFiledOn?: string | null;
   readonly ctReturnStatus?: string | null;
@@ -170,6 +174,7 @@ export class Client extends AggregateRoot<ClientId> {
       vatRemark: null,
       ctRemark: null,
       taxLoginMethod: null,
+      taxLoginId: null,
       ctReturnDueOn: null,
       ctReturnFiledOn: null,
       ctReturnStatus: null,
@@ -229,7 +234,8 @@ export class Client extends AggregateRoot<ClientId> {
     }
     if (change.contactPerson !== undefined) set('contactPerson', blank(change.contactPerson));
     if (change.contactEmail !== undefined) {
-      const email = blank(change.contactEmail);
+      // Pasted from WhatsApp, an address arrives with invisible marks around it.
+      const email = cleanEmail(change.contactEmail);
       if (email && !EMAIL.test(email)) return err(new Conflict('That is not an email address'));
       set('contactEmail', email);
     }
@@ -289,6 +295,7 @@ export class Client extends AggregateRoot<ClientId> {
       }
       set('taxLoginMethod', method);
     }
+    if (change.taxLoginId !== undefined) set('taxLoginId', blank(change.taxLoginId));
     if (change.vatReturns !== undefined) {
       const day = /^\d{4}-\d{2}-\d{2}$/;
       const returns = change.vatReturns;

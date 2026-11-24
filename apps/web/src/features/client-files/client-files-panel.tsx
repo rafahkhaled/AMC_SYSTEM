@@ -1,6 +1,6 @@
 import type { ClientFileView, ClientFolderView } from '@amc/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type DragEvent, useId, useRef, useState } from 'react';
+import { type DragEvent, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Empty, Field, Loading, Select } from '../../design/index.js';
 import {
@@ -68,6 +68,9 @@ export function ClientFilesPanel({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [confirmingMany, setConfirmingMany] = useState(false);
   const [reading, setReading] = useState(false);
+  /** How far an upload has got, and how the last one ended. */
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [finished, setFinished] = useState<{ kept: number; total: number } | null>(null);
 
   const allFolders = folderList.data ?? [];
   const byId = new Map(allFolders.map((one) => [one.id, one]));
@@ -149,6 +152,9 @@ export function ClientFilesPanel({
     mutationFn: async ({ files, folders }: Delivery) => {
       const folderFor = await folderMaker(clientId, here, allFolders);
       const refusedAll: { name: string; reason: string }[] = [];
+      let done = 0;
+      setFinished(null);
+      setProgress({ done, total: files.length });
       const reasonOf = (error: unknown) => (error as Error).message || t('clientFiles.failed');
       // Every folder first, so one with nothing in it arrives as well.
       const brokenFolders = new Map<string, string>();
@@ -179,10 +185,16 @@ export function ClientFilesPanel({
           } catch (error) {
             for (const file of batch) refusedAll.push({ name: file.name, reason: reasonOf(error) });
           }
+          done += batch.length;
+          setProgress({ done, total: files.length });
         }
       }
+      // Folders that could not be made are listed with a trailing " /"; the rest are files.
+      const filesLeft = refusedAll.filter((one) => !one.name.endsWith(' /')).length;
+      setFinished({ kept: files.length - filesLeft, total: files.length });
       return { files: last?.files ?? (await clientFiles(clientId)), refused: refusedAll };
     },
+    onSettled: () => setProgress(null),
     onSuccess: (result) => {
       queries.setQueryData(key, result.files);
       void queries.invalidateQueries({ queryKey: folderKey });
@@ -190,6 +202,22 @@ export function ClientFilesPanel({
       if (input.current) input.current.value = '';
     },
   });
+
+  /*
+   * A folder of hundreds of files takes minutes, and leaving the page part-way
+   * stopped it with no word, which looked like files the system would not
+   * take. The browser now asks before the page is left mid-upload.
+   */
+  const uploading = upload.isPending;
+  useEffect(() => {
+    if (!uploading) return;
+    const stay = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', stay);
+    return () => window.removeEventListener('beforeunload', stay);
+  }, [uploading]);
 
   const remove = useMutation({
     mutationFn: (id: string) => removeClientFile(id),
@@ -341,7 +369,9 @@ export function ClientFilesPanel({
               {reading
                 ? t('clientFiles.readingFolder')
                 : upload.isPending
-                  ? t('clientFiles.uploading')
+                  ? progress
+                    ? t('clientFiles.uploadingCount', progress)
+                    : t('clientFiles.uploading')
                   : here !== null
                     ? // Inside a folder, say which: the files go there.
                       t('clientFiles.dropInto', { name: byId.get(here)?.name ?? '' })
@@ -370,6 +400,12 @@ export function ClientFilesPanel({
         ) : null}
 
         {upload.isError ? <Alert tone="error">{(upload.error as Error).message}</Alert> : null}
+        {upload.isPending ? <Alert tone="info">{t('clientFiles.stayWhileUploading')}</Alert> : null}
+        {finished && !upload.isPending ? (
+          <Alert tone={finished.kept === finished.total ? 'success' : 'warning'}>
+            {t('clientFiles.uploadedCount', finished)}
+          </Alert>
+        ) : null}
         {refused.length > 0 ? (
           <Alert tone="warning">
             <strong>{t('clientFiles.notKept')}</strong>

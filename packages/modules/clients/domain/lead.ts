@@ -1,4 +1,12 @@
-import { AggregateRoot, Conflict, type Result, domainEvent, err, ok } from '@amc/kernel';
+import {
+  AggregateRoot,
+  Conflict,
+  type Result,
+  cleanEmail,
+  domainEvent,
+  err,
+  ok,
+} from '@amc/kernel';
 
 export type LeadId = string;
 
@@ -78,7 +86,7 @@ export class Lead extends AggregateRoot<LeadId> {
     // Someone has to be reachable, or the enquiry cannot be followed up and is
     // not really a lead at all.
     const phone = params.phone?.trim() || null;
-    const email = params.email?.trim() || null;
+    const email = cleanEmail(params.email);
     if (!phone && !email) {
       return err(new Conflict('An enquiry needs a phone number or an email address'));
     }

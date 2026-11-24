@@ -38,6 +38,7 @@ export const clients = pgTable(
     vatRemark: text('vat_remark'),
     ctRemark: text('ct_remark'),
     taxLoginMethod: text('tax_login_method'),
+    taxLoginId: text('tax_login_id'),
     ctReturnDueOn: date('ct_return_due_on'),
     ctReturnFiledOn: date('ct_return_filed_on'),
     ctReturnStatus: text('ct_return_status'),

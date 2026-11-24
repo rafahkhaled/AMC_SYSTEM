@@ -111,6 +111,8 @@ export const clientDetailSchema = clientSummarySchema.extend({
   vatRemark: z.string().nullable(),
   ctRemark: z.string().nullable(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable(),
+  /** What UAE PASS is signed into with: an email, a mobile or an Emirates ID number. */
+  taxLoginId: z.string().nullable(),
   /** The corporation tax return: when it is due, and when the firm filed it. */
   ctReturnDueOn: z.string().nullable(),
   ctReturnFiledOn: z.string().nullable(),
@@ -506,6 +508,7 @@ export const changeClientDetailsSchema = z.object({
   vatRemark: z.string().trim().min(1).max(500).nullable().optional(),
   ctRemark: z.string().trim().min(1).max(500).nullable().optional(),
   taxLoginMethod: z.enum(['email', 'uae_pass']).nullable().optional(),
+  taxLoginId: z.string().trim().max(500).nullable().optional(),
   ctReturnDueOn: calendarDay.nullable().optional(),
   ctReturnFiledOn: calendarDay.nullable().optional(),
   ctReturnStatus: z.string().trim().max(500).nullable().optional(),

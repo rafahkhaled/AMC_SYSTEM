@@ -17,6 +17,7 @@ export const RETURN_STATUSES = [
   'Rejection',
   'De Registration',
   'In progress',
+  'NA',
 ] as const;
 
 type ControlProps = Parameters<NonNullable<React.ComponentProps<typeof Field>['control']>>[0];
@@ -52,6 +53,9 @@ export function ClientDetailsCard({
           a long address reads whole instead of squeezed into a column. */}
       <dl className="facts">
         <Row label={t('clients.email')} value={detail.contactEmail} ltr wide />
+        {detail.taxLoginMethod === 'uae_pass' ? (
+          <Row label={t('clients.uaePassId')} value={detail.taxLoginId} ltr />
+        ) : null}
         <Row label={t('clients.contactPerson')} value={detail.contactPerson} />
         <Row label={t('clients.mobile')} value={detail.mobile} ltr />
         {detail.mobile2 ? <Row label={t('clients.mobile2')} value={detail.mobile2} ltr /> : null}
@@ -108,6 +112,18 @@ export function ClientDetailsCard({
   );
 }
 
+/** A small arrow that unfolds a box seldom needed (a second mobile, a second user). */
+function MoreButton({ label, onOpen }: { label: string; onOpen: () => void }) {
+  return (
+    <div>
+      <button type="button" className="link-button more-button" onClick={onOpen}>
+        <span aria-hidden="true">▾ </span>
+        {label}
+      </button>
+    </div>
+  );
+}
+
 function Row({
   label,
   value,
@@ -153,6 +169,9 @@ function DetailsForm({
   const [mobile, setMobile] = useState(detail.mobile ?? '');
   const [landline, setLandline] = useState(detail.landline ?? '');
   const [mobile2, setMobile2] = useState(detail.mobile2 ?? '');
+  // The extras open when asked for, or when they already hold something.
+  const [showMobile2, setShowMobile2] = useState(Boolean(detail.mobile2));
+  const [showBooks2, setShowBooks2] = useState(false);
   const [dayOff, setDayOff] = useState(
     detail.weeklyDayOff === null ? '' : String(detail.weeklyDayOff),
   );
@@ -172,6 +191,7 @@ function DetailsForm({
   const [vatTrn, setVatTrn] = useState(detail.vatTrn ?? remarkText(detail.vatRemark));
   const [loginMethod, setLoginMethod] = useState(detail.taxLoginMethod ?? '');
   const [taxPassword, setTaxPassword] = useState('');
+  const [taxLoginId, setTaxLoginId] = useState(detail.taxLoginId ?? '');
   const [booksUser, setBooksUser] = useState('');
   const [booksPassword, setBooksPassword] = useState('');
   // A second QuickBooks user: the program often has more than one.
@@ -234,6 +254,7 @@ function DetailsForm({
       branches,
       vatTrn,
       loginMethod,
+      taxLoginId,
       frequency,
       periodEnd,
       ctTrn,
@@ -254,6 +275,7 @@ function DetailsForm({
       if (saved.mobile !== undefined) setMobile(saved.mobile);
       if (saved.landline !== undefined) setLandline(saved.landline);
       if (saved.mobile2 !== undefined) setMobile2(saved.mobile2);
+      if (saved.mobile2) setShowMobile2(true);
       if (saved.dayOff !== undefined) setDayOff(saved.dayOff);
       if (saved.address !== undefined) setAddress(saved.address);
       if (saved.opensAt !== undefined) setOpensAt(saved.opensAt);
@@ -262,6 +284,7 @@ function DetailsForm({
       if (saved.branches !== undefined) setBranches(saved.branches);
       if (saved.vatTrn !== undefined) setVatTrn(saved.vatTrn);
       if (saved.loginMethod !== undefined) setLoginMethod(saved.loginMethod);
+      if (saved.taxLoginId !== undefined) setTaxLoginId(saved.taxLoginId);
       if (saved.frequency !== undefined) setFrequency(saved.frequency);
       if (saved.periodEnd !== undefined) setPeriodEnd(saved.periodEnd);
       if (saved.ctTrn !== undefined) setCtTrn(saved.ctTrn);
@@ -272,6 +295,7 @@ function DetailsForm({
       if (saved.ctStatus !== undefined) setCtStatus(saved.ctStatus);
       if (saved.booksUser !== undefined) setBooksUser(saved.booksUser);
       if (saved.booksUser2 !== undefined) setBooksUser2(saved.booksUser2);
+      if (saved.booksUser2) setShowBooks2(true);
     },
   );
 
@@ -310,6 +334,8 @@ function DetailsForm({
       // A number is sent only when it was typed or changed. For a client not yet
       // registered it also carries the cycle that gives the deadline a date.
       body.taxLoginMethod = loginMethod === '' ? null : (loginMethod as 'email' | 'uae_pass');
+      // UAE PASS has no password: what it is signed into with is kept instead.
+      body.taxLoginId = loginMethod === 'uae_pass' ? text(taxLoginId) : null;
       body.ctReturnDueOn = ctDueOn === '' ? null : ctDueOn;
       body.vatReturns = vatReturns.map((one) => ({
         dueOn: one.dueOn === '' ? null : one.dueOn,
@@ -348,7 +374,7 @@ function DetailsForm({
       const updated = await changeClientDetails(detail.id, body);
       // The passwords go to the vault, encrypted, never onto the client record.
       const login = text(email) ?? (loginMethod === 'uae_pass' ? 'UAE PASS' : '—');
-      if (taxPassword) {
+      if (taxPassword && loginMethod !== 'uae_pass') {
         await storeCredential(detail.id, {
           kind: 'emaratax',
           username: login,
@@ -444,15 +470,27 @@ function DetailsForm({
           )}
         />
         {/* Shown as typed, not as dots: the firm copies these from the
-            client's message and needs to see that they went in right. */}
-        <Field
-          label={t('clients.taxPassword')}
-          hint={t('clients.passwordKept')}
-          autoComplete="off"
-          ltr
-          value={taxPassword}
-          onChange={(e) => setTaxPassword(e.target.value)}
-        />
+            client's message and needs to see that they went in right.
+            UAE PASS has no password: it asks what the account is opened with. */}
+        {loginMethod === 'uae_pass' ? (
+          <Field
+            label={t('clients.uaePassId')}
+            hint={t('clients.uaePassIdHint')}
+            autoComplete="off"
+            ltr
+            value={taxLoginId}
+            onChange={(e) => setTaxLoginId(e.target.value)}
+          />
+        ) : (
+          <Field
+            label={t('clients.taxPassword')}
+            hint={t('clients.passwordKept')}
+            autoComplete="off"
+            ltr
+            value={taxPassword}
+            onChange={(e) => setTaxPassword(e.target.value)}
+          />
+        )}
         <Field
           label={t('clients.booksUser')}
           autoComplete="off"
@@ -467,22 +505,27 @@ function DetailsForm({
           value={booksPassword}
           onChange={(e) => setBooksPassword(e.target.value)}
         />
-        <div className="u-row u-row-top u-wrap">
-          <Field
-            label={t('clients.booksUser2')}
-            autoComplete="off"
-            ltr
-            value={booksUser2}
-            onChange={(e) => setBooksUser2(e.target.value)}
-          />
-          <Field
-            label={t('clients.booksPassword2')}
-            autoComplete="off"
-            ltr
-            value={booksPassword2}
-            onChange={(e) => setBooksPassword2(e.target.value)}
-          />
-        </div>
+        {/* Seldom needed, so folded behind a small arrow until asked for. */}
+        {!showBooks2 ? (
+          <MoreButton label={t('clients.booksUser2')} onOpen={() => setShowBooks2(true)} />
+        ) : (
+          <div className="u-row u-row-top u-wrap">
+            <Field
+              label={t('clients.booksUser2')}
+              autoComplete="off"
+              ltr
+              value={booksUser2}
+              onChange={(e) => setBooksUser2(e.target.value)}
+            />
+            <Field
+              label={t('clients.booksPassword2')}
+              autoComplete="off"
+              ltr
+              value={booksPassword2}
+              onChange={(e) => setBooksPassword2(e.target.value)}
+            />
+          </div>
+        )}
         <Field
           label={t('clients.mobile')}
           {...errorFor('mobile')}
@@ -491,14 +534,18 @@ function DetailsForm({
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
         />
-        <Field
-          label={t('clients.mobile2')}
-          {...errorFor('mobile2')}
-          ltr
-          inputMode="tel"
-          value={mobile2}
-          onChange={(e) => setMobile2(e.target.value)}
-        />
+        {!showMobile2 ? (
+          <MoreButton label={t('clients.mobile2')} onOpen={() => setShowMobile2(true)} />
+        ) : (
+          <Field
+            label={t('clients.mobile2')}
+            {...errorFor('mobile2')}
+            ltr
+            inputMode="tel"
+            value={mobile2}
+            onChange={(e) => setMobile2(e.target.value)}
+          />
+        )}
         <Field
           label={t('clients.landline')}
           {...errorFor('landline')}
@@ -564,45 +611,54 @@ function DetailsForm({
           onChange={(e) => setLicence(e.target.value)}
         />
         {/* A licence with branches: each one named, with its own licence number. */}
-        <fieldset className="u-stack-tight">
-          <legend>{t('clients.branches')}</legend>
-          {branches.map((branch, index) => (
-            <div className="u-row u-row-top u-wrap" key={`branch-${index + 1}`}>
-              <Field
-                label={t('clients.branchName')}
-                value={branch.name}
-                onChange={(e) => setBranch(index, 'name', e.target.value)}
-              />
-              <Field
-                label={t('clients.branchLicence')}
-                ltr
-                value={branch.licenceNumber}
-                onChange={(e) => setBranch(index, 'licenceNumber', e.target.value)}
-              />
-              <Field
-                label={t('clients.address')}
-                value={branch.address}
-                onChange={(e) => setBranch(index, 'address', e.target.value)}
-              />
-              <Button
-                small
-                tone="quiet"
-                type="button"
-                onClick={() => setBranches(branches.filter((_, i) => i !== index))}
-              >
-                {t('clients.removeBranch')}
-              </Button>
-            </div>
-          ))}
-          <Button
-            small
-            tone="secondary"
-            type="button"
-            onClick={() => setBranches([...branches, { name: '', licenceNumber: '', address: '' }])}
-          >
-            {t('clients.addBranch')}
-          </Button>
-        </fieldset>
+        {branches.length === 0 ? (
+          <MoreButton
+            label={t('clients.branches')}
+            onOpen={() => setBranches([{ name: '', licenceNumber: '', address: '' }])}
+          />
+        ) : (
+          <fieldset className="u-stack-tight">
+            <legend>{t('clients.branches')}</legend>
+            {branches.map((branch, index) => (
+              <div className="u-row u-row-top u-wrap" key={`branch-${index + 1}`}>
+                <Field
+                  label={t('clients.branchName')}
+                  value={branch.name}
+                  onChange={(e) => setBranch(index, 'name', e.target.value)}
+                />
+                <Field
+                  label={t('clients.branchLicence')}
+                  ltr
+                  value={branch.licenceNumber}
+                  onChange={(e) => setBranch(index, 'licenceNumber', e.target.value)}
+                />
+                <Field
+                  label={t('clients.address')}
+                  value={branch.address}
+                  onChange={(e) => setBranch(index, 'address', e.target.value)}
+                />
+                <Button
+                  small
+                  tone="quiet"
+                  type="button"
+                  onClick={() => setBranches(branches.filter((_, i) => i !== index))}
+                >
+                  {t('clients.removeBranch')}
+                </Button>
+              </div>
+            ))}
+            <Button
+              small
+              tone="secondary"
+              type="button"
+              onClick={() =>
+                setBranches([...branches, { name: '', licenceNumber: '', address: '' }])
+              }
+            >
+              {t('clients.addBranch')}
+            </Button>
+          </fieldset>
+        )}
         <Field
           label={t('clients.vatNumber')}
           {...errorFor('vat')}

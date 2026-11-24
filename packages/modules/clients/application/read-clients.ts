@@ -131,6 +131,7 @@ export class ReadClients {
       vatRemark: state.vatRemark,
       ctRemark: state.ctRemark,
       taxLoginMethod: state.taxLoginMethod as 'email' | 'uae_pass' | null,
+      taxLoginId: state.taxLoginId,
       ctReturnDueOn: state.ctReturnDueOn,
       ctReturnFiledOn: state.ctReturnFiledOn,
       ctReturnStatus: state.ctReturnStatus,

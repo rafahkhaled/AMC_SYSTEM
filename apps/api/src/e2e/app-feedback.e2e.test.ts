@@ -77,6 +77,14 @@ describe('the App feedback', () => {
         .expect(409);
     });
 
+    it('keeps an establishment and the LLC it became as two clients', async () => {
+      await manager.post('/clients').send({ legalName: 'E O S Technical Services' }).expect(201);
+      await manager
+        .post('/clients')
+        .send({ legalName: 'E O S TECHNICAL SERVICES LLC' })
+        .expect(201);
+    });
+
     it('refuses a client with no name, and somebody who may not edit clients', async () => {
       await manager.post('/clients').send({ legalName: '  ' }).expect(400);
       await accountant.post('/clients').send({ legalName: 'Mine LLC' }).expect(403);

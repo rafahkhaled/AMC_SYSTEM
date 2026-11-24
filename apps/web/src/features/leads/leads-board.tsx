@@ -348,7 +348,9 @@ function CaptureLead({ onCaptured }: { onCaptured: (board: LeadBoard) => void })
           <Field
             label={t('leads.email')}
             ltr
-            type="email"
+            // Not type="email": the browser refused an address pasted from
+            // WhatsApp, which carries invisible marks; the server removes them.
+            inputMode="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />

@@ -12,3 +12,4 @@ export * from './rate.js';
 export * from './result.js';
 export * from './unit-of-work.js';
 export * from './reference-lookup.js';
+export * from './clean-email.js';
